@@ -35,7 +35,7 @@ test("each doubtful condition is enough to avoid a bike, with its reason", () =>
 });
 
 test("missing data and thresholds just inside the limits do not count against a bike", () => {
-  for (const overrides of [{ rating: { value: 50, count: 4, lastAt: null } }, { lastTripAt: null }, { lastTripAt: hoursAgo(71) }, { nextCheckAt: hoursAgo(5 * 24) }, { type: "electrical", batteryPercent: 20 }, { type: "electrical", batteryPercent: null }] satisfies Partial<Bike>[]) {
+  for (const overrides of [{ rating: { value: 50, count: 4, lastAt: null } }, { lastTripAt: null }, { lastTripAt: hoursAgo(71) }, { nextCheckAt: hoursAgo(5 * 24) }, { type: "electrical", batteryPercent: 20 }, { type: "electrical", batteryPercent: null }, { status: null, statusLabel: null }] satisfies Partial<Bike>[]) {
     assert.notEqual(only(bike(1, overrides)).verdict, "avoid", JSON.stringify(overrides));
   }
 });

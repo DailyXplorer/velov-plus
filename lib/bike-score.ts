@@ -18,7 +18,8 @@ function avoidReasons(bike: Bike, now: number) {
   const reasons: string[] = [];
   const idle = hoursSince(bike.lastTripAt, now);
   if (bike.isReserved) reasons.push("Réservé");
-  if (bike.status !== "AVAILABLE") reasons.push(bike.statusLabel ? `Indisponible (${bike.statusLabel})` : "Indisponible");
+  // An unknown status is no reason to avoid a bike; only a known other one is.
+  if (bike.status != null && bike.status !== "AVAILABLE") reasons.push(bike.statusLabel ? `Indisponible (${bike.statusLabel})` : "Indisponible");
   if (bike.rating && bike.rating.value < 60 && bike.rating.count >= 5) reasons.push(`Note basse (${outOfFive(bike.rating.value)}/5)`);
   if (isCheckOverdue(bike, now)) reasons.push("Contrôle en retard");
   if (bike.type === "electrical" && bike.batteryPercent != null && bike.batteryPercent < 20) reasons.push(`Batterie faible (${bike.batteryPercent} %)`);
