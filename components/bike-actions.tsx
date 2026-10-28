@@ -108,7 +108,6 @@ function Done({ result, place, onBack, onUnlock }: { result: Result; place: Plac
         <span className="card-tag-icon"><CheckIcon size={15} weight="bold" aria-hidden="true"/></span>
         <div><BookedUntil endsAt={result.value.booking?.endsAt ?? null}/><p>Vélo {place.bikeNumber} · borne {place.standNumber}</p></div>
       </div>
-      <Raw outcome={value} extra={`endsAt ${result.value.booking?.endsAt ?? "absent"}`}/>
       <div className="bike-action-buttons"><Button variant="secondary" onClick={onBack}>Fermer</Button><Button onClick={onUnlock}><LockOpenIcon size={17} weight="light" aria-hidden="true"/>Déverrouiller</Button></div>
     </>
   );
