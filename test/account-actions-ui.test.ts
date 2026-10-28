@@ -17,3 +17,10 @@ test("the renewal setting uses the subscription card inset, not a second horizon
   assert.match(source("components/auto-renewal.tsx"), /className="setting-row renewal-setting"/);
   assert.match(source("app/globals.css"), /\.account-section \.renewal-setting\s*\{[^}]*padding-inline:\s*0;/);
 });
+
+test("contact support keeps the form without a secondary mail link", () => {
+  const source = readFileSync(new URL("../components/contact-support.tsx", import.meta.url), "utf8");
+  assert.doesNotMatch(source, /Ouvrir ma messagerie à la place|mailto:/);
+  assert.match(source, /Écrire au service client/);
+  assert.match(source, /Confirmer l’envoi/);
+});

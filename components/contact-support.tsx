@@ -10,7 +10,6 @@ import { Button, Modal, SelectField } from "./ui";
 
 const labels = ["Un trajet", "Mon abonnement", "Mes paiements", "Un parking"];
 const subjects = MAIL_COMPLAINT_TYPES.map((value, index) => ({ value, label: labels[index] }));
-const SUPPORT = "contact.velov@jcdecaux.com";
 const failed = (httpStatus: number, code: string | null, message: string): Outcome => ({ ok: false, httpStatus, code, message, detail: message, transactionState: null });
 
 export function ContactSupport({ trips }: { trips: Trip[] | null }) {
@@ -27,9 +26,6 @@ export function ContactSupport({ trips }: { trips: Trip[] | null }) {
   const recent = (trips ?? []).filter((trip) => trip.token).slice(0, 15);
   const trip = recent.find((item) => item.id === tripId);
   const body = { complaintType: subject, message, ...(trip?.token ? { tripToken: trip.token } : {}) };
-  const label = subjects.find((item) => item.value === subject)?.label ?? "Demande";
-  const mailBody = [message.trim(), trip?.token ? `Code du trajet : ${trip.token}` : null].filter(Boolean).join("\n\n");
-  const href = `mailto:${SUPPORT}?subject=${encodeURIComponent(label)}&body=${encodeURIComponent(mailBody)}`;
 
   function review() {
     const parsed = contactBodySchema.safeParse(body);
@@ -71,7 +67,6 @@ export function ContactSupport({ trips }: { trips: Trip[] | null }) {
       {error ? <p className="form-error" role="alert">{error}</p> : null}
       <div className="profile-form-actions"><Button variant="ghost" onClick={() => setOpen(false)}>Annuler</Button><Button onClick={review}>Vérifier et envoyer</Button></div>
     </div>}
-    <p className="soon-note"><a href={href}>Ouvrir ma messagerie à la place</a></p>
     {draft ? <Modal titleId={titleId} onClose={closeConfirmation}>
       <div className="modal-heading"><h2 id={titleId}>Envoyer au service client ?</h2><button className="icon-button" aria-label="Fermer" disabled={sending} onClick={closeConfirmation}><XIcon size={20}/></button></div>
       <p>{subjects.find((item) => item.value === draft.complaintType)?.label}</p>
