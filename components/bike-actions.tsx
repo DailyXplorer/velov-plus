@@ -74,7 +74,7 @@ function Confirm({ action, place, onCancel, onConfirm, sending }: { action: Acti
         {action === "unlock" && distance != null ? <div><dt>Distance</dt><dd>≈ {Math.max(10, Math.round(distance / 10) * 10).toLocaleString("fr-FR")} m</dd></div> : null}
       </dl>
       {action === "book" ? <p className="bike-action-note">Le vélo vous attend {BOOKING_MINUTES} min, puis la réservation expire. Elle ne s’annule pas.</p>
-        : <p className="bike-action-note bike-action-warning">Retirez le vélo dans les secondes qui suivent, sinon la borne le reverrouille.</p>}
+        : <p className="bike-action-note bike-action-warning">Ensuite, appuyez sur le bouton de la borne dans les 60 secondes, puis retirez le vélo. Passé ce délai, la borne le reverrouille.</p>}
       {action === "unlock" && far ? <p className="bike-action-far" role="alert"><WarningIcon size={16} weight="bold" aria-hidden="true"/>Vous semblez à plus de {RELEASE_DISTANCE} m de la station : un vélo libéré à distance peut partir sur votre compte.</p> : null}
       <div className="bike-action-buttons">
         <Button variant="ghost" disabled={sending} onClick={onCancel}>Annuler</Button>
@@ -117,7 +117,7 @@ function Done({ result, place, onBack, onUnlock }: { result: Result; place: Plac
     <>
       <div className="bike-action-result" role="status">
         <span className="card-tag-icon"><CheckIcon size={15} weight="bold" aria-hidden="true"/></span>
-        <div><strong>Vélo déverrouillé — borne {place.standNumber}</strong><p>Retirez-le maintenant. S’il résiste, appuyez sur le bouton de la borne.</p>
+        <div><strong>Vélo déverrouillé — borne {place.standNumber}</strong><p>Appuyez maintenant sur le bouton de la borne (60 s), puis retirez le vélo.</p>
           <p>{ongoing?.length ? "Trajet en cours." : "Le trajet apparaît une dizaine de secondes après le retrait du vélo."}</p></div>
       </div>
       <Raw outcome={value} extra={`trips/ongoing ${ongoing ? ongoing.length : "illisible"}`}/>

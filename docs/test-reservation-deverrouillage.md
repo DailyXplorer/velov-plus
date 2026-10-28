@@ -26,7 +26,7 @@ Ces deux actions agissent sur votre vrai compte. La réservation coûte 10 point
 1. Dans le bandeau, touchez « Déverrouiller ». Vous pouvez aussi passer par la fiche du vélo.
 2. Vérifiez la confirmation : borne, vélo et distance. Un avertissement apparaît au-delà de 200 m.
 3. Mettez une main sur le vélo, puis touchez « Confirmer ».
-4. Retirez le vélo dans les secondes qui suivent. Sinon, la borne le reverrouille et aucun trajet n'est créé.
+4. Dès « Vélo déverrouillé », appuyez sur le bouton de la borne (60 s de délai), puis retirez le vélo. Passé ce délai, la borne le reverrouille et aucun trajet n'est créé.
 5. Regardez l'écran de résultat :
    - Succès : « Vélo déverrouillé — borne N ».
    - Échec : le message et la ligne grise du dessous.
