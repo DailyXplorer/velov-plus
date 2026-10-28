@@ -93,8 +93,8 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
 .main-navigation { display: flex; flex-direction: column; gap: 6px; }
 .nav-link { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 44px; padding: 10px 16px 10px 12px; border: 0; border-radius: 999px; background: transparent; color: var(--ink-soft); font-size: 14px; text-align: left; transition: background-color .2s ease, color .2s ease; }
 .nav-link:hover { color: var(--ink); background: var(--mist); }
-.nav-link.active { color: var(--white); background: var(--ink); }
-.nav-link.active svg { color: var(--red); }
+.nav-link.active { color: var(--white); background: var(--red); }
+.nav-link.active svg { color: var(--white); }
 .sidebar-bottom { display: flex; align-items: center; gap: 5px; margin-top: auto; padding-top: 32px; }
 .sidebar-user { display: flex; align-items: center; gap: 11px; flex: 1; min-width: 0; min-height: 40px; padding: 8px 12px; border: 0; border-radius: 999px; background: none; color: var(--ink-soft); font-size: 14px; text-align: left; transition: background-color .2s ease, color .2s ease; }
 .sidebar-user span { overflow: hidden; text-overflow: ellipsis; }
