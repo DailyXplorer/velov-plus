@@ -1,6 +1,6 @@
 // The parts of the Cyclocity client that need no server secret, kept free of "server-only" so tests can import them.
 import { z } from "zod";
-import { type Outcome, type RateBody, type Station, type Trip, type UnlockBody, stationTitle } from "./models.ts";
+import { type AutoSpendResult, type Outcome, type ProfileBody, type RateBody, type Station, type Trip, type UnlockBody, stationTitle } from "./models.ts";
 import { haversine } from "./geo.ts";
 import { VelovError } from "./auth-protocol.ts";
 
@@ -160,4 +160,58 @@ export async function postBooking({ accountId, body, token, identity }: { accoun
   const outcome = bookingOutcome(response.status, reply);
   const booking = rawBooking.safeParse(reply.value);
   return { outcome, booking: outcome.ok && booking.success ? booking.data : null };
+}
+
+type Auth = { accountId: string; token: string; identity: string };
+const accountCodes: Record<string, string> = {
+  "accounts.exception.validation.failed": "Vélo’v a refusé ces coordonnées : vérifiez le numéro de téléphone et l’adresse.",
+  "accounts.exception.notacceptable.account.phone.invalid": "Ce numéro de téléphone n’est pas valide."
+};
+
+/** One call that changes the account, exactly once: whatever happens, it is never sent again without a new confirmation. */
+async function accountCall(url: string, init: { method: "POST" | "PATCH" | "DELETE"; headers: Record<string, string>; body?: string }, auth: Auth, failed: string, send: typeof fetch) {
+  let response: Response;
+  try {
+    response = await send(url, { ...init, headers: { Authorization: `Taknv1 ${auth.token}`, Identity: auth.identity, ...init.headers, "User-Agent": BROWSER_AGENT }, cache: "no-store", signal: AbortSignal.timeout(15_000) });
+  } catch (error) {
+    return { outcome: { ...refusal("network", "Vélo’v n’a pas répondu. La modification est peut-être passée : actualisez avant de réessayer."), detail: error instanceof Error ? error.name : null }, value: null };
+  }
+  if (response.status === 401) throw new VelovError("expired", "Votre session doit être renouvelée. Reconnectez-vous pour continuer.");
+  const reply = await answer(response);
+  const outcome: Outcome = { ok: response.ok, httpStatus: response.status, transactionState: null, code: reply.code, message: response.ok ? null : reply.code && accountCodes[reply.code] ? accountCodes[reply.code] : response.status === 403 ? sessionRefused : failed, detail: reply.detail };
+  return { outcome, value: response.ok ? reply.value : null };
+}
+
+const accountUrl = (accountId: string) => `${BASE}/accounts/${encodeURIComponent(accountId)}`;
+
+/** PATCH /rewards with the app's UpdateReward body; Vélo’v answers the whole rewards object. */
+export async function patchAutoSpend({ autoSpend, ...auth }: Auth & { autoSpend: boolean }, send: typeof fetch = fetch): Promise<AutoSpendResult> {
+  const { outcome, value } = await accountCall(`${accountUrl(auth.accountId)}/rewards`, { method: "PATCH", headers: { "Content-Type": "application/vnd.rewards.v5+json" }, body: JSON.stringify({ autoSpend }) }, auth, "Vélo’v n’a pas enregistré ce réglage.", send);
+  const answered = z.object({ autoSpend: z.boolean() }).safeParse(value);
+  return { ...outcome, autoSpend: answered.success ? answered.data.autoSpend : outcome.ok ? autoSpend : null };
+}
+
+/** Adds (POST) or removes (DELETE) a favourite station, with the app's trailing slash and Accept. */
+export async function putStationBookmark({ stationNumber, on, ...auth }: Auth & { stationNumber: number; on: boolean }, send: typeof fetch = fetch): Promise<Outcome> {
+  const { outcome } = await accountCall(`${accountUrl(auth.accountId)}/stationbookmarks/${stationNumber}/`, { method: on ? "POST" : "DELETE", headers: { Accept: "application/vnd.account.v4+json" } }, auth, on ? "Vélo’v n’a pas ajouté cette station aux favoris." : "Vélo’v n’a pas retiré cette station des favoris.", send);
+  return outcome;
+}
+
+const report = z.object({ filename: lenient(z.string()), translations: z.object({ content: z.string().min(1) }) });
+
+/** The receipt of one subscription period: a POST without body that only reads, answered as base64 under Accept: application/json. */
+export async function postPeriodReport({ subscriptionId, periodId, ...auth }: Auth & { subscriptionId: string; periodId: string }, send: typeof fetch = fetch): Promise<{ outcome: Outcome; pdf: { filename: string; bytes: Buffer } | null }> {
+  const { outcome, value } = await accountCall(`${accountUrl(auth.accountId)}/subscriptions/${encodeURIComponent(subscriptionId)}/periods/${encodeURIComponent(periodId)}/reports`, { method: "POST", headers: { Accept: "application/json" } }, auth, "Vélo’v n’a pas fourni ce reçu.", send);
+  if (!outcome.ok) return { outcome, pdf: null };
+  const parsed = report.safeParse(value);
+  const bytes = parsed.success ? Buffer.from(parsed.data.translations.content, "base64") : null;
+  if (!parsed.success || !bytes || bytes.subarray(0, 5).toString("latin1") !== "%PDF-") return { outcome: { ...outcome, ok: false, code: "local.receipt.unreadable", message: "Le reçu renvoyé par Vélo’v est illisible." }, pdf: null };
+  return { outcome, pdf: { filename: parsed.data.filename?.replace(/[^\w.-]/g, "") || `recu-${periodId}.pdf`, bytes } };
+}
+
+/** PATCH /accounts/{id} with only the changed fields, in the order of the body the app sends. */
+export async function patchProfile({ body, ...auth }: Auth & { body: ProfileBody }, send: typeof fetch = fetch): Promise<Outcome> {
+  const ordered = { country: body.country, zipCode: body.zipCode, city: body.city, phoneNumber: body.phoneNumber, address: body.address };
+  const { outcome } = await accountCall(accountUrl(auth.accountId), { method: "PATCH", headers: { "Content-Type": "application/vnd.account.v4+json" }, body: JSON.stringify(ordered) }, auth, "Vélo’v n’a pas enregistré ces coordonnées.", send);
+  return outcome;
 }

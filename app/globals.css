@@ -117,7 +117,8 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
 .metric-detail { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; margin-top: auto; padding-top: 18px; color: var(--on-dark); font-size: 13px; }
 .ongoing-banner { display: flex; align-items: center; gap: 14px; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--line); }
 .ongoing-banner .eyebrow { margin-bottom: 0; }
-.ongoing-banner > span:last-child { margin-left: auto; color: var(--ink-soft); font-size: 13px; }
+.ongoing-banner > .ongoing-station { color: var(--ink-soft); font-size: 13px; }
+.ongoing-banner > .ongoing-extra { margin-left: auto; }
 .map-section, .recent-trips { margin-top: 40px; }
 .overview-map { position: relative; height: 320px; overflow: hidden; border-radius: var(--radius); background: var(--mist); box-shadow: var(--shadow-ring); }
 .station-map { position: relative; width: 100%; height: 100%; min-height: 200px; z-index: 0; background: var(--mist); font-family: var(--font); }
@@ -367,7 +368,7 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
   .trip-detail-facts { gap: 10px; }
   .trip-detail-facts strong { font-size: 20px; }
   .ongoing-banner { flex-wrap: wrap; }
-  .ongoing-banner > span:last-child { margin-left: 0; }
+  .ongoing-banner > .ongoing-extra { margin-left: 0; }
 }
 @media (prefers-reduced-motion: reduce) {
   .select-popover { animation: none; }
@@ -543,4 +544,50 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
   .station-sheet-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; padding-right: 6px; }
   .station-sheet-actions .button { min-height: 40px; padding: 0 12px; font-size: 12px; }
   .station-sheet-actions .button:has(.circle-arrow) { padding-right: 6px; }
+}
+/* Account settings: switch, confirmations, coordinates form, receipts, features still to come. */
+.switch { position: relative; flex: none; width: 52px; height: 30px; padding: 0; border: 0; border-radius: 999px; background: rgba(28, 23, 23, .2); transition: background-color .2s ease; }
+.switch::after { position: absolute; top: 3px; left: 3px; width: 24px; height: 24px; border-radius: 50%; content: ""; background: var(--white); box-shadow: 0 1px 3px rgba(28, 23, 23, .2); transition: translate .2s ease; }
+.switch[aria-checked="true"] { background: var(--red); }
+.switch[aria-checked="true"]::after { translate: 22px 0; }
+.switch:disabled, .button[data-soon]:disabled { cursor: default; }
+.write-question { margin-top: 14px; font-size: 15px; }
+.write-question p + p { margin-top: 8px; }
+.write-question .bike-action-facts dd > small { display: block; margin-top: 2px; }
+.write-muted { color: var(--ink-soft); font-size: 12px; }
+.write-done { display: flex; align-items: center; gap: 8px; margin-top: 18px; color: var(--red-deep); font-size: 15px; }
+.modal .bike-action-raw { margin-top: 6px; }
+.favorite-button.is-favorite, .favorite-button.is-favorite:hover, .favorite-mark { color: var(--red); }
+.station-item-title .favorite-mark { margin-left: auto; }
+.station-card-heading > .favorite-button { margin: -5px -8px -5px auto; }
+.account-details dd > small { display: block; margin-top: 3px; color: var(--ink-soft); font-size: 12px; }
+.account-details dd { text-align: right; }
+.account-section > .button, .account-contact { margin-top: 16px; }
+.profile-form, .contact-form { display: grid; gap: 14px; margin-top: 22px; }
+.field { display: grid; gap: 6px; min-width: 0; }
+.field input, .field textarea { width: 100%; min-height: 42px; padding: 0 11.25px; border: 1px solid var(--field-line); border-radius: 5.625px; color: var(--ink); background: var(--white); font: inherit; font-size: 16px; letter-spacing: inherit; transition: border-color .2s ease; }
+.field textarea { padding-block: 10px; resize: vertical; }
+.field input:hover, .field textarea:hover { border-color: rgb(128 128 128); }
+.field-pair { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 12px; }
+.profile-form .select-trigger, .contact-form .select-trigger { background: var(--white); }
+.profile-form-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+.receipts { margin-top: 24px; }
+.receipts ul { margin: 8px 0 0; padding: 0; list-style: none; }
+.receipt-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 4px 12px; padding: 12px 0; border-bottom: 1px solid var(--ink-line); }
+.receipt-row > span strong { display: block; font-size: 14px; font-weight: 500; }
+.receipt-row > span small { display: block; color: var(--ink-soft); font-size: 12px; }
+.receipt-failed { grid-column: 1 / -1; }
+.soon-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 20px; }
+.soon-row p { margin-top: 6px; color: var(--ink-soft); font-size: 13px; }
+.soon-note { display: block; margin-top: 4px; color: var(--ink-soft); font-size: 12px; }
+.invite-row { padding: 22px 22px 22px 26px; border-radius: var(--radius); background: var(--mist); }
+.setting-row + .invite-row { margin-top: 12px; }
+.ongoing-extra { display: inline-flex; align-items: center; gap: 10px; }
+.ongoing-extra .soon-note { margin-top: 0; }
+@media (max-width: 620px) {
+  .invite-row { padding: 18px 16px 18px 20px; }
+  .field-pair { grid-template-columns: 100px minmax(0, 1fr); }
+  .ongoing-extra { width: 100%; }
+  .profile-form-actions { flex-direction: column-reverse; }
+  .profile-form-actions > .button { width: 100%; }
 }

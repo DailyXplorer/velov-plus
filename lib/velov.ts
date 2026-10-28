@@ -1,17 +1,21 @@
 import "server-only";
 import { z } from "zod";
-import { type BookBody, type BookResult, type Bike, type Booking, type Dashboard, type RateBody, type Station, type UnlockBody, type UnlockResult, dashboardSchema } from "./models";
-import { API, BASE, BROWSER_AGENT, lenient, normalizeTrip, postBooking, postRating, postRelease, rawBooking, rawTrip, refusal, utcDate } from "./cyclocity";
+import { type AutoSpendResult, type BookBody, type BookResult, type Bike, type Booking, type Dashboard, type Outcome, type ProfileBody, type RateBody, type Receipt, type Station, type UnlockBody, type UnlockResult, dashboardSchema } from "./models";
+import { API, BASE, BROWSER_AGENT, lenient, normalizeTrip, patchAutoSpend, patchProfile, postBooking, postPeriodReport, postRating, postRelease, putStationBookmark, rawBooking, rawTrip, refusal, utcDate } from "./cyclocity";
 import { VelovError } from "./auth-protocol";
 import { memo } from "./memo";
 import { appToken, fetchTransient, getStations, getWithAppToken } from "./upstream";
 import type { Session } from "./session";
 
 const date = z.string().nullish();
-const rawProfile = z.object({ firstName: z.string().nullish(), lastName: z.string().nullish(), email: z.string(), isLocked: z.boolean().optional(), completion: z.number().optional() });
+const text = lenient(z.string());
+// The favourites list (`stations`) has only been seen empty: numbers, numeric strings or objects carrying a number are all read.
+const bookmark = z.union([z.number(), z.string(), z.object({ number: z.union([z.number(), z.string()]) }).transform((value) => value.number), z.object({ stationNumber: z.union([z.number(), z.string()]) }).transform((value) => value.stationNumber)]).catch(0);
+const rawProfile = z.object({ firstName: z.string().nullish(), lastName: z.string().nullish(), email: z.string(), isLocked: z.boolean().optional(), completion: z.number().optional(), phoneNumber: text, address: lenient(z.object({ name: text, complement: text })), zipCode: text, city: text, country: text, stations: lenient(z.array(bookmark)) });
 const rawRewards = z.object({ balance: z.number(), total: z.number().optional(), autoSpend: z.boolean().optional() });
 const rawMovement = z.object({ id: z.string(), createdAt: date, direction: z.string().optional(), amount: z.number(), reason: z.string().optional() });
-const rawSubscription = z.object({ id: z.string().optional(), type: z.string(), isLocked: z.boolean().optional(), periods: z.array(z.object({ offerId: z.number().optional(), validityEnd: date })).optional() });
+const rawPeriod = z.object({ id: lenient(z.string()), offerId: z.number().optional(), validityStart: date, validityEnd: date, renewalDetails: lenient(z.object({ autoRenewalValue: lenient(z.boolean()) })) });
+const rawSubscription = z.object({ id: z.string().optional(), type: z.string(), isLocked: z.boolean().optional(), periods: z.array(rawPeriod).optional() });
 const offerSchema = z.object({ id: z.number(), title: z.string() });
 const ruleSchema = z.object({ name: z.string(), enable: z.boolean(), reward: z.number(), type: z.string() });
 const rawBike = z.object({ id: lenient(z.string()), number: z.number(), type: lenient(z.string()), frameId: lenient(z.string()), standNumber: lenient(z.number()), status: lenient(z.string()), statusLabel: lenient(z.string()), isReserved: lenient(z.boolean()), rating: lenient(z.object({ value: lenient(z.number()), count: lenient(z.number()), lastRatingDateTime: lenient(z.string()) })), battery: lenient(z.object({ percentage: lenient(z.number()) })), lastTripDateTime: lenient(z.string()), lastControlDateTime: lenient(z.string()), nextCheck: lenient(z.string()), nextReview: lenient(z.string()), lastDataFrameDate: lenient(z.string()) });
@@ -144,6 +148,33 @@ export async function rateTrip(session: Session, tripId: string, body: RateBody)
   await postRating({ accountId, tripId, body, token: await publicToken.get(), identity: session.accessToken });
 }
 
+async function writer(session: Session) {
+  return { accountId: await accountIdOf(session), token: await publicToken.get(), identity: session.accessToken };
+}
+
+export async function setAutoSpend(session: Session, autoSpend: boolean): Promise<AutoSpendResult> {
+  return patchAutoSpend({ ...(await writer(session)), autoSpend });
+}
+
+export async function setFavorite(session: Session, stationNumber: number, on: boolean): Promise<Outcome> {
+  return putStationBookmark({ ...(await writer(session)), stationNumber, on });
+}
+
+export async function getReceipt(session: Session, subscriptionId: string, periodId: string) {
+  return postPeriodReport({ ...(await writer(session)), subscriptionId, periodId });
+}
+
+export async function updateProfile(session: Session, body: ProfileBody): Promise<Outcome> {
+  return patchProfile({ ...(await writer(session)), body });
+}
+
+function receiptsOf(subscriptions: z.infer<typeof rawSubscription>[], offerList: z.infer<typeof offerSchema>[]): Receipt[] {
+  return subscriptions.flatMap((subscription) => (subscription.periods ?? []).flatMap((period) => subscription.id && period.id ? [{
+    subscriptionId: subscription.id, periodId: period.id, start: utcDate(period.validityStart), end: utcDate(period.validityEnd),
+    title: offerList.find((offer) => offer.id === period.offerId)?.title ?? (subscription.type === "LT" ? "Abonnement longue durée" : "Ticket Vélo’v")
+  }] : [])).sort((left, right) => (right.start ?? "").localeCompare(left.start ?? "")).slice(0, 12);
+}
+
 /** Only the account id and the profile are needed: every other read degrades to a warning and a missing piece. */
 export async function getDashboard(session: Session): Promise<Dashboard> {
   const account = `/accounts/${await accountIdOf(session)}`;
@@ -151,7 +182,7 @@ export async function getDashboard(session: Session): Promise<Dashboard> {
   const optional = async <T>(promise: Promise<T>, fallback: T, warning: string): Promise<T> => {
     try { return await promise; } catch (error) { if (error instanceof VelovError && error.code === "expired") throw error; warnings.push(warning); return fallback; }
   };
-  const [profile, rewards, subscriptions, history, ongoing, payment, movements, offerList, ruleList, stationData, bookings] = await Promise.all([
+  const [profile, rewards, subscriptions, history, ongoing, payment, movements, offerList, ruleList, stationData, bookings, allSubscriptions] = await Promise.all([
     read(account, rawProfile, session, "application/vnd.account.v4+json"),
     optional(read(`${account}/rewards`, rawRewards, session, "application/vnd.rewards.v5+json"), null, "Le solde de points est momentanément indisponible."),
     optional(read(`${account}/subscriptions?periods=CURRENT&typeList=ST&typeList=LT&isLocked=false`, z.array(rawSubscription), session, "application/vnd.subscription.v6+json"), null, "L’abonnement n’a pas pu être actualisé."),
@@ -162,20 +193,26 @@ export async function getDashboard(session: Session): Promise<Dashboard> {
     optional(offers("all", () => read("/offers", z.array(offerSchema), session, "application/vnd.offer.v2+json")), [], "Le nom de la formule n’a pas pu être actualisé."),
     optional(rules("all", () => read("/rewards/configurations", z.array(ruleSchema), session, "application/vnd.rewards.v5+json")), [], "Les règles de fidélité n’ont pas pu être actualisées."),
     optional(getStations(), { stations: [], updatedAt: new Date().toISOString() }, "Les noms des stations sont momentanément indisponibles."),
-    optional(read(`${account}/bookings`, z.array(z.unknown()).nullable(), session), null, "Les réservations en cours n’ont pas pu être actualisées.")
+    optional(read(`${account}/bookings`, z.array(z.unknown()).nullable(), session), null, "Les réservations en cours n’ont pas pu être actualisées."),
+    optional(read(`${account}/subscriptions?periods=PAST,CURRENT,FUTURE&sort=DESC`, z.array(rawSubscription), session, "application/vnd.subscription.v6+json"), null, "Les reçus d’abonnement sont momentanément indisponibles.")
   ]);
   const stationsByNumber = new Map(stationData.stations.map((station) => [station.number, station]));
   const currentSubscription = subscriptions?.find((subscription) => !subscription.isLocked && (subscription.periods?.length ?? 0) > 0);
   const period = currentSubscription?.periods?.at(-1);
   return dashboardSchema.parse({
-    profile: { firstName: profile.firstName ?? "", lastName: profile.lastName ?? "", email: profile.email, locked: profile.isLocked ?? false, complete: (profile.completion ?? 0) >= 1 },
+    profile: {
+      firstName: profile.firstName ?? "", lastName: profile.lastName ?? "", email: profile.email, locked: profile.isLocked ?? false, complete: (profile.completion ?? 0) >= 1,
+      phoneNumber: profile.phoneNumber || null, address: profile.address?.name || null, addressComplement: profile.address?.complement || null,
+      zipCode: profile.zipCode || null, city: profile.city || null, country: profile.country || null,
+      favorites: [...new Set((profile.stations ?? []).map(Number).filter((number) => Number.isSafeInteger(number) && number > 0))]
+    },
     rewards: {
       balance: rewards?.balance ?? null, total: rewards ? rewards.total ?? rewards.balance : null, autoSpend: rewards ? rewards.autoSpend ?? false : null,
       movements: movements.content.map((movement) => ({ id: movement.id, date: utcDate(movement.createdAt), label: reasons[movement.reason ?? ""] ?? "Mouvement de points", amount: movement.amount * (movement.direction === "DEBIT" ? -1 : 1) })),
       rules: ruleList.filter((rule) => rule.enable && reasons[rule.name]).map((rule) => ({ name: rule.name, label: reasons[rule.name], points: rule.reward, kind: rule.type === "RULE" ? "earn" : "spend" }))
     },
-    subscription: !subscriptions ? "unavailable" : currentSubscription ? { title: offerList.find((offer) => offer.id === period?.offerId)?.title ?? (currentSubscription.type === "LT" ? "Abonnement longue durée" : "Ticket Vélo’v"), type: currentSubscription.type, validUntil: utcDate(period?.validityEnd), active: !currentSubscription.isLocked } : null,
-    paymentValid: payment?.paymentValid ?? null,
+    subscription: !subscriptions ? "unavailable" : currentSubscription ? { id: currentSubscription.id ?? null, autoRenewal: period?.renewalDetails?.autoRenewalValue ?? null, title: offerList.find((offer) => offer.id === period?.offerId)?.title ?? (currentSubscription.type === "LT" ? "Abonnement longue durée" : "Ticket Vélo’v"), type: currentSubscription.type, validUntil: utcDate(period?.validityEnd), active: !currentSubscription.isLocked } : null,
+    paymentValid: payment?.paymentValid ?? null, receipts: allSubscriptions ? receiptsOf(allSubscriptions, offerList) : null,
     trips: history?.map((trip) => normalizeTrip(trip, stationsByNumber)) ?? null, ongoing: ongoing?.map((trip) => normalizeTrip(trip, stationsByNumber)) ?? null,
     bookings: bookings?.length ?? null, updatedAt: new Date().toISOString(), warnings
   });

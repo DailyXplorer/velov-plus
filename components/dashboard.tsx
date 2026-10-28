@@ -10,6 +10,8 @@ import { MagnifyingGlassIcon } from "@phosphor-icons/react/dist/csr/MagnifyingGl
 import { NavigationArrowIcon } from "@phosphor-icons/react/dist/csr/NavigationArrow";
 import { SignOutIcon } from "@phosphor-icons/react/dist/csr/SignOut";
 import { StarFourIcon } from "@phosphor-icons/react/dist/csr/StarFour";
+import { TimerIcon } from "@phosphor-icons/react/dist/csr/Timer";
+import { StarIcon } from "@phosphor-icons/react/dist/csr/Star";
 import { TicketIcon } from "@phosphor-icons/react/dist/csr/Ticket";
 import { TrendUpIcon } from "@phosphor-icons/react/dist/csr/TrendUp";
 import { XIcon } from "@phosphor-icons/react/dist/csr/X";
@@ -19,6 +21,7 @@ import { Button, CardTag, CircleArrow, EmptyState, Eyebrow, SectionHeading, Sele
 import { StationBikes } from "./station-bikes";
 import { TripSheet } from "./trip-sheet";
 import type { UserPosition } from "./station-map";
+import { AutoRenewal, AutoSpendSetting, ContactSupport, FavoriteButton, InviteFriend, ProfileCoordinates, Receipts, SOON } from "./account-actions";
 
 const StationMap = dynamic(() => import("./station-map"), {
   ssr: false,
@@ -27,6 +30,7 @@ const StationMap = dynamic(() => import("./station-map"), {
 type StationData = { stations: Station[]; updatedAt: string };
 type Navigation = (page: Page) => void;
 type Reload = { reload: () => void; reloading: boolean };
+type Favorites = { favorites: number[]; onFavorite: (number: number, favorite: boolean) => void };
 // One reference while stations load, so the map does not rebuild its pins on every render.
 const NO_STATIONS: Station[] = [];
 const MISSING = "Indisponible pour le moment";
@@ -94,7 +98,11 @@ export function Overview({ data, stations, navigate, reload, reloading }: { data
   return (
     <div className="page-content">
       {data.ongoing?.length ? (
-        <div className="ongoing-banner"><Eyebrow icon={BicycleIcon}>Trajet en cours</Eyebrow><span>{data.ongoing[0].startStation ?? "Trajet Vélo’v"}</span></div>
+        <div className="ongoing-banner">
+          <Eyebrow icon={BicycleIcon}>Trajet en cours</Eyebrow><span className="ongoing-station">{data.ongoing[0].startStation ?? "Trajet Vélo’v"}</span>
+          {/* POST .../via takes a stationId whose kind (UUID or number) the docs leave open: shown, not sent. */}
+          <span className="ongoing-extra"><Button variant="secondary" disabled data-soon><TimerIcon size={17} weight="light" aria-hidden="true"/>15 minutes de plus</Button><small className="soon-note">{SOON}</small></span>
+        </div>
       ) : null}
       <div className="summary-grid">
         <button className="summary-card" onClick={() => navigate("points")}>
@@ -159,19 +167,18 @@ function rewardLabel(label: string) {
   return label === "Vélo évalué" ? "Évaluation" : label;
 }
 
-export function PointsPage({ data }: { data: Dashboard }) {
+export function PointsPage({ data, onAutoSpend }: { data: Dashboard; onAutoSpend: (value: boolean) => void }) {
   const [limit, setLimit] = useState(8);
   const rules = data.rewards.rules.filter((rule) => rule.kind === "earn").slice(0, 3);
+  const invite = data.rewards.rules.find((rule) => rule.name === "PROMOCODE");
   return (
     <div className="page-content">
       <div className="points-summary">
         <div><Eyebrow icon={StarFourIcon}>Solde</Eyebrow><strong className="points-balance">{data.rewards.balance ?? "—"}<span>points</span></strong></div>
         <div><Eyebrow icon={TrendUpIcon}>Total gagné</Eyebrow><strong className="points-total">{data.rewards.total?.toLocaleString("fr-FR") ?? "—"}<span>points</span></strong></div>
       </div>
-      <div className="setting-row">
-        <div><span className="metric-label">Utilisation automatique</span><strong className="setting-value">{data.rewards.autoSpend == null ? MISSING : data.rewards.autoSpend ? "Activée" : "Désactivée"}</strong></div>
-        <a className="button button-secondary" href="https://velov.grandlyon.com/" target="_blank" rel="noreferrer" aria-label="Modifier l’utilisation des points sur Vélo’v">Modifier<CircleArrow external/></a>
-      </div>
+      <AutoSpendSetting value={data.rewards.autoSpend} onChanged={onAutoSpend}/>
+      {invite ? <InviteFriend cost={invite.points} balance={data.rewards.balance}/> : null}
       {rules.length ? (
         <section className="earn-section">
           <SectionHeading title="Gagner des points"/>
@@ -193,10 +200,11 @@ export function PointsPage({ data }: { data: Dashboard }) {
   );
 }
 
-type StationFilter = "all" | "available" | "electrical" | "stands";
+type StationFilter = "all" | "favorites" | "available" | "electrical" | "stands";
 
-function matchesFilter(station: Station, filter: StationFilter) {
-  return (filter !== "available" || station.mechanical + station.electrical > 0)
+function matchesFilter(station: Station, filter: StationFilter, favorites: Set<number>) {
+  return (filter !== "favorites" || favorites.has(station.number))
+    && (filter !== "available" || station.mechanical + station.electrical > 0)
     && (filter !== "electrical" || station.electrical > 0)
     && (filter !== "stands" || station.stands > 0);
 }
@@ -211,7 +219,7 @@ function locationErrorMessage(error: GeolocationPositionError) {
   return "Position introuvable pour le moment.";
 }
 
-export function StationsPage({ resource, reload, reloading }: { resource: Resource<StationData> } & Reload) {
+export function StationsPage({ resource, reload, reloading, favorites: favoriteList, onFavorite }: { resource: Resource<StationData> } & Reload & Favorites) {
   const phone = useIsPhone();
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<StationFilter>("all");
@@ -222,18 +230,21 @@ export function StationsPage({ resource, reload, reloading }: { resource: Resour
   const [locating, setLocating] = useState(false);
   const [locationError, setLocationError] = useState("");
   const stations = resource.kind === "ready" ? resource.data.stations : NO_STATIONS;
+  const favorites = useMemo(() => new Set(favoriteList), [favoriteList]);
+  // Favourites first, then open stations, then the nearest (or by name).
   const filtered = useMemo(() => {
     const normalize = (value: string) => value.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
-    return stations.filter((station) => normalize(`${station.name} ${station.address} ${station.number}`).includes(normalize(query)) && matchesFilter(station, filter))
-      .sort((left, right) => Number(right.open) - Number(left.open) || (position ? distanceTo(left, position) - distanceTo(right, position) : left.name.localeCompare(right.name, "fr")));
-  }, [stations, query, filter, position]);
+    return stations.filter((station) => normalize(`${station.name} ${station.address} ${station.number}`).includes(normalize(query)) && matchesFilter(station, filter, favorites))
+      .sort((left, right) => Number(favorites.has(right.number)) - Number(favorites.has(left.number)) || Number(right.open) - Number(left.open)
+        || (position ? distanceTo(left, position) - distanceTo(right, position) : left.name.localeCompare(right.name, "fr")));
+  }, [stations, query, filter, position, favorites]);
   const chosen = filtered.find((station) => station.id === selected) ?? (phone ? undefined : filtered.find((station) => station.number === 2002) ?? filtered[0]);
   const chosenDistance = chosen && position ? formatDistance(distanceTo(chosen, position)) : null;
   const directions = chosen ? `https://www.google.com/maps/dir/?api=1&destination=${chosen.lat},${chosen.lon}&travelmode=walking` : "";
 
   function located(coords: GeolocationCoordinates) {
     const here: UserPosition = { lat: coords.latitude, lon: coords.longitude, accuracy: coords.accuracy };
-    const open = stations.filter((station) => station.open && matchesFilter(station, filter))
+    const open = stations.filter((station) => station.open && matchesFilter(station, filter, favorites))
       .sort((left, right) => distanceTo(left, here) - distanceTo(right, here));
     const withSupply = open.filter((station) => filter === "stands" ? station.stands > 0 : station.mechanical + station.electrical > 0).slice(0, 3);
     setPosition(here);
@@ -265,7 +276,7 @@ export function StationsPage({ resource, reload, reloading }: { resource: Resour
       {locationError ? <p className="inline-notice" role="status">{locationError}</p> : null}
       <div className="filter-line">
         <SelectField label="Afficher" value={filter} onChange={(value) => { setFilter(value); }}
-          options={[{ value: "all", label: "Toutes les stations" }, { value: "available", label: "Vélos disponibles" }, { value: "electrical", label: "Vélos électriques" }, { value: "stands", label: "Places libres" }]}/>
+          options={[{ value: "all", label: "Toutes les stations" }, { value: "favorites", label: "Favorites" }, { value: "available", label: "Vélos disponibles" }, { value: "electrical", label: "Vélos électriques" }, { value: "stands", label: "Places libres" }]}/>
       </div>
       {resource.kind === "error" ? <div className="notice-error" role="status">{resource.message}<Button variant="secondary" pending={reloading} onClick={reload}>Réessayer</Button></div> : null}
       <div className="stations-explorer">
@@ -273,7 +284,7 @@ export function StationsPage({ resource, reload, reloading }: { resource: Resour
           <div className="stations-list" role="list" aria-label="Résultats de recherche">
             {filtered.slice(0, 6).map((station) => (
               <button className={`station-item ${chosen?.id === station.id ? "selected" : ""}`} key={station.id} onClick={() => { setSelected(station.id); setQuery(""); }}>
-                <div className="station-item-title"><strong>{station.name}</strong><CaretRightIcon size={16} weight="light"/></div>
+                <div className="station-item-title"><strong>{station.name}</strong>{favorites.has(station.number) ? <StarIcon className="favorite-mark" size={14} weight="fill" aria-label="Favorite"/> : null}<CaretRightIcon size={16} weight="light"/></div>
                 <small className="station-meta">{position ? `${formatDistance(distanceTo(station, position))} · ` : ""}n° {station.number}{!station.open ? " · Fermée" : ""}</small>
               </button>
             ))}
@@ -287,6 +298,7 @@ export function StationsPage({ resource, reload, reloading }: { resource: Resour
               <div className="station-sheet-heading">
                 <h2>{chosen.name}</h2>
                 {!chosen.open ? <span className="closed-station">Fermée</span> : null}
+                <FavoriteButton station={chosen} favorite={favorites.has(chosen.number)} onChanged={onFavorite}/>
                 <button className="icon-button" aria-label="Fermer" onClick={() => setSelected(null)}><XIcon size={18} weight="light"/></button>
               </div>
               <div className="station-sheet-facts">
@@ -300,7 +312,7 @@ export function StationsPage({ resource, reload, reloading }: { resource: Resour
             </section>
           ) : chosen ? (
             <div className="selected-station-panel">
-              <div className="station-card-heading"><h2>{chosen.name}</h2>{!chosen.open ? <span className="closed-station">Fermée</span> : null}</div>
+              <div className="station-card-heading"><h2>{chosen.name}</h2>{!chosen.open ? <span className="closed-station">Fermée</span> : null}<FavoriteButton station={chosen} favorite={favorites.has(chosen.number)} onChanged={onFavorite}/></div>
               {chosenDistance ? <p className="station-distance">À {chosenDistance}</p> : null}
               <StationNumbers station={chosen}/>
               <Button variant="secondary" onClick={() => setBikesOpen(true)}>Voir les vélos</Button>
@@ -320,7 +332,7 @@ function shortPlan(title?: string) {
   return title.split(/\s[–-]\s/)[0].replace(/^V[ée]lo[’']v\s+/i, "") || title;
 }
 
-export function AccountPage({ data, onLogout }: { data: Dashboard; onLogout: () => void }) {
+export function AccountPage({ data, onLogout, onSaved }: { data: Dashboard; onLogout: () => void; onSaved: () => void }) {
   const subscription = data.subscription === "unavailable" ? null : data.subscription;
   return (
     <div className="page-content">
@@ -337,12 +349,19 @@ export function AccountPage({ data, onLogout }: { data: Dashboard; onLogout: () 
               {data.paymentValid === false ? <div><dt>Paiement</dt><dd>À vérifier</dd></div> : null}
             </dl>
           ) : null}
+          <ProfileCoordinates profile={data.profile} onSaved={onSaved}/>
         </section>
         <section className="account-section">
           <h2>Abonnement</h2>
           <p className="subscription-name">{data.subscription === "unavailable" ? MISSING : subscription?.title ?? "Aucun abonnement"}</p>
           {subscription ? <p className="subscription-validity">{subscription.validUntil ? `Jusqu’au ${formatDate(subscription.validUntil, { day: "numeric", month: "long", year: "numeric" })}` : subscription.active ? "Actif" : "Inactif"}</p> : null}
+          {subscription?.type === "LT" ? <AutoRenewal value={subscription.autoRenewal}/> : null}
+          <Receipts receipts={data.receipts}/>
           <a className="text-link" href="https://velov.grandlyon.com/" target="_blank" rel="noreferrer">Gérer sur Vélo’v<CircleArrow external outline/></a>
+        </section>
+        <section className="account-section">
+          <h2>Service client</h2>
+          <div className="account-contact"><ContactSupport trips={data.trips}/></div>
         </section>
       </div>
       <div className="account-logout"><Button variant="secondary" onClick={onLogout}><SignOutIcon size={19} weight="regular" aria-hidden="true"/>Se déconnecter</Button></div>

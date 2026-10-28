@@ -70,6 +70,16 @@ export function Companion({ initialSession }: { initialSession: boolean }) {
     }
   }, []);
 
+  // An account write that succeeded: its effect is applied here instead of reading the whole account again.
+  const patchData = useCallback((change: (data: Dashboard) => Dashboard) => {
+    setState((current) => current.kind === "ready" ? { kind: "ready", data: change(current.data) } : current);
+  }, []);
+  const setAutoSpend = useCallback((autoSpend: boolean) => patchData((data) => ({ ...data, rewards: { ...data.rewards, autoSpend } })), [patchData]);
+  const setFavorite = useCallback((number: number, favorite: boolean) => patchData((data) => {
+    const others = data.profile.favorites.filter((item) => item !== number);
+    return { ...data, profile: { ...data.profile, favorites: favorite ? [...others, number] : others } };
+  }), [patchData]);
+
   const loadDashboard = useCallback(async () => {
     if (dashboardInFlight.current) return;
     dashboardInFlight.current = true;
@@ -190,9 +200,9 @@ export function Companion({ initialSession }: { initialSession: boolean }) {
                 ) : null}
                 {page === "overview" ? <Overview data={state.data} stations={stations} navigate={navigate} reload={() => void loadStations()} reloading={stationsPending}/>
                   : page === "trips" ? <TripsPage data={state.data}/>
-                    : page === "points" ? <PointsPage data={state.data}/>
-                      : page === "stations" ? <StationsPage resource={stations} reload={() => void loadStations()} reloading={stationsPending}/>
-                        : <AccountPage data={state.data} onLogout={openLogout}/>}
+                    : page === "points" ? <PointsPage data={state.data} onAutoSpend={setAutoSpend}/>
+                      : page === "stations" ? <StationsPage resource={stations} reload={() => void loadStations()} reloading={stationsPending} favorites={state.data.profile.favorites} onFavorite={setFavorite}/>
+                        : <AccountPage data={state.data} onLogout={openLogout} onSaved={() => void loadDashboard()}/>}
               </>
             )}
           </main>

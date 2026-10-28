@@ -2,7 +2,10 @@ import { z } from "zod";
 
 export const profileSchema = z.object({
   firstName: z.string(), lastName: z.string(), email: z.string(),
-  locked: z.boolean(), complete: z.boolean()
+  locked: z.boolean(), complete: z.boolean(),
+  // The coordinates the site may change (PATCH /accounts/{id}), and the favourite station numbers.
+  phoneNumber: z.string().nullable(), address: z.string().nullable(), addressComplement: z.string().nullable(),
+  zipCode: z.string().nullable(), city: z.string().nullable(), country: z.string().nullable(), favorites: z.array(z.number())
 });
 export const tripSchema = z.object({
   id: z.string(), status: z.string(), startedAt: z.string().nullable(), endedAt: z.string().nullable(),
@@ -18,13 +21,16 @@ export const rewardMovementSchema = z.object({
   id: z.string(), date: z.string().nullable(), label: z.string(), amount: z.number()
 });
 export const subscriptionSchema = z.object({
-  title: z.string(), type: z.string(), validUntil: z.string().nullable(), active: z.boolean()
+  id: z.string().nullable(), title: z.string(), type: z.string(), validUntil: z.string().nullable(), active: z.boolean(), autoRenewal: z.boolean().nullable()
 });
+/** One paid period of a subscription, whose receipt Vélo’v renders as a PDF. */
+export const receiptSchema = z.object({ subscriptionId: z.string(), periodId: z.string(), title: z.string(), start: z.string().nullable(), end: z.string().nullable() });
 export const dashboardSchema = z.object({
   profile: profileSchema,
   // null: Vélo’v did not answer that read, the page says so instead of showing a default.
   rewards: z.object({ balance: z.number().nullable(), total: z.number().nullable(), autoSpend: z.boolean().nullable(), movements: z.array(rewardMovementSchema), rules: z.array(z.object({ name: z.string(), label: z.string(), points: z.number(), kind: z.enum(["earn", "spend"]) })) }),
   subscription: z.union([subscriptionSchema, z.literal("unavailable")]).nullable(), paymentValid: z.boolean().nullable(),
+  receipts: z.array(receiptSchema).nullable(),
   trips: z.array(tripSchema).nullable(), ongoing: z.array(tripSchema).nullable(), bookings: z.number().nullable(),
   updatedAt: z.string(), warnings: z.array(z.string())
 });
@@ -45,6 +51,7 @@ export const bikeSchema = z.object({
 });
 export type Dashboard = z.infer<typeof dashboardSchema>;
 export type Trip = z.infer<typeof tripSchema>;
+export type Receipt = z.infer<typeof receiptSchema>;
 export type Station = z.infer<typeof stationSchema>;
 export type Bike = z.infer<typeof bikeSchema>;
 export type Page = "overview" | "trips" | "points" | "stations" | "account";
@@ -107,3 +114,30 @@ export const bookResultSchema = outcomeSchema.extend({ booking: bookingSchema.nu
 export const unlockResultSchema = outcomeSchema.extend({ ongoing: z.array(tripSchema).nullable() });
 export type BookResult = z.infer<typeof bookResultSchema>;
 export type UnlockResult = z.infer<typeof unlockResultSchema>;
+
+/** Account settings sent from the site. Every id travels in a URL path, so only word characters and hyphens. */
+const pathId = z.string().regex(/^[\w-]{1,64}$/);
+const line = (max: number) => z.string().trim().max(max).regex(/^[^\p{Cc}]*$/u);
+export const autoSpendBodySchema = z.object({ autoSpend: z.boolean() }).strict();
+export const receiptBodySchema = z.object({ subscriptionId: pathId, periodId: pathId }).strict();
+/** The fields of PATCH /accounts/{id} the site edits, each optional: only what changed is sent. Vélo’v caps the address at 38 characters. */
+export const ADDRESS_MAX = 38;
+export const profileBodySchema = z.object({
+  address: z.object({ name: line(ADDRESS_MAX).min(1), complement: line(ADDRESS_MAX) }).strict().optional(),
+  zipCode: line(10).regex(/^[A-Za-z0-9][A-Za-z0-9 -]{1,9}$/).optional(),
+  city: line(60).min(1).optional(),
+  country: z.string().regex(/^[A-Z]{2}$/).optional(),
+  phoneNumber: z.string().regex(/^\+[1-9]\d{7,14}$/).optional()
+}).strict().refine((body) => Object.keys(body).length > 0);
+export type ProfileBody = z.infer<typeof profileBodySchema>;
+
+/** "06 12 34 56 78" in France -> "+33612345678"; "0041 79…" -> "+4179…". Anything else is kept as typed, without separators. */
+export function normalizePhone(raw: string, country: string | null) {
+  const compact = raw.replace(/[\s.()-]/g, "");
+  if (compact.startsWith("00")) return `+${compact.slice(2)}`;
+  if (country === "FR" && /^0[1-9]\d{8}$/.test(compact)) return `+33${compact.slice(1)}`;
+  return compact;
+}
+
+export const autoSpendResultSchema = outcomeSchema.extend({ autoSpend: z.boolean().nullable() });
+export type AutoSpendResult = z.infer<typeof autoSpendResultSchema>;
