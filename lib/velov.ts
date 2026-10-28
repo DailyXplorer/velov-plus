@@ -1,4 +1,6 @@
 import { completeRenewalChange, renewalStateOf, type AutoRenewalBody } from "./renewal-models";
+
+import { postContactMail } from "./contact-mail";
 import "server-only";
 import { postVia } from "./cyclocity";
 import { VIA_STATION_IDENTIFIER, VIA_MEDIA_TYPE } from "./guesses";
@@ -247,4 +249,9 @@ export async function requestExtraTime(session: Session, body: ViaBody): Promise
   const station = await read(`/stations/${body.stationNumber}`, z.object({ id: z.string(), number: z.number(), open: z.boolean(), availabilities: z.object({ main: z.object({ stands: z.number() }) }) }), session, "application/vnd.station.v4+json");
   if (station.number !== body.stationNumber || !station.open || station.availabilities.main.stands !== 0) return refusal("local.via.not.full", "Cette station n’est plus pleine ou n’est pas ouverte. Choisissez une autre station.");
   return postVia({ ...auth, subscriptionId: active[0].id, stationId: VIA_STATION_IDENTIFIER === "uuid" ? station.id : station.number });
+}
+
+/** Sends one customer-service message after the browser confirmation. */
+export async function contactSupport(session: Session, body: import("./contact-models").ContactBody): Promise<Outcome> {
+  return postContactMail({ ...(await writer(session)), body });
 }

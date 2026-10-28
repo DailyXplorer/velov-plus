@@ -4,7 +4,6 @@ import { type ReactNode, useId, useRef, useState } from "react";
 import { z } from "zod";
 import { CheckIcon } from "@phosphor-icons/react/dist/csr/Check";
 import { DownloadSimpleIcon } from "@phosphor-icons/react/dist/csr/DownloadSimple";
-import { EnvelopeSimpleIcon } from "@phosphor-icons/react/dist/csr/EnvelopeSimple";
 import { StarIcon } from "@phosphor-icons/react/dist/csr/Star";
 import { XIcon } from "@phosphor-icons/react/dist/csr/X";
 import { ADDRESS_MAX, type Dashboard, type Outcome, type ProfileBody, type Receipt, type Station, type Trip, autoSpendResultSchema, formatDate, normalizePhone, outcomeSchema, profileBodySchema } from "@/lib/models";
@@ -293,33 +292,7 @@ export function ProfileCoordinates({ profile, onSaved }: { profile: Profile; onS
   );
 }
 
-const subjects = ["Un trajet passé", "Mon abonnement", "Mes paiements", "Mon compte", "Autre demande"].map((value) => ({ value, label: value }));
-const SUPPORT = "contact.velov@jcdecaux.com";
-
-/** "Nous contacter" by e-mail: the multipart POST /mail lacks documented complaint types, so the message leaves from the user's mail app. */
-export function ContactSupport({ trips }: { trips: Trip[] | null }) {
-  const [open, setOpen] = useState(false);
-  const [subject, setSubject] = useState(subjects[0].value);
-  const [message, setMessage] = useState("");
-  const [tripId, setTripId] = useState("none");
-  const recent = (trips ?? []).filter((trip) => trip.token).slice(0, 15);
-  const trip = recent.find((item) => item.id === tripId);
-  const tripLine = trip ? `Trajet du ${formatDate(trip.startedAt, { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })}${trip.startStation ? `, ${trip.startStation}${trip.endStation ? ` → ${trip.endStation}` : ""}` : ""} — code ${trip.token}` : "";
-  const href = `mailto:${SUPPORT}?subject=${encodeURIComponent(`${subject}${trip?.token ? ` ${trip.token}` : ""}`)}&body=${encodeURIComponent([message.trim(), tripLine].filter(Boolean).join("\n\n"))}`;
-  if (!open) return <Button variant="secondary" onClick={() => setOpen(true)}><EnvelopeSimpleIcon size={18} weight="light" aria-hidden="true"/>Écrire au service client</Button>;
-  return (
-    <div className="contact-form">
-      <SelectField label="Objet" value={subject} onChange={setSubject} options={subjects}/>
-      {recent.length ? <SelectField label="Trajet" value={tripId} onChange={setTripId} options={[{ value: "none", label: "Aucun" }, ...recent.map((item) => ({ value: item.id, label: `${formatDate(item.startedAt)} · ${item.startStation ?? "Trajet"}` }))]}/> : null}
-      <label className="field"><span className="metric-label">Message</span><textarea rows={5} maxLength={1500} value={message} onChange={(event) => setMessage(event.target.value)}/></label>
-      <p className="soon-note">Le message s’ouvre dans votre messagerie : l’envoi direct depuis ce site n’est pas encore disponible.</p>
-      <div className="profile-form-actions">
-        <Button variant="ghost" onClick={() => setOpen(false)}>Annuler</Button>
-        <a className="button button-primary" href={href}>Ouvrir la messagerie</a>
-      </div>
-    </div>
-  );
-}
+export { ContactSupport } from "./contact-support";
 
 /** POST /rewards/consume/promocode debits the points but does not create the ticket: a second, undocumented process does. */
 export function InviteFriend({ cost, balance }: { cost: number; balance: number | null }) {
