@@ -280,6 +280,7 @@ export function AccountPage({ data, onLogout }: { data: Dashboard; onLogout: () 
       <div className="account-grid">
         <section className="account-section">
           <h2>Profil</h2>
+          <p className="profile-name">{[data.profile.firstName, data.profile.lastName].filter(Boolean).join(" ") || "Compte Vélo’v"}</p>
           <p className="profile-email">{data.profile.email}</p>
           <dl className="account-details">
             <div><dt>Compte</dt><dd>{data.profile.locked ? "À vérifier" : "Actif"}</dd></div>

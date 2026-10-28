@@ -145,8 +145,8 @@ export function Companion({ initialSession }: { initialSession: boolean }) {
           })}
         </nav>
         <div className="sidebar-bottom">
-          <button className="sidebar-user" onClick={() => navigate("account")}>
-            <UserCircleIcon size={22} weight="light" aria-hidden="true"/><span>{name}</span>
+          <button className="sidebar-user" aria-label="Compte" onClick={() => navigate("account")}>
+            <UserCircleIcon size={22} weight="light" aria-hidden="true"/>
           </button>
           <button className="icon-button" aria-label="Se déconnecter" onClick={openLogout}>
             <SignOutIcon size={20} weight="light"/>
