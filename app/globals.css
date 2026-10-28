@@ -367,3 +367,4 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
 /* Owner request: no visible focus indicator, including Leaflet's own focus styles. */
 .leaflet-bar a:focus:not(:hover) { background-color: #fff; }
 .leaflet-control-attribution a:focus:not(:hover) { text-decoration: none; }
+.button-primary .circle-arrow, .button-primary .circle-arrow.is-outline { color: var(--red); background: var(--white); box-shadow: none; }
