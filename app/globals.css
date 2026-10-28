@@ -376,3 +376,7 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
 @media (max-width: 900px) {
   .stations-explorer { height: 520px; }
 }
+/* Subscription headline: two lines whose total height matches the card numbers (56/48/40px). */
+.metric-subscription { max-width: none; margin-top: 26px; font-size: 28px; line-height: 1; letter-spacing: -.02em; }
+@media (max-width: 1150px) { .metric-subscription { font-size: 24px; } }
+@media (max-width: 620px) { .metric-subscription { margin-top: 20px; font-size: 20px; } }

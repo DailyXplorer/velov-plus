@@ -113,7 +113,7 @@ export function Overview({ data, stations, navigate }: { data: Dashboard; statio
         </button>
         <button className="summary-card" onClick={() => navigate("account")}>
           <CardTag icon={TicketIcon}>Abonnement</CardTag>
-          <strong className="metric-value metric-subscription" title={data.subscription?.title}>{shortPlan(data.subscription?.title)}</strong>
+          <strong className="metric-subscription" title={data.subscription?.title}>{shortPlan(data.subscription?.title)}</strong>
           <span className="metric-detail">{data.subscription?.validUntil ? `Jusqu’au ${formatDate(data.subscription.validUntil, { day: "numeric", month: "short", year: "numeric" })}` : "Voir les formules"}<CircleArrow outline/></span>
         </button>
       </div>
