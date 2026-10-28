@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useId, useRef, type ButtonHTMLAttributes, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ButtonHTMLAttributes, type KeyboardEvent, type ReactNode } from "react";
 import type { Icon } from "@phosphor-icons/react";
 import { ArrowRightIcon } from "@phosphor-icons/react/dist/csr/ArrowRight";
 import { ArrowUpRightIcon } from "@phosphor-icons/react/dist/csr/ArrowUpRight";
 import { CaretDownIcon } from "@phosphor-icons/react/dist/csr/CaretDown";
+import { CheckIcon } from "@phosphor-icons/react/dist/csr/Check";
 import { SpinnerGapIcon } from "@phosphor-icons/react/dist/csr/SpinnerGap";
 
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
@@ -41,17 +42,89 @@ export function CardTag({ icon: TagIcon, children }: { icon: Icon; children: Rea
 
 export function SelectField<T extends string>({ label, value, options, onChange }: { label: string; value: T; options: { value: T; label: string }[]; onChange: (value: T) => void }) {
   const id = useId();
+  const [open, setOpen] = useState(false);
+  const [active, setActive] = useState(0);
+  const root = useRef<HTMLDivElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
+  const listbox = useRef<HTMLUListElement>(null);
+  const selected = Math.max(0, options.findIndex((option) => option.value === value));
+
+  useEffect(() => {
+    if (!open) return;
+    listbox.current?.focus({ preventScroll: true });
+    const closeOutside = (event: PointerEvent) => {
+      if (!root.current?.contains(event.target as Node)) setOpen(false);
+    };
+    document.addEventListener("pointerdown", closeOutside);
+    return () => document.removeEventListener("pointerdown", closeOutside);
+  }, [open]);
+
+  useEffect(() => {
+    if (open) listbox.current?.children[active]?.scrollIntoView({ block: "nearest" });
+  }, [open, active]);
+
+  function show() {
+    setActive(selected);
+    setOpen(true);
+  }
+
+  function close() {
+    setOpen(false);
+    trigger.current?.focus();
+  }
+
+  function choose(index: number) {
+    const next = options[index];
+    if (next && next.value !== value) onChange(next.value);
+    close();
+  }
+
+  function onTriggerKeyDown(event: KeyboardEvent) {
+    if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+    event.preventDefault();
+    show();
+  }
+
+  function onListKeyDown(event: KeyboardEvent) {
+    const moves: Record<string, number> = { ArrowDown: Math.min(active + 1, options.length - 1), ArrowUp: Math.max(active - 1, 0), Home: 0, End: options.length - 1 };
+    if (event.key === "Tab") return setOpen(false);
+    if (event.key in moves) setActive(moves[event.key]);
+    else if (event.key === "Enter") choose(active);
+    else if (event.key === "Escape") close();
+    else if (event.key !== " ") return;
+    event.preventDefault();
+  }
+
+  // Space selects on keyup so the trigger, focused again by then, does not reopen on the same keystroke.
+  function onListKeyUp(event: KeyboardEvent) {
+    if (event.key === " ") choose(active);
+  }
+
   return (
     <div className="select-field">
-      <label htmlFor={id}>{label}</label>
-      <div className="select-control">
-        <select id={id} value={value} onChange={(event) => {
-          const next = options.find((option) => option.value === event.target.value);
-          if (next) onChange(next.value);
-        }}>
-          {options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-        </select>
-        <CaretDownIcon size={14} weight="light" aria-hidden="true"/>
+      <span className="select-label" id={`${id}-label`}>{label}</span>
+      <div className="select-control" ref={root}>
+        <button ref={trigger} type="button" className="select-trigger" aria-haspopup="listbox" aria-expanded={open}
+          aria-controls={open ? `${id}-list` : undefined} aria-labelledby={`${id}-label ${id}-value`}
+          onClick={() => (open ? close() : show())} onKeyDown={onTriggerKeyDown}>
+          <span className="select-value" id={`${id}-value`}>
+            {options.map((option, index) => <span key={option.value} aria-hidden={index !== selected || undefined}>{option.label}</span>)}
+          </span>
+          <CaretDownIcon size={14} weight="light" aria-hidden="true"/>
+        </button>
+        {open ? (
+          <ul ref={listbox} id={`${id}-list`} className="select-popover" role="listbox" tabIndex={-1} aria-labelledby={`${id}-label`}
+            aria-activedescendant={`${id}-option-${active}`} onKeyDown={onListKeyDown} onKeyUp={onListKeyUp}>
+            {options.map((option, index) => (
+              <li key={option.value} id={`${id}-option-${index}`} role="option" aria-selected={index === selected}
+                className={`select-option${index === active ? " is-active" : ""}`}
+                onPointerEnter={() => setActive(index)} onClick={() => choose(index)}>
+                {option.label}
+                {index === selected ? <CheckIcon size={16} weight="bold" aria-hidden="true"/> : null}
+              </li>
+            ))}
+          </ul>
+        ) : null}
       </div>
     </div>
   );

@@ -11,7 +11,6 @@
   --on-dark: rgba(255, 255, 255, .7);
   --field-line: rgb(128 128 128 / .8);
   --field-fill: #f2f2f2;
-  --focus: var(--red);
   --radius: 16px;
   --shadow-ring: 0 0 0 1px var(--line), 0 12px 36px rgba(28, 23, 23, .1);
   --font: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
@@ -38,11 +37,11 @@ h1, h2, h3, p { margin: 0; }
 h1, h2, h3 { text-wrap: balance; }
 p, small { text-wrap: pretty; }
 svg { flex-shrink: 0; vertical-align: middle; }
-:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+*:focus, *:focus-visible { outline: none; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 
 h1, h2, h3, .metric-value, .metric-subscription, .points-balance, .points-total, .setting-value, .earn-rule strong, .profile-name, .subscription-name, .station-card-heading > strong, .trip-detail-facts strong, .user-avatar { font-family: var(--font-title); font-weight: 400; letter-spacing: -.03em; font-variant-numeric: proportional-nums; }
-.button, .text-button, .text-link, .eyebrow, .card-tag, .skip-link, .metric-label, .table-head, .select-field > label, .result-count, .points-balance > span, .station-numbers small, .station-pin, .closed-station, .trip-detail-route small, .trip-detail-facts small, .detail-type, .account-details dt, .data-notice summary { font-family: var(--font-label); font-weight: 500; text-transform: uppercase; letter-spacing: -.01em; }
+.button, .text-button, .text-link, .eyebrow, .card-tag, .skip-link, .metric-label, .table-head, .select-field > .select-label, .result-count, .points-balance > span, .station-numbers small, .station-pin, .closed-station, .trip-detail-route small, .trip-detail-facts small, .detail-type, .account-details dt, .data-notice summary { font-family: var(--font-label); font-weight: 500; text-transform: uppercase; letter-spacing: -.01em; }
 .eyebrow { display: inline-flex; align-items: center; gap: 10px; margin-bottom: 24px; padding: 4px 14px 4px 4px; border-radius: 999px; background: var(--mist); font-size: 12px; line-height: 1; }
 .eyebrow-icon, .card-tag-icon { display: grid; flex: none; place-items: center; border-radius: 50%; color: var(--white); background: var(--red); }
 .eyebrow-icon { width: 26px; height: 26px; }
@@ -121,7 +120,6 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
 .map-section, .recent-trips { margin-top: 40px; }
 .overview-map { position: relative; height: 320px; overflow: hidden; border-radius: var(--radius); background: var(--mist); box-shadow: var(--shadow-ring); }
 .station-map { position: relative; width: 100%; height: 100%; min-height: 200px; z-index: 0; background: var(--mist); font-family: var(--font); }
-.station-map:focus-visible { outline-offset: -2px; }
 .leaflet-tile-pane { filter: grayscale(1) contrast(.9) brightness(1.05); }
 .leaflet-control-attribution { padding: 2px 6px !important; background: #ffffffe8 !important; font-family: var(--font) !important; font-size: 10px !important; }
 .station-map .leaflet-control-attribution a { color: inherit; }
@@ -162,11 +160,20 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
 .trip-row:hover .trip-arrow { transform: translateX(2px); }
 .filter-line { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 24px; }
 .select-field { display: flex; align-items: center; gap: 12px; min-width: 0; }
-.select-field > label { color: var(--ink-soft); font-size: 12px; white-space: nowrap; }
+.select-field > .select-label { color: var(--ink-soft); font-size: 12px; white-space: nowrap; }
 .select-control { position: relative; display: flex; align-items: center; min-width: 0; }
-.select-control select { min-width: 0; height: 42px; padding: 0 36px 0 11.25px; border: 1px solid var(--field-line); border-radius: 5.625px; background: var(--field-fill); color: var(--ink); font-size: 13.125px; text-overflow: ellipsis; appearance: none; cursor: pointer; transition: border-color .2s ease; }
-.select-control select:hover { border-color: rgb(128 128 128); }
-.select-control > svg { position: absolute; right: 12px; color: var(--ink-soft); pointer-events: none; }
+.select-trigger { display: flex; align-items: center; gap: 10px; min-width: 0; height: 42px; padding: 0 12px 0 11.25px; border: 1px solid var(--field-line); border-radius: 5.625px; background: var(--field-fill); color: var(--ink); font-family: var(--font); font-size: 13.125px; text-align: left; transition: border-color .2s ease; }
+.select-trigger:hover { border-color: rgb(128 128 128); }
+.select-trigger > svg { color: var(--ink-soft); transition: rotate .2s ease; }
+.select-trigger[aria-expanded="true"] > svg { rotate: 180deg; }
+.select-value { display: grid; min-width: 0; }
+.select-value > span { grid-area: 1 / 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.select-value > [aria-hidden] { visibility: hidden; }
+.select-popover { position: absolute; z-index: 30; top: calc(100% + 6px); left: 0; min-width: max(100%, 200px); max-width: calc(100vw - 32px); max-height: 280px; margin: 0; padding: 6px; overflow-y: auto; overscroll-behavior: contain; list-style: none; border-radius: var(--radius); background: var(--white); box-shadow: var(--shadow-ring); animation: select-in .16s ease-out; }
+.select-option { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 40px; padding: 8px 12px; border-radius: 10px; color: var(--ink); font-family: var(--font); font-size: 14px; line-height: 1.3; white-space: nowrap; cursor: pointer; user-select: none; }
+.select-option:hover, .select-option.is-active { background: var(--mist); }
+.select-option[aria-selected="true"] { color: var(--red); }
+@keyframes select-in { from { opacity: 0; translate: 0 -4px; } }
 .result-count { color: rgba(28, 23, 23, .6); font-size: 12px; white-space: nowrap; }
 .load-more { display: flex; justify-content: center; padding: 24px 0; }
 .points-summary { display: flex; align-items: flex-start; gap: 90px; padding: 8px 0 36px; }
@@ -191,10 +198,8 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
 .stations-toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
 .search-field { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; min-height: 42px; padding: 0 11.25px; border: 1px solid var(--field-line); border-radius: 5.625px; background: var(--field-fill); color: var(--ink-soft); transition: border-color .2s ease; }
 .search-field:hover { border-color: rgb(128 128 128); }
-.search-field:has(input:focus-visible) { outline: 2px solid var(--focus); outline-offset: 3px; }
 .search-field input { width: 100%; min-width: 0; padding: 10px 0; border: 0; outline: none; background: transparent; color: var(--ink); font-size: 13.125px; }
 .search-field input::placeholder { color: rgba(28, 23, 23, .5); }
-.search-field input:focus-visible { outline: none; }
 .search-field .icon-button { width: 34px; height: 34px; margin-right: -6px; }
 .search-field .icon-button:hover { background: var(--white); }
 .stations-explorer { display: grid; grid-template-columns: 296px minmax(0, 1fr); height: 560px; overflow: hidden; border-radius: var(--radius); box-shadow: var(--shadow-ring); }
@@ -308,8 +313,8 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
   .trip-arrow { display: none; }
   .filter-line { flex-wrap: wrap; gap: 6px 14px; margin-bottom: 20px; }
   .select-field { gap: 10px; }
-  .select-field > label { font-size: 11px; }
-  .select-control select { font-size: 16px; }
+  .select-field > .select-label { font-size: 11px; }
+  .select-trigger { font-size: 16px; }
   .result-count { margin-left: auto; font-size: 11px; }
   .points-summary { gap: 40px; padding-top: 0; padding-bottom: 28px; }
   .points-balance { font-size: 52px; }
@@ -343,6 +348,7 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
   .ongoing-banner > span:last-child { margin-left: 0; }
 }
 @media (prefers-reduced-motion: reduce) {
+  .select-popover { animation: none; }
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
 }
 
@@ -357,3 +363,7 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
 @media (max-width: 900px) {
   .mobile-navigation button.active { color: var(--white); background: var(--red); border-radius: 14px; }
 }
+
+/* Owner request: no visible focus indicator, including Leaflet's own focus styles. */
+.leaflet-bar a:focus:not(:hover) { background-color: #fff; }
+.leaflet-control-attribution a:focus:not(:hover) { text-decoration: none; }
