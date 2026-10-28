@@ -9,7 +9,7 @@ import { WarningIcon } from "@phosphor-icons/react/dist/csr/Warning";
 import { XIcon } from "@phosphor-icons/react/dist/csr/X";
 import { BOOKING_MINUTES, BOOKING_POINTS, RELEASE_DISTANCE, type BookResult, type Booking, type Outcome, type UnlockResult, bookResultSchema, formatDate, unlockResultSchema } from "@/lib/models";
 import { formatDistance, haversine } from "@/lib/geo";
-import { Button, Eyebrow, Modal } from "./ui";
+import { Button, CardTag, Modal } from "./ui";
 
 /** Present only while signed in: the bookings and a way to reload them (and the account) after a booking or a release. */
 export const BookingsContext = createContext<{ bookings: Booking[]; changed: () => void } | null>(null);
@@ -87,7 +87,7 @@ function Confirm({ action, place, onCancel, onConfirm, sending }: { action: Acti
 function BookedUntil({ endsAt }: { endsAt: string | null }) {
   const left = useSecondsLeft(endsAt);
   if (!endsAt || left == null) return <strong>Vélo réservé pour {BOOKING_MINUTES} min</strong>;
-  return <><strong>Vélo réservé jusqu’à {formatDate(endsAt, { hour: "2-digit", minute: "2-digit" })}</strong><span className="bike-action-countdown"><ClockIcon size={15} weight="bold" aria-hidden="true"/>{left > 0 ? `reste ${clock(left)}` : "réservation expirée"}</span></>;
+  return <><strong>Vélo réservé jusqu’à <span className="clock">{formatDate(endsAt, { hour: "2-digit", minute: "2-digit" })}</span></strong><span className="bike-action-countdown"><ClockIcon size={15} weight="bold" aria-hidden="true"/>{left > 0 ? <>reste <span className="clock">{clock(left)}</span></> : "réservation expirée"}</span></>;
 }
 
 function Done({ result, place, onBack, onUnlock }: { result: Result; place: Place; onBack: () => void; onUnlock: () => void }) {
@@ -190,16 +190,16 @@ export function placeOf(booking: Booking): Place | null {
   return booking.bikeNumber != null && booking.standNumber != null ? { stationNumber: booking.stationNumber, stationName: booking.stationName, standNumber: booking.standNumber, bikeNumber: booking.bikeNumber, lat: booking.lat, lon: booking.lon } : null;
 }
 
-/** "Réservé : vélo N, borne N, station X — reste mm:ss", hidden once the booking has run out. */
+/** "Réservé · mm:ss · Déverrouiller" on one red line, hidden once the booking has run out; the unlock confirmation names the bike, borne and station. */
 export function BookingBanner({ booking, onUnlock }: { booking: Booking; onUnlock: () => void }) {
   const left = useSecondsLeft(booking.endsAt);
   const place = placeOf(booking);
   if (left === 0) return null;
   return (
     <div className="booking-banner" role="status">
-      <Eyebrow icon={ClockIcon}>Réservé</Eyebrow>
-      <span>Vélo {booking.bikeNumber ?? "?"}, borne {booking.standNumber ?? "?"}, {booking.stationName}{left != null ? <> — reste <strong className="booking-left">{clock(left)}</strong></> : null}</span>
-      {place ? <Button onClick={onUnlock}><LockOpenIcon size={17} weight="light" aria-hidden="true"/>Déverrouiller</Button> : null}
+      <CardTag icon={ClockIcon}>Réservé</CardTag>
+      {left != null ? <span className="booking-left clock">{clock(left)}</span> : null}
+      {place ? <Button className="button-on-red" onClick={onUnlock}><LockOpenIcon size={17} weight="bold" aria-hidden="true"/>Déverrouiller</Button> : null}
     </div>
   );
 }

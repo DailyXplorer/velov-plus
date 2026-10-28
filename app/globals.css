@@ -38,6 +38,8 @@ h1, h2, h3 { text-wrap: balance; }
 p, small { text-wrap: pretty; }
 svg { flex-shrink: 0; vertical-align: middle; }
 *:focus, *:focus-visible { outline: none; }
+/* Times and countdowns: Faculty Glyphic spaces its 1s apart ("00:1 1"). */
+.clock { font-family: var(--font-label); font-weight: 500; font-variant-numeric: tabular-nums; letter-spacing: 0; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 
 h1, h2, h3, .metric-value, .metric-subscription, .points-balance, .points-total, .setting-value, .earn-rule strong, .profile-name, .subscription-name, .station-card-heading > strong, .trip-detail-facts strong, .user-avatar { font-family: var(--font-title); font-weight: 400; letter-spacing: -.03em; font-variant-numeric: proportional-nums; }
@@ -475,7 +477,7 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
 .bike-action-question { font-size: 15px; }
 .bike-action-facts { display: grid; gap: 6px; margin: 10px 0 0; }
 .bike-action-facts > div { display: flex; justify-content: space-between; gap: 12px; }
-.bike-action-facts dt, .bike-action-countdown, .bike-action-raw, .bike-action-signin, .booking-banner .booking-left { font-family: var(--font-label); font-weight: 500; letter-spacing: -.01em; }
+.bike-action-facts dt, .bike-action-countdown, .bike-action-raw, .bike-action-signin { font-family: var(--font-label); font-weight: 500; letter-spacing: -.01em; }
 .bike-action-facts dt { color: var(--ink-soft); font-size: 11px; text-transform: uppercase; }
 .bike-action-facts dd { margin: 0; font-size: 14px; text-align: right; }
 .bike-action-note { margin-top: 12px; color: var(--ink-soft); font-size: 13px; }
@@ -493,11 +495,21 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
 .bike-action .form-error { margin-top: 10px; }
 .bike-action-signin { margin-top: 18px; color: var(--ink-soft); font-size: 12px; text-transform: uppercase; }
 .modal .bike-action { margin-top: 18px; }
-.booking-banner { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin-bottom: 24px; padding: 12px 14px; border-radius: var(--radius); background: var(--red-tint); font-size: 14px; }
-.booking-banner .eyebrow { margin-bottom: 0; background: var(--white); }
-.booking-banner > span:not(.eyebrow) { flex: 1 1 200px; }
-.booking-banner .booking-left { color: var(--red-deep); }
-@media (max-width: 620px) { .booking-banner > .button { width: 100%; } }
+/* Booking: one solid red line like the summary cards, white tag, digits and button. */
+.booking-banner { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; padding: 8px; border-radius: var(--radius); color: var(--white); background: var(--red); }
+.booking-banner .card-tag { flex: none; }
+.booking-banner .booking-left { font-size: 22px; line-height: 1; }
+.booking-banner .button-on-red { flex: none; min-height: 40px; margin-left: auto; color: var(--red); background: var(--white); }
+.booking-banner .button-on-red:hover { color: var(--red-deep); background: var(--white); }
+.booking-banner .booking-left { min-width: 0; }
+@media (max-width: 620px) {
+  .booking-banner { gap: 8px; }
+  .booking-banner .card-tag { gap: 8px; padding: 5px 12px 5px 5px; }
+  .booking-banner .card-tag-icon { width: 26px; height: 26px; }
+  .booking-banner .booking-left { font-size: 18px; }
+  .booking-banner .button-on-red { padding: 0 14px; font-size: 12px; }
+  .booking-banner .button-on-red svg { display: none; }
+}
 
 .card-tag.bike-pick { z-index: auto; }
 /* Account tab logout (sidebar hidden): full-width red outline pill. */
@@ -515,12 +527,14 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
   .overview-map .leaflet-control-zoom { display: none; }
   .map-explore { position: absolute; inset: 0; z-index: 3; display: flex; align-items: center; justify-content: center; padding: 12px; border: 0; background: transparent; }
   .map-explore > span { display: inline-flex; align-items: center; min-height: 40px; padding: 0 18px; border-radius: 999px; color: var(--red-deep); background: var(--white); box-shadow: var(--shadow-ring); font-family: var(--font-label); font-size: 12px; font-weight: 500; text-transform: uppercase; letter-spacing: -.01em; }
+  /* One screen exactly: header, banner and toolbar keep their height, the map takes what is left above the bottom nav. */
   .app-main:has(.stations-page) { display: flex; flex-direction: column; height: 100dvh; min-height: 0; }
   .app-main:has(.stations-page) > .main-content { display: flex; flex: 1; flex-direction: column; min-height: 0; padding-bottom: calc(77px + env(safe-area-inset-bottom)); }
   .stations-page { display: flex; flex: 1; flex-direction: column; min-height: 0; }
   .stations-page .stations-toolbar, .stations-page .filter-line, .stations-page .inline-notice { margin-bottom: 12px; }
-  .stations-page .stations-explorer { flex: 1; height: auto; min-height: 320px; }
-  .station-sheet { position: absolute; z-index: 4; right: 8px; bottom: 8px; left: 8px; max-height: 40%; overflow-y: auto; padding: 8px 10px 12px 16px; border-radius: var(--radius); background: var(--white); box-shadow: var(--shadow-ring); }
+  .stations-page .stations-explorer { flex: 1; height: auto; min-height: 0; }
+  .stations-page .explorer-map { min-height: 0; }
+  .station-sheet { position: absolute; z-index: 4; right: 8px; bottom: 8px; left: 8px; max-height: calc(100% - 16px); overflow-y: auto; padding: 8px 10px 12px 16px; border-radius: var(--radius); background: var(--white); box-shadow: var(--shadow-ring); }
   .station-sheet-heading { display: flex; align-items: center; gap: 8px; }
   .station-sheet-heading h2 { flex: 1; min-width: 0; overflow: hidden; font-size: 18px; line-height: 1.25; white-space: nowrap; text-overflow: ellipsis; }
   .station-sheet-heading .icon-button { width: 36px; height: 36px; }

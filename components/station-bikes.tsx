@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactNode, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
 import type { Icon } from "@phosphor-icons/react";
 import { PersonSimpleBikeIcon as BicycleIcon } from "@phosphor-icons/react/dist/csr/PersonSimpleBike";
@@ -59,6 +59,16 @@ function useLatestLoad<T>(load: (signal: AbortSignal) => Promise<T>, done: (resu
   return { run, refreshing };
 }
 
+/** Numbers of the bikes this account has booked: its own booking is no reason to avoid a bike. */
+function useOwnBikes() {
+  const bookings = useContext(BookingsContext)?.bookings;
+  return useMemo(() => new Set(bookings?.flatMap((booking) => booking.bikeNumber != null ? [booking.bikeNumber] : [])), [bookings]);
+}
+
+function assessForAccount(bikes: Bike[], own: Set<number>) {
+  return assessBikes(bikes.map((bike) => own.has(bike.number) ? { ...bike, isReserved: false } : bike));
+}
+
 function score(bike: Bike) {
   return bike.rating ? bike.rating.value / 20 : null;
 }
@@ -95,7 +105,7 @@ function Stars({ value }: { value: number }) {
   );
 }
 
-function BikeRow({ item, onOpen }: { item: AssessedBike; onOpen: () => void }) {
+function BikeRow({ item, mine, onOpen }: { item: AssessedBike; mine: boolean; onOpen: () => void }) {
   const { bike, verdict } = item;
   const type = types[bike.type];
   const rating = score(bike);
@@ -105,7 +115,7 @@ function BikeRow({ item, onOpen }: { item: AssessedBike; onOpen: () => void }) {
         <span className="trip-icon"><type.icon size={bike.type === "electrical" ? 18 : 20} weight="light" aria-hidden="true"/></span>
         <span className="bike-row-main">
           <strong className="bike-number"><span className="sr-only">Vélo {type.label.toLowerCase()} </span>{bike.number}</strong>
-          <span className="bike-meta">{bike.standNumber != null ? `Borne ${bike.standNumber}` : "Borne inconnue"}{bike.isReserved ? <span className="bike-reserved">Réservé</span> : null}</span>
+          <span className="bike-meta">{bike.standNumber != null ? `Borne ${bike.standNumber}` : "Borne inconnue"}{bike.isReserved || mine ? <span className="bike-reserved">Réservé</span> : null}</span>
           {verdict === "recommended" ? (
             <span className="bike-verdict"><span className="card-tag bike-pick"><span className="card-tag-icon"><ThumbsUpIcon size={11} weight="bold" aria-hidden="true"/></span>Recommandé</span></span>
           ) : verdict === "avoid" ? <span className="sr-only">À éviter</span> : null}
@@ -145,7 +155,7 @@ function VerdictBanner({ verdict, reasons }: AssessedBike) {
 function StationActions({ bike, station }: { bike: Bike; station: Station }) {
   const account = useContext(BookingsContext);
   if (!account) return <p className="bike-action-signin">Connectez-vous pour réserver ou déverrouiller</p>;
-  const booking = account.bookings.find((item) => item.bikeNumber === bike.number && item.stationNumber === station.number) ?? null;
+  const booking = account.bookings.find((item) => item.bikeNumber === bike.number) ?? null;
   if (bike.status !== "AVAILABLE" || bike.standNumber == null || (bike.isReserved && !booking)) return null;
   return <BikeActions place={{ stationNumber: station.number, stationName: station.name, standNumber: bike.standNumber, bikeNumber: bike.number, lat: station.lat, lon: station.lon }} booking={booking}/>;
 }
@@ -154,11 +164,13 @@ function BikeSheet({ item, station }: { item: AssessedBike; station?: Station })
   const { bike } = item;
   const type = types[bike.type];
   const rating = score(bike);
+  // Booked by this account: the booking block says it all, no verdict and no second "Réservé".
+  const mine = useOwnBikes().has(bike.number);
   return (
     <div className="bike-sheet">
-      <VerdictBanner {...item}/>
-      <div className="detail-type"><Eyebrow icon={type.icon}>{type.label}</Eyebrow>{bike.isReserved ? <span className="bike-reserved">Réservé</span> : null}</div>
-      <p className="bike-sheet-status">{bike.statusLabel ?? "Statut inconnu"}</p>
+      {mine ? null : <VerdictBanner {...item}/>}
+      <div className="detail-type"><Eyebrow icon={type.icon}>{type.label}</Eyebrow>{bike.isReserved && !mine ? <span className="bike-reserved">Réservé</span> : null}</div>
+      {bike.status !== "AVAILABLE" ? <p className="bike-sheet-status">{bike.statusLabel ?? "Statut inconnu"}</p> : null}
       {station ? <StationActions bike={bike} station={station}/> : null}
       <dl className="account-details bike-details">
         <div><dt>Note</dt><dd>{bike.rating && rating != null ? (
@@ -174,9 +186,7 @@ function BikeSheet({ item, station }: { item: AssessedBike; station?: Station })
         <dl className="account-details bike-details">
           <DateFact label="Dernier contrôle" value={bike.lastControlAt} withAgo/>
           <DateFact label="Dernier signal" value={bike.lastSignalAt} withAgo/>
-          <DateFact label="Dernière révision" value={bike.lastRevisionAt}/>
           <DateFact label="Prochaine révision" value={bike.nextReviewAt}/>
-          <div><dt>En service depuis</dt><dd>{bike.createdAt ? formatDate(bike.createdAt, { year: "numeric" }) : "Non renseigné"}</dd></div>
           <div><dt>Cadre</dt><dd className="bike-frame">{bike.frameId ?? "Non renseigné"}</dd></div>
         </dl>
       </details>
@@ -185,14 +195,15 @@ function BikeSheet({ item, station }: { item: AssessedBike; station?: Station })
 }
 
 export function StationBikes({ station, onClose }: { station: Station; onClose: () => void }) {
-  const [bikes, setBikes] = useState<Resource<AssessedBike[]>>({ kind: "loading" });
+  const [bikes, setBikes] = useState<Resource<Bike[]>>({ kind: "loading" });
   const [selected, setSelected] = useState<number | null>(null);
+  const own = useOwnBikes();
   const returnTo = useRef<number | null>(null);
   const list = useRef<HTMLUListElement>(null);
 
   const { run: load, refreshing } = useLatestLoad(
     useCallback((signal: AbortSignal) => getJson(`/api/stations/${station.number}/bikes`, z.array(bikeSchema), unavailable, signal), [station.number]),
-    useCallback((result: Settled<Bike[]>) => setBikes(result.ok ? { kind: "ready", data: assessBikes(result.value) }
+    useCallback((result: Settled<Bike[]>) => setBikes(result.ok ? { kind: "ready", data: result.value }
       : { kind: "error", message: result.error instanceof Error && result.error.message ? result.error.message : unavailable }), [])
   );
 
@@ -205,8 +216,9 @@ export function StationBikes({ station, onClose }: { station: Station; onClose: 
     returnTo.current = null;
   }, [selected]);
 
-  const opened = bikes.kind === "ready" && selected !== null ? bikes.data.find((item) => item.bike.number === selected) : undefined;
-  const count = bikes.kind === "ready" ? bikes.data.length : null;
+  const assessed = useMemo(() => bikes.kind === "ready" ? assessForAccount(bikes.data, own) : null, [bikes, own]);
+  const opened = assessed && selected !== null ? assessed.find((item) => item.bike.number === selected) : undefined;
+  const count = assessed ? assessed.length : null;
 
   function back() {
     returnTo.current = selected;
@@ -236,9 +248,9 @@ export function StationBikes({ station, onClose }: { station: Station; onClose: 
             <div className="bikes-skeleton" aria-busy="true" aria-label="Chargement des vélos">{[0, 1, 2, 3].map((item) => <div className="skeleton" key={item}/>)}</div>
           ) : bikes.kind === "error" ? (
             <div className="notice-error" role="alert">{bikes.message}<Button variant="secondary" onClick={() => void load()} pending={refreshing}>Réessayer</Button></div>
-          ) : bikes.data.length ? (
+          ) : assessed?.length ? (
             <ul className="bikes-list" ref={list} aria-label={`Vélos à ${station.name}`}>
-              {bikes.data.map((item) => <BikeRow key={item.bike.number} item={item} onOpen={() => setSelected(item.bike.number)}/>)}
+              {assessed.map((item) => <BikeRow key={item.bike.number} item={item} mine={own.has(item.bike.number)} onOpen={() => setSelected(item.bike.number)}/>)}
             </ul>
           ) : <EmptyState>Aucun vélo à cette station.</EmptyState>}
         </>
@@ -249,17 +261,21 @@ export function StationBikes({ station, onClose }: { station: Station; onClose: 
 
 /** One bike's live sheet, opened on its own (from a trip). */
 export function BikeDrawer({ number, onClose }: { number: number; onClose: () => void }) {
-  const [bike, setBike] = useState<Resource<AssessedBike>>({ kind: "loading" });
+  const [bike, setBike] = useState<Resource<Bike>>({ kind: "loading" });
+  const own = useOwnBikes();
 
   const { run: load, refreshing } = useLatestLoad(
     useCallback((signal: AbortSignal) => getJson(`/api/bikes/${number}`, bikeSchema, missing, signal), [number]),
     useCallback((result: Settled<Bike>) => {
-      if (!result.ok) { setBike({ kind: "error", message: result.error instanceof Error && result.error.message ? result.error.message : missing }); return; }
-      const item = assessBikes([result.value])[0];
-      // Alone, a bike is no station's best pick: keep only the warnings.
-      setBike({ kind: "ready", data: item.verdict === "recommended" ? { ...item, verdict: "neutral", reasons: [] } : item });
+      setBike(result.ok ? { kind: "ready", data: result.value } : { kind: "error", message: result.error instanceof Error && result.error.message ? result.error.message : missing });
     }, [])
   );
+  const item = useMemo(() => {
+    if (bike.kind !== "ready") return null;
+    const assessed = assessForAccount([bike.data], own)[0];
+    // Alone, a bike is no station's best pick: keep only the warnings.
+    return assessed.verdict === "recommended" ? { ...assessed, verdict: "neutral" as const, reasons: [] } : assessed;
+  }, [bike, own]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -273,7 +289,7 @@ export function BikeDrawer({ number, onClose }: { number: number; onClose: () =>
         <div className="bikes-skeleton" aria-busy="true" aria-label="Chargement du vélo">{[0, 1, 2].map((item) => <div className="skeleton" key={item}/>)}</div>
       ) : bike.kind === "error" ? (
         <div className="notice-error" role="alert">{bike.message}<Button variant="secondary" onClick={() => void load()} pending={refreshing}>Réessayer</Button></div>
-      ) : <BikeSheet item={bike.data}/>}
+      ) : item ? <BikeSheet item={item}/> : null}
     </Modal>
   );
 }

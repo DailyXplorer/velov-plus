@@ -27,15 +27,13 @@ const defects: { rating: 30 | 60; label: string }[] = [
   { rating: 60, label: "Autre problème" }
 ];
 const statuses: Record<string, string> = { REQUESTED: "Demandé", STARTED: "En cours", PAUSED: "En pause", FINISHED: "Terminé", AUTO_FINISHED: "Terminé automatiquement", REJECTED: "Refusé", TIMEOUT: "Expiré", ERROR: "En erreur", WARNING: "Avertissement", REVERSED: "Annulé" };
-// Only origin 4 (smartphone) has been observed.
-const origins: Record<number, string> = { 4: "Application" };
 // Dashboard data comes back stale until the next reload; remember ratings sent from this tab.
 const ratedHere = new Set<string>();
 
 function tripTimes(trip: Trip) {
   if (!trip.startedAt) return "Date indisponible";
   const time = (value: string) => formatDate(value, { hour: "2-digit", minute: "2-digit" });
-  return `${formatDate(trip.startedAt, { day: "numeric", month: "long", year: "numeric" })} · ${time(trip.startedAt)}${trip.endedAt ? ` → ${time(trip.endedAt)}` : ""}`;
+  return <>{formatDate(trip.startedAt, { day: "numeric", month: "long", year: "numeric" })} · <span className="clock">{time(trip.startedAt)}{trip.endedAt ? ` → ${time(trip.endedAt)}` : ""}</span></>;
 }
 
 function pointsLine({ pointsEarned: earned, pointsSpent: spent }: Trip) {
@@ -152,8 +150,7 @@ export function TripSheet({ trip, onClose }: { trip: Trip; onClose: () => void }
           <dl className="account-details bike-details">
             {rated ? <div><dt>Note du vélo</dt><dd>Déjà noté</dd></div> : null}
             {trip.token ? <div><dt>Code du trajet</dt><CopyCode token={trip.token}/></div> : null}
-            <div><dt>Statut</dt><dd>{statuses[trip.status] ?? trip.status}</dd></div>
-            {trip.origin != null && origins[trip.origin] ? <div><dt>Déverrouillage</dt><dd>{origins[trip.origin]}</dd></div> : null}
+            {trip.status !== "FINISHED" ? <div><dt>Statut</dt><dd>{statuses[trip.status] ?? trip.status}</dd></div> : null}
           </dl>
         </details>
       </Modal>

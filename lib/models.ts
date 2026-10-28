@@ -39,9 +39,9 @@ export const bikeSchema = z.object({
   status: z.string().nullable(), statusLabel: z.string().nullable(), isReserved: z.boolean(),
   rating: z.object({ value: z.number(), count: z.number(), lastAt: z.string().nullable() }).nullable(),
   batteryPercent: z.number().nullable(), frameId: z.string().nullable(),
-  lastTripAt: z.string().nullable(), lastRevisionAt: z.string().nullable(), lastControlAt: z.string().nullable(),
+  lastTripAt: z.string().nullable(), lastControlAt: z.string().nullable(),
   nextCheckAt: z.string().nullable(), lastSignalAt: z.string().nullable(),
-  nextReviewAt: z.string().nullable(), createdAt: z.string().nullable()
+  nextReviewAt: z.string().nullable()
 });
 export type Dashboard = z.infer<typeof dashboardSchema>;
 export type Trip = z.infer<typeof tripSchema>;

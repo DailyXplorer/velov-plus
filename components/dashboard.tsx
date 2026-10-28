@@ -60,7 +60,7 @@ export function TripsTable({ trips }: { trips: Trip[] }) {
                 <small>{trip.endStation ?? (trip.bikeType === "electrical" ? "Électrique" : trip.bikeType === "mechanical" ? "Mécanique" : "Stations non renseignées")}</small>
               </span>
             </span>
-            <span className="trip-date">{formatDate(trip.startedAt)}<small>{formatDate(trip.startedAt, { hour: "2-digit", minute: "2-digit" })}</small></span>
+            <span className="trip-date">{formatDate(trip.startedAt)}<small className="clock">{formatDate(trip.startedAt, { hour: "2-digit", minute: "2-digit" })}</small></span>
             <span className="trip-duration">{trip.duration != null ? `${trip.duration} min` : "—"}</span>
             <span className="trip-price">{trip.price != null ? formatPrice(trip.price) : "—"}</span>
             <CaretRightIcon className="trip-arrow" size={16} weight="light"/>
@@ -266,7 +266,6 @@ export function StationsPage({ resource, reload, reloading }: { resource: Resour
       <div className="filter-line">
         <SelectField label="Afficher" value={filter} onChange={(value) => { setFilter(value); }}
           options={[{ value: "all", label: "Toutes les stations" }, { value: "available", label: "Vélos disponibles" }, { value: "electrical", label: "Vélos électriques" }, { value: "stands", label: "Places libres" }]}/>
-        <span className="result-count">{filtered.length} stations</span>
       </div>
       {resource.kind === "error" ? <div className="notice-error" role="status">{resource.message}<Button variant="secondary" pending={reloading} onClick={reload}>Réessayer</Button></div> : null}
       <div className="stations-explorer">
@@ -330,12 +329,14 @@ export function AccountPage({ data, onLogout }: { data: Dashboard; onLogout: () 
           <h2>Profil</h2>
           <p className="profile-name">{[data.profile.firstName, data.profile.lastName].filter(Boolean).join(" ") || "Compte Vélo’v"}</p>
           <p className="profile-email">{data.profile.email}</p>
-          <dl className="account-details">
-            <div><dt>Compte</dt><dd>{data.profile.locked ? "À vérifier" : "Actif"}</dd></div>
-            <div><dt>Profil</dt><dd>{data.profile.complete ? "Complet" : "À compléter"}</dd></div>
-            <div><dt>Paiement</dt><dd>{data.paymentValid == null ? MISSING : data.paymentValid ? "Valide" : "À vérifier"}</dd></div>
-          </dl>
-          <a className="text-link" href="https://velov.grandlyon.com/" target="_blank" rel="noreferrer">Gérer sur Vélo’v<CircleArrow external outline/></a>
+          {/* Only what needs attention: an active account, a complete profile and a valid card go without saying. */}
+          {data.profile.locked || !data.profile.complete || data.paymentValid === false ? (
+            <dl className="account-details">
+              {data.profile.locked ? <div><dt>Compte</dt><dd>À vérifier</dd></div> : null}
+              {!data.profile.complete ? <div><dt>Profil</dt><dd>À compléter</dd></div> : null}
+              {data.paymentValid === false ? <div><dt>Paiement</dt><dd>À vérifier</dd></div> : null}
+            </dl>
+          ) : null}
         </section>
         <section className="account-section">
           <h2>Abonnement</h2>

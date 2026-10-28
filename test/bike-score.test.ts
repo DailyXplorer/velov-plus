@@ -10,7 +10,7 @@ function bike(number: number, overrides: Partial<Bike> = {}): Bike {
   return {
     number, type: "mechanical", standNumber: number, status: "AVAILABLE", statusLabel: "Accroché", isReserved: false,
     rating: { value: 80, count: 10, lastAt: hoursAgo(30) }, batteryPercent: null, frameId: null,
-    lastTripAt: hoursAgo(20), lastRevisionAt: null, lastControlAt: null, nextCheckAt: null, lastSignalAt: null, nextReviewAt: null, createdAt: null,
+    lastTripAt: hoursAgo(20), lastControlAt: null, nextCheckAt: null, lastSignalAt: null, nextReviewAt: null,
     ...overrides
   };
 }
