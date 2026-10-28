@@ -1,6 +1,6 @@
 import "server-only";
 import { z } from "zod";
-import { type Dashboard, type Station, type Trip, dashboardSchema, stationTitle } from "./models";
+import { type Bike, type Dashboard, type Station, type Trip, dashboardSchema, stationTitle } from "./models";
 import { VelovError } from "./auth-protocol";
 import type { Session } from "./session";
 
@@ -18,6 +18,10 @@ const ruleSchema = z.object({ name: z.string(), enable: z.boolean(), reward: z.n
 const localizedName = z.union([z.string(), z.array(z.object({ text: z.string(), language: z.string() }))]);
 const infoSchema = z.object({ data: z.object({ stations: z.array(z.object({ station_id: z.string(), name: localizedName, lat: z.number(), lon: z.number(), address: z.string().optional() })) }) });
 const statusSchema = z.object({ last_updated: z.union([z.string(), z.number()]), data: z.object({ stations: z.array(z.object({ station_id: z.string(), num_vehicles_available: z.number().optional(), num_bikes_available: z.number().optional(), num_docks_available: z.number(), is_renting: z.union([z.boolean(), z.number()]), vehicle_types_available: z.array(z.object({ vehicle_type_id: z.string(), count: z.number() })).optional() })) }) });
+// The bikes endpoint sits behind a WAF that answers non-browser user agents with an HTML 403.
+const BROWSER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130 Safari/537.36";
+const lenient = <T extends z.ZodType>(schema: T) => schema.nullish().catch(null);
+const rawBike = z.object({ number: z.number(), type: lenient(z.string()), frameId: lenient(z.string()), standNumber: lenient(z.number()), status: lenient(z.string()), statusLabel: lenient(z.string()), isReserved: lenient(z.boolean()), rating: lenient(z.object({ value: lenient(z.number()), count: lenient(z.number()), lastRatingDateTime: lenient(z.string()) })), battery: lenient(z.object({ percentage: lenient(z.number()) })), createdAt: lenient(z.string()), lastRevisionDateTime: lenient(z.string()), lastTripDateTime: lenient(z.string()), lastControlDateTime: lenient(z.string()), nextReview: lenient(z.string()) });
 let publicToken: { token: string; expiresAt: number } | null = null;
 let stationCache: { stations: Station[]; updatedAt: string; expiresAt: number } | null = null;
 
@@ -44,6 +48,30 @@ const reasons: Record<string, string> = { RATE_BIKE: "Vélo évalué", START_STA
 function normalizeTrip(value: z.infer<typeof rawTrip>, stations: Map<string, string>): Trip {
   const station = (name: string | null | undefined, number: string | number | null | undefined) => name ? stationTitle(name) : number != null ? stations.get(String(number)) ?? `Station ${number}` : null;
   return { id: value.id, status: value.status ?? "FINISHED", startedAt: value.startDateTime ?? null, endedAt: value.endDateTime ?? null, startStation: station(value.startStationName, value.startStation), endStation: station(value.endStationName, value.endStation), bikeNumber: value.bikeNumber ?? null, bikeType: value.bikeType === 1 ? "electrical" : value.bikeType === 0 ? "mechanical" : "unknown", duration: value.duration ?? 0, price: value.reducedPrice ?? value.price ?? 0, pointsEarned: value.rewardsEarned ?? 0, pointsSpent: value.rewardsSpent ?? 0 };
+}
+
+/** Bike dates are UTC without a zone designator. */
+function utcDate(value: string | null | undefined) {
+  if (!value) return null;
+  const date = new Date(/(Z|[+-]\d{2}:?\d{2})$/.test(value) ? value : `${value}Z`);
+  return Number.isFinite(date.getTime()) ? date.toISOString() : null;
+}
+
+function normalizeBike(value: z.infer<typeof rawBike>): Bike {
+  const type = value.type === "ELECTRICAL" ? "electrical" : value.type === "MECHANICAL" ? "mechanical" : "other";
+  const percent = value.battery?.percentage;
+  const rating = value.rating?.value != null && value.rating.count ? { value: Math.round(value.rating.value * 10) / 10, count: value.rating.count, lastAt: utcDate(value.rating.lastRatingDateTime) } : null;
+  return { number: value.number, type, standNumber: value.standNumber ?? null, status: value.status ?? null, statusLabel: value.statusLabel ?? null, isReserved: value.isReserved ?? false, rating, batteryPercent: type === "electrical" && percent != null ? Math.min(100, Math.max(0, Math.round(percent))) : null, frameId: value.frameId && value.frameId !== "0" ? value.frameId : null, lastTripAt: utcDate(value.lastTripDateTime), lastRevisionAt: utcDate(value.lastRevisionDateTime), lastControlAt: utcDate(value.lastControlDateTime), nextReviewAt: utcDate(value.nextReview), createdAt: utcDate(value.createdAt) };
+}
+
+export async function getStationBikes(station: number, retry = true): Promise<Bike[]> {
+  const response = await fetch(`${BASE}/bikes?stationNumber=${station}`, { headers: { Authorization: `Taknv1 ${await clientToken()}`, Accept: "application/vnd.bikes.v4+json", "User-Agent": BROWSER_AGENT }, cache: "no-store", signal: AbortSignal.timeout(15_000) });
+  if (response.status === 401 && retry) { publicToken = null; return getStationBikes(station, false); }
+  if (!response.ok) throw new VelovError("unavailable", "Les vélos de cette station sont momentanément indisponibles.");
+  const value: unknown = await response.json();
+  // One malformed bike should not hide the others.
+  return z.array(z.unknown()).parse(value).flatMap((item) => { const bike = rawBike.safeParse(item); return bike.success ? [normalizeBike(bike.data)] : []; })
+    .sort((left, right) => (left.standNumber ?? Infinity) - (right.standNumber ?? Infinity) || left.number - right.number);
 }
 
 export async function getStations() {

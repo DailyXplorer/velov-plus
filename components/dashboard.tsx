@@ -15,6 +15,7 @@ import { TrendUpIcon } from "@phosphor-icons/react/dist/csr/TrendUp";
 import { XIcon } from "@phosphor-icons/react/dist/csr/X";
 import { type Dashboard, type Page, type Resource, type Station, type Trip, formatDate, formatPrice } from "@/lib/models";
 import { Button, CardTag, CircleArrow, EmptyState, Eyebrow, Modal, SectionHeading, SelectField, TextButton } from "./ui";
+import { StationBikes } from "./station-bikes";
 
 const StationMap = dynamic(() => import("./station-map"), {
   ssr: false,
@@ -92,6 +93,7 @@ function StationNumbers({ station, compact = false }: { station: Station; compac
 
 export function Overview({ data, stations, navigate }: { data: Dashboard; stations: Resource<StationData>; navigate: Navigation }) {
   const [selectedStation, setSelectedStation] = useState<string | null>(null);
+  const [bikesOpen, setBikesOpen] = useState(false);
   const nearby = stations.kind === "ready" ? stations.data.stations : [];
   const chosen = nearby.find((station) => station.id === selectedStation) ?? nearby.find((station) => station.number === 2002) ?? nearby[0];
   const minutes = data.trips.reduce((total, trip) => total + trip.duration, 0);
@@ -126,8 +128,10 @@ export function Overview({ data, stations, navigate }: { data: Dashboard; statio
             <div className="map-station-card">
               <div className="station-card-heading"><strong>{chosen.name}</strong><button className="icon-button" aria-label="Voir les stations" onClick={() => navigate("stations")}><CaretRightIcon size={18} weight="light"/></button></div>
               <StationNumbers station={chosen}/>
+              <Button variant="secondary" onClick={() => setBikesOpen(true)}>Voir les vélos</Button>
             </div>
           ) : null}
+          {bikesOpen && chosen ? <StationBikes key={chosen.id} station={chosen} onClose={() => setBikesOpen(false)}/> : null}
         </div>
       </section>
       <section className="recent-trips">
@@ -205,6 +209,7 @@ export function StationsPage({ resource, reload }: { resource: Resource<StationD
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<"all" | "available" | "electrical" | "stands">("all");
   const [selected, setSelected] = useState<string | null>(null);
+  const [bikesOpen, setBikesOpen] = useState(false);
   const [position, setPosition] = useState<GeolocationCoordinates | null>(null);
   const [locating, setLocating] = useState(false);
   const [locationError, setLocationError] = useState("");
@@ -265,9 +270,11 @@ export function StationsPage({ resource, reload }: { resource: Resource<StationD
             <div className="selected-station-panel">
               <div className="station-card-heading"><h2>{chosen.name}</h2>{!chosen.open ? <span className="closed-station">Fermée</span> : null}</div>
               <StationNumbers station={chosen}/>
+              <Button variant="secondary" onClick={() => setBikesOpen(true)}>Voir les vélos</Button>
               <a className="button button-primary" href={`https://www.google.com/maps/dir/?api=1&destination=${chosen.lat},${chosen.lon}&travelmode=walking`} target="_blank" rel="noreferrer">Itinéraire<CircleArrow external/></a>
             </div>
           ) : null}
+          {bikesOpen && chosen ? <StationBikes key={chosen.id} station={chosen} onClose={() => setBikesOpen(false)}/> : null}
         </div>
       </div>
     </div>

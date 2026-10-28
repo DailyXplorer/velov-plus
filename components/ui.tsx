@@ -138,7 +138,7 @@ export function SectionHeading({ title, children }: { title: string; children?: 
   return <div className="section-heading"><h2>{title}</h2>{children}</div>;
 }
 
-export function Modal({ children, titleId, onClose }: { children: ReactNode; titleId: string; onClose: () => void }) {
+export function Modal({ children, titleId, onClose, className = "" }: { children: ReactNode; titleId: string; onClose: () => void; className?: string }) {
   const element = useRef<HTMLDialogElement>(null);
   useEffect(() => {
     const dialog = element.current;
@@ -153,7 +153,7 @@ export function Modal({ children, titleId, onClose }: { children: ReactNode; tit
     };
   }, []);
   return (
-    <dialog className="modal" ref={element} aria-labelledby={titleId} onCancel={onClose}
+    <dialog className={`modal ${className}`} ref={element} aria-labelledby={titleId} onCancel={onClose}
       onClick={(event) => { if (event.target === event.currentTarget) onClose(); }}>
       <div className="modal-content">{children}</div>
     </dialog>

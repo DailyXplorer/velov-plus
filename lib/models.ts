@@ -29,9 +29,18 @@ export const stationSchema = z.object({
   stands: z.number(), open: z.boolean()
 });
 export const stationsSchema = z.object({ stations: z.array(stationSchema), updatedAt: z.string() });
+export const bikeSchema = z.object({
+  number: z.number(), type: z.enum(["mechanical", "electrical", "other"]), standNumber: z.number().nullable(),
+  status: z.string().nullable(), statusLabel: z.string().nullable(), isReserved: z.boolean(),
+  rating: z.object({ value: z.number(), count: z.number(), lastAt: z.string().nullable() }).nullable(),
+  batteryPercent: z.number().nullable(), frameId: z.string().nullable(),
+  lastTripAt: z.string().nullable(), lastRevisionAt: z.string().nullable(), lastControlAt: z.string().nullable(),
+  nextReviewAt: z.string().nullable(), createdAt: z.string().nullable()
+});
 export type Dashboard = z.infer<typeof dashboardSchema>;
 export type Trip = z.infer<typeof tripSchema>;
 export type Station = z.infer<typeof stationSchema>;
+export type Bike = z.infer<typeof bikeSchema>;
 export type Page = "overview" | "trips" | "points" | "stations" | "account";
 export type Resource<T> = { kind: "loading" } | { kind: "ready"; data: T } | { kind: "error"; message: string };
 

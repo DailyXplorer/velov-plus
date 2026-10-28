@@ -380,3 +380,50 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
 .metric-subscription { max-width: none; margin-top: 26px; font-size: 28px; line-height: 1; letter-spacing: -.02em; }
 @media (max-width: 1150px) { .metric-subscription { font-size: 24px; } }
 @media (max-width: 620px) { .metric-subscription { margin-top: 20px; font-size: 20px; } }
+/* Station bikes: right-side drawer on desktop, bottom sheet on phones. */
+.selected-station-panel .button + .button { margin-top: 8px; }
+.map-station-card > .button { width: 100%; margin-top: 14px; }
+.modal.bikes-drawer { width: min(440px, 100%); max-width: none; height: 100dvh; max-height: none; margin: 0 0 0 auto; overflow-y: auto; overscroll-behavior: contain; border-radius: var(--radius) 0 0 var(--radius); animation: drawer-in .28s cubic-bezier(.2, .8, .2, 1); }
+.bikes-drawer .modal-content { min-height: 100%; padding-top: 0; }
+@keyframes drawer-in { from { translate: 100% 0; } }
+.bikes-header { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; gap: 8px; min-height: 76px; margin: 0 -28px; padding: 16px 18px 12px 28px; background: var(--white); }
+.bikes-header > .icon-button { margin-left: -10px; }
+.bikes-title { flex: 1; min-width: 0; font-size: 24px; line-height: 1.2; overflow-wrap: anywhere; }
+.bikes-actions { display: flex; flex: none; gap: 2px; }
+.bikes-count { display: block; margin-bottom: 8px; }
+.bikes-list { margin: 0; padding: 0; list-style: none; }
+.bike-row { display: grid; grid-template-columns: 36px minmax(0, 1fr) auto 16px; align-items: center; gap: 14px; width: 100%; min-height: 76px; padding: 12px 0; border: 0; border-bottom: 1px solid var(--line); color: var(--ink); background: var(--white); text-align: left; transition: background-color .2s ease; }
+.bikes-list > li:last-child .bike-row { border-bottom: 0; }
+.bike-row:hover { background: #fcfbfb; }
+.bike-row:hover .trip-arrow { transform: translateX(2px); }
+.bike-row-main { display: block; min-width: 0; }
+.bike-number, .bike-sheet-number, .bike-facts .bike-out-of { font-family: var(--font-title); font-weight: 400; letter-spacing: -.03em; font-variant-numeric: proportional-nums; }
+.bike-number { display: block; font-size: 24px; line-height: 1.1; }
+.bike-meta, .bike-reserved, .bike-details dd > small { font-family: var(--font-label); font-weight: 500; text-transform: uppercase; letter-spacing: -.01em; }
+.bike-meta { display: flex; align-items: center; gap: 8px; margin-top: 5px; color: var(--ink-soft); font-size: 11px; }
+.bike-reserved { display: inline-flex; align-items: center; padding: 3px 8px; border-radius: 999px; color: var(--red-deep); box-shadow: inset 0 0 0 1px var(--red); font-size: 10px; line-height: 1.2; }
+.bike-row-facts { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; font-size: 13px; }
+.bike-score, .bike-battery { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.bike-score svg, .bike-stars { color: var(--red); }
+.bike-battery svg { color: var(--ink-soft); }
+.bikes-skeleton { display: grid; gap: 10px; margin-top: 6px; }
+.bikes-skeleton > .skeleton { height: 64px; }
+.bikes-drawer .notice-error { margin-top: 12px; }
+.bike-sheet-number { font-size: 40px; line-height: 1; }
+.bike-sheet .detail-type { margin-top: 4px; }
+.bike-sheet-status { margin-top: 14px; color: var(--ink-soft); font-size: 14px; }
+.bike-facts { grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); margin-top: 22px; }
+.bike-facts .bike-out-of { margin-left: 2px; color: var(--ink-soft); font-size: 15px; }
+.bike-rating { display: flex; align-items: center; gap: 10px; margin-top: 16px; color: var(--ink-soft); font-size: 13px; }
+.bike-stars { display: inline-flex; gap: 2px; }
+.bike-details { margin: 12px 0 0; }
+.bike-details dd { text-align: right; }
+.bike-details dd > small { display: block; margin-top: 3px; color: var(--ink-soft); font-size: 11px; }
+.bike-frame { font-family: var(--font-label); font-size: 13px; }
+@media (max-width: 620px) {
+  .modal.bikes-drawer { width: 100%; height: auto; max-height: 88dvh; margin: auto 0 0; border-radius: var(--radius) var(--radius) 0 0; animation-name: sheet-in; }
+  .bikes-header { margin: 0 -22px; padding: 14px 12px 10px 22px; }
+  .bikes-title { font-size: 21px; }
+  .bike-sheet-number { font-size: 34px; }
+}
+@keyframes sheet-in { from { translate: 0 100%; } }
