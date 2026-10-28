@@ -269,7 +269,6 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
   .summary-card { padding: 16px 18px 18px; }
   .summary-grid { gap: 12px; }
   .metric-value { font-size: 48px; }
-  .metric-subscription { font-size: 20px; }
   .stations-explorer { grid-template-columns: 255px minmax(0, 1fr); }
   .earn-rule { padding: 18px 20px; }
 }
@@ -294,7 +293,6 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
   .summary-card { min-height: 168px; padding: 14px 14px 16px; }
   .summary-card:nth-child(3) { grid-row: 2; grid-column: 1 / -1; min-height: 150px; }
   .metric-value { margin-top: 20px; font-size: 40px; }
-  .metric-subscription { max-width: 280px; margin-top: 20px; font-size: 20px; }
   .metric-detail { font-size: 11px; }
   .map-section, .recent-trips { margin-top: 32px; }
   .overview-map { height: 310px; }
