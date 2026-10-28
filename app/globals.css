@@ -202,8 +202,8 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
 .search-field input::placeholder { color: rgba(28, 23, 23, .5); }
 .search-field .icon-button { width: 34px; height: 34px; margin-right: -6px; }
 .search-field .icon-button:hover { background: var(--white); }
-.stations-explorer { display: grid; grid-template-columns: 296px minmax(0, 1fr); height: 560px; overflow: hidden; border-radius: var(--radius); box-shadow: var(--shadow-ring); }
-.stations-list { min-width: 0; overflow-y: auto; padding: 6px; }
+.stations-explorer { display: grid; grid-template-columns: 296px minmax(0, 1fr); gap: 24px; height: 560px; }
+.stations-list { min-width: 0; overflow-y: auto; padding: 0 6px 0 0; }
 .station-item { display: block; width: 100%; padding: 16px 15px; border: 0; border-radius: 12px; background: var(--white); text-align: left; transition: background-color .2s ease; }
 .station-item:hover { background: var(--mist); }
 .station-item.selected { background: var(--mist); box-shadow: inset 0 0 0 1px var(--ink-line); }
@@ -216,7 +216,7 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
 .station-numbers-compact strong { font-size: 13px; font-weight: 400; }
 .station-numbers-compact small { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); }
 .station-numbers-compact svg { width: 16px; height: 16px; }
-.explorer-map { position: relative; min-width: 0; min-height: 350px; }
+.explorer-map { position: relative; min-width: 0; min-height: 350px; overflow: hidden; border-radius: var(--radius); background: var(--mist); box-shadow: var(--shadow-ring); }
 .selected-station-panel .button { width: 100%; margin-top: 18px; }
 .closed-station { color: var(--ink-soft); font-size: 11px; }
 .inline-notice, .notice-error { margin-bottom: 20px; color: #9e5b50; font-size: 13px; }
@@ -333,7 +333,7 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
   .location-label { display: none; }
   .search-field input { font-size: 16px; }
   .search-field input::placeholder { font-size: 14px; }
-  .stations-explorer { display: flex; flex-direction: column; height: auto; }
+  .stations-explorer { display: flex; flex-direction: column; gap: 16px; height: auto; }
   .explorer-map { order: 0; height: 400px; flex-shrink: 0; }
   .stations-list { order: 1; max-height: 460px; }
   .selected-station-panel { bottom: 24px; left: 12px; width: calc(100% - 24px); padding: 14px 16px 16px; }
