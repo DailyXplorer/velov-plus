@@ -409,7 +409,7 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
 .modal.bikes-drawer { width: min(440px, 100%); max-width: none; height: 100dvh; max-height: none; margin: 0 0 0 auto; overflow-y: auto; overscroll-behavior: contain; border-radius: var(--radius) 0 0 var(--radius); animation: drawer-in .28s cubic-bezier(.2, .8, .2, 1); }
 .bikes-drawer .modal-content { min-height: 100%; padding-top: 0; }
 @keyframes drawer-in { from { translate: 100% 0; } }
-.bikes-header { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; gap: 8px; min-height: 76px; margin: 0 -28px; padding: 16px 18px 12px 28px; background: var(--white); }
+.bikes-header { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 8px; min-height: 76px; margin: 0 -28px; padding: 16px 18px 12px 28px; background: var(--white); }
 .bikes-header > .icon-button { margin-left: -10px; }
 .bikes-title { flex: 1; min-width: 0; font-size: 24px; line-height: 1.2; overflow-wrap: anywhere; }
 .bikes-actions { display: flex; flex: none; gap: 2px; }
@@ -466,3 +466,4 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
   .bike-sheet-number { font-size: 34px; }
 }
 @keyframes sheet-in { from { translate: 0 100%; } }
+.card-tag.bike-pick { z-index: auto; }
