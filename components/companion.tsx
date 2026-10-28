@@ -125,8 +125,7 @@ export function Companion({ initialSession }: { initialSession: boolean }) {
   );
 
   const data = state.kind === "ready" ? state.data : null;
-  const name = data?.profile.firstName || "Compte";
-  const initial = name.slice(0, 1).toUpperCase();
+  const initial = data?.profile.firstName ? data.profile.firstName.slice(0, 1).toUpperCase() : null;
   const label = navigation.find((item) => item.id === page)?.label ?? "Vue d’ensemble";
 
   return (
@@ -161,7 +160,7 @@ export function Companion({ initialSession }: { initialSession: boolean }) {
               aria-label="Actualiser mon compte" onClick={() => { void loadDashboard(); void loadStations(); }} disabled={refreshing}>
               <ArrowClockwiseIcon className={refreshing ? "spin" : ""} size={20} weight="light"/>
             </button>
-            <button className="user-avatar" onClick={() => navigate("account")} aria-label="Mon compte">{initial}</button>
+            <button className="user-avatar" onClick={() => navigate("account")} aria-label="Mon compte">{initial ?? <UserCircleIcon size={22} weight="light" aria-hidden="true"/>}</button>
           </div>
         </header>
         <main id="main-content" className="main-content">
