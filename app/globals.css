@@ -345,3 +345,15 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
 }
+
+/* Owner request: every dark surface becomes the brand red, with white text and icons. */
+.summary-card { background: var(--red); }
+.summary-card::before { background-image: radial-gradient(rgba(255, 255, 255, .22) 1.2px, transparent 1.7px); }
+.summary-card .metric-value, .summary-card .metric-subscription, .summary-card .metric-detail { color: var(--white); }
+.summary-card .circle-arrow { color: var(--white); background: transparent; box-shadow: inset 0 0 0 1px var(--white); }
+.circle-arrow { color: var(--white); background: var(--red); }
+.user-avatar:hover, .station-pin-selected { color: var(--white); background: var(--red); }
+.station-pin-selected { box-shadow: 0 0 0 2px var(--white); }
+@media (max-width: 900px) {
+  .mobile-navigation button.active { color: var(--white); background: var(--red); border-radius: 14px; }
+}
