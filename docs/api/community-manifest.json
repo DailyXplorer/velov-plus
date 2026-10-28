@@ -1,0 +1,33 @@
+{
+  "repository": "https://github.com/yannlombard/cyclocity-api-doc",
+  "commit": "6126f71f63154f426a08f11b3dd712c2c607deb1",
+  "commit_date": "2026-10-25T10:41:08Z",
+  "author": "Yann Lombard",
+  "license": "CC-BY-4.0",
+  "files": [
+    {
+      "path": "community-README.md",
+      "url": "https://raw.githubusercontent.com/yannlombard/cyclocity-api-doc/6126f71f63154f426a08f11b3dd712c2c607deb1/README.md",
+      "sha256": "f3216da67bd113a4ba1714def14537a8d7c8f6816ab201e953265fb634e828d2",
+      "same_as_initial_download": true
+    },
+    {
+      "path": "sources/cyclocity.community.openapi.yaml",
+      "url": "https://raw.githubusercontent.com/yannlombard/cyclocity-api-doc/6126f71f63154f426a08f11b3dd712c2c607deb1/cyclocity.openapi.yaml",
+      "sha256": "0bf2d8197f136377f2e055858038d1efc9519d25f6a1d0c3f38a484ee7b3f079",
+      "same_as_initial_download": true
+    },
+    {
+      "path": "sources/cyclocity.community.postman_collection.json",
+      "url": "https://raw.githubusercontent.com/yannlombard/cyclocity-api-doc/6126f71f63154f426a08f11b3dd712c2c607deb1/cyclocity.postman_collection.json",
+      "sha256": "a9aedac13ded41bed3259c2b6b6155a174a1566ed6b3a7508b6a7a9c8d5b9220",
+      "same_as_initial_download": true
+    },
+    {
+      "path": "sources/community-LICENSE",
+      "url": "https://raw.githubusercontent.com/yannlombard/cyclocity-api-doc/6126f71f63154f426a08f11b3dd712c2c607deb1/LICENSE",
+      "sha256": "9ba9550ad48438d0836ddab3da480b3b69ffa0aac7b7878b5a0039e7ab429411",
+      "same_as_initial_download": null
+    }
+  ]
+}

@@ -1,0 +1,2626 @@
+{
+  "info": {
+    "_postman_id": "b1f4c0e2-7c3a-4d0e-9f11-cyclocity2026",
+    "name": "API Cyclocity (Vélo'v Lyon), non officielle",
+    "description": "Collection dérivée de README.md (captures fév.-mars 2026 avec l'app iOS 3.3.1, sept. 2026 avec la 3.6.1 ; vérifications live 18/08/2026). Non officielle, sans garantie ; utilisez uniquement votre propre compte. Préfixe des noms : ✅ observé, ✅ live vérifié par requête directe, 🌐 déclaré dans le front web, 📱 lu dans le binaire de l'app Android officielle 3.3.10 (non exercé en capture). Les requêtes marquées ⚠️ sont des actions réelles et payantes.\n\nMise en route : 1) exécuter « 0. Auth / Client token » (remplit {{takn}}) ; 2) pour la partie compte, coller un access token Keycloak dans {{identity}} (flow OIDC/PKCE headless, § 3.2 de la doc) et votre email dans {{email}}, puis exécuter « Résoudre mon accountId ». Voir aussi cyclocity.openapi.yaml.\n\nSource et mises à jour : https://github.com/yannlombard/cyclocity-api-doc, © 2026 Yann Lombard, sous licence CC BY 4.0.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "0. Auth",
+      "description": "Client token applicatif (Taknv1). L'access token Keycloak (variable `identity`) s'obtient par le flow OIDC/PKCE décrit au § 3.2 de la doc : collez-le à la main dans la variable de collection.",
+      "item": [
+        {
+          "name": "✅ Client token (clé publique web)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/environments/PRD/client_tokens",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "environments", "PRD", "client_tokens"]
+            },
+            "description": "Le test enregistre `accessToken` -> {{takn}} et `refreshToken` -> {{taknRefresh}}. Valable 2 h.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"{{clientCode}}\",\n  \"key\": \"{{clientKey}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const j = pm.response.json();",
+                  "pm.test('200 + accessToken', () => { pm.response.to.have.status(200); pm.expect(j.accessToken).to.be.a('string'); });",
+                  "pm.collectionVariables.set('takn', j.accessToken);",
+                  "pm.collectionVariables.set('taknRefresh', j.refreshToken);"
+                ]
+              }
+            }
+          ],
+          "id": "cyclocity-00-00"
+        },
+        {
+          "name": "✅ Renouveler le client token",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/access_tokens",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "access_tokens"]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{taknRefresh}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const j = pm.response.json(); if (j.accessToken) pm.collectionVariables.set('takn', j.accessToken);"
+                ]
+              }
+            }
+          ],
+          "id": "cyclocity-00-01"
+        },
+        {
+          "name": "✅ Résoudre mon accountId (email -> UUID)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Taknv1 {{takn}}"
+              },
+              {
+                "key": "Identity",
+                "value": "{{identity}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/contracts/{{contract}}/accounts/{{email}}/id",
+              "host": ["{{baseUrl}}"],
+              "path": ["contracts", "{{contract}}", "accounts", "{{email}}", "id"]
+            },
+            "description": "Nécessite `identity` et `email` (encodé, ex. user%40example.com). Enregistre {{accountId}}."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));",
+                  "const id = pm.response.text().replace(/\"/g, ''); if (id) pm.collectionVariables.set('accountId', id);"
+                ]
+              }
+            }
+          ],
+          "id": "cyclocity-00-02"
+        }
+      ],
+      "id": "cyclocity-00"
+    },
+    {
+      "name": "1. Contrat, configuration, contenus",
+      "description": "",
+      "item": [
+        {
+          "name": "✅ Contrat + features",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Taknv1 {{takn}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/contracts/{{contract}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["contracts", "{{contract}}"]
+            },
+            "description": ""
+          },
+          "id": "cyclocity-01-00"
+        },
+        {
+          "name": "✅ live Une feature",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Taknv1 {{takn}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/contracts/{{contract}}/features/default.short.term.offer.id",
+              "host": ["{{baseUrl}}"],
+              "path": ["contracts", "{{contract}}", "features", "default.short.term.offer.id"]
+            },
+            "description": ""
+          },
+          "id": "cyclocity-01-01"
+        },
+        {
+          "name": "✅ Sponsoring (splash mobile)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Taknv1 {{takn}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/contracts/{{contract}}/sponsoring?active=true&platform=MOBILE&type=WELCOME_IMAGE",
+              "host": ["{{baseUrl}}"],
+              "path": ["contracts", "{{contract}}", "sponsoring"],
+              "query": [
+                {
+                  "key": "active",
+                  "value": "true"
+                },
+                {
+                  "key": "platform",
+                  "value": "MOBILE"
+                },
+                {
+                  "key": "type",
+                  "value": "WELCOME_IMAGE"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "id": "cyclocity-01-02"
+        },
+        {
+          "name": "✅ Asset (base64)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Taknv1 {{takn}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/vnd.document.v3+json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/contracts/{{contract}}/assets/{{documentId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["contracts", "{{contract}}", "assets", "{{documentId}}"]
+            },
+            "description": ""
+          },
+          "id": "cyclocity-01-03"
+        },
+        {
+          "name": "✅ Boutiques",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Taknv1 {{takn}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/vnd.shop.v1+json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/contracts/{{contract}}/shops",
+              "host": ["{{baseUrl}}"],
+              "path": ["contracts", "{{contract}}", "shops"]
+            },
+            "description": ""
+          },
+          "id": "cyclocity-01-04"
+        },
+        {
+          "name": "✅ Événements stations",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Taknv1 {{takn}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/contracts/{{contract}}/events?page=0&size=100",
+              "host": ["{{baseUrl}}"],
+              "path": ["contracts", "{{contract}}", "events"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "0"
+                },
+                {
+                  "key": "size",
+                  "value": "100"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "id": "cyclocity-01-05"
+        },
+        {
+          "name": "✅ live Topics FAQ",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Taknv1 {{takn}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/vnd.topic.v2+json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/contracts/{{contract}}/topics",
+              "host": ["{{baseUrl}}"],
+              "path": ["contracts", "{{contract}}", "topics"]
+            },
+            "description": " Route du site web : l'app Android 3.6.1 ne l'appelle pas, elle connaît ses codes."
+          },
+          "id": "cyclocity-01-06"
+        },
+        {
+          "name": "✅ FAQ d'un topic",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Taknv1 {{takn}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json; charset=UTF-8"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/contracts/{{contract}}/faqs/search",
+              "host": ["{{baseUrl}}"],
+              "path": ["contracts", "{{contract}}", "faqs", "search"]
+            },
+            "description": "Corps FaqsCriterias de l'app Android 3.6.1 (topicId à null). code : RIDE, ABO, PAY sur Lyon (l'app connaît aussi VLS et PARKING).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"topicId\": null,\n  \"language\": \"fr\",\n  \"code\": \"RIDE\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "id": "cyclocity-01-07"
+        },
+        {
+          "name": "✅ CGU valides (VLS) -> cgauVersion",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Taknv1 {{takn}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/vnd.cgau.v2+json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/contracts/{{contract}}/cgau/VLS/valid",
+              "host": ["{{baseUrl}}"],
+              "path": ["contracts", "{{contract}}", "cgau", "VLS", "valid"]
+            },
+            "description": ""
+          },
+          "id": "cyclocity-01-08"
+        },
+        {
+          "name": "✅ live Campagnes promotionnelles",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Taknv1 {{takn}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/contracts/{{contract}}/campaigns",
+              "host": ["{{baseUrl}}"],
+              "path": ["contracts", "{{contract}}", "campaigns"]
+            },
+            "description": ""
+          },
+          "id": "cyclocity-01-09"
+        },
+        {
+          "name": "✅ live Tous les contrats (21)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Taknv1 {{takn}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/contracts",
+              "host": ["{{baseUrl}}"],
+              "path": ["contracts"]
+            },
+            "description": ""
+          },
+          "id": "cyclocity-01-10"
+        },
+        {
+          "name": "✅ Types de défauts (motifs de notation)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Taknv1 {{takn}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/vnd.defect-type.v1+json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/contracts/{{contract}}/defect-types?domain=BIKE&category=DECLARED_CUSTOMER&active=true",
+              "host": ["{{baseUrl}}"],
+              "path": ["contracts", "{{contract}}", "defect-types"],
+              "query": [
+                {
+                  "key": "domain",
+                  "value": "BIKE",
+                  "description": "BIKE, STAND, STATION, UNKNOWN"
+                },
+                {
+                  "key": "category",
+                  "value": "DECLARED_CUSTOMER",
+                  "description": "DECLARED_CUSTOMER (client) ou DECLARED_AGENT"
+                },
+                {
+                  "key": "active",
+                  "value": "true"
+                }
+              ]
+            },
+            "description": "Motifs signalables : [{ id, code, label, rating, order, isElectricBike, … }]. Refusé au client token web (403 role.not.allowed, avec ou sans Identity, vérifié le 03/10/2026) : prendre le client token iOS ou Android. 8 motifs de premier niveau (code DT_DECLARED_399 autre, 317 selle, 316 guidon, 315 pédale, 314 frein, 313 roue, 312 feu, 441 assistance électrique) et 26 sous-motifs sans order (code ONE_STAR / TWO_STARS). Route de l'app Android 3.3.10 ; la 3.6.1 lit « Groupes de motifs » ci-dessous. Sans l'Accept versionné : 415/406."
+          },
+          "id": "cyclocity-01-11"
+        },
+        {
+          "name": "📱 ✅ live Groupes de motifs (« Je déconseille », app Android 3.6.1)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Taknv1 {{takn}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/vnd.defect-type-group.v1+json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/contracts/{{contract}}/defect-type-groups?locale=fr&withDefectTypes=true",
+              "host": ["{{baseUrl}}"],
+              "path": ["contracts", "{{contract}}", "defect-type-groups"],
+              "query": [
+                {
+                  "key": "locale",
+                  "value": "fr"
+                },
+                {
+                  "key": "withDefectTypes",
+                  "value": "true"
+                }
+              ]
+            },
+            "description": "Les motifs par groupe : [{ id, label: \"2. Frein\", translation, isElectrical, defectTypes: [{ id, value: \"Freine mal\", isCommentMandatory, rating: 30 }] }]. 9 groupes et 26 motifs à Lyon (relevé du 23/10/2026). Refusé au client token web (403 role.not.allowed) : prendre celui de l'app Android. L'id du motif part dans CREATE_BIKE_DEFECT (8. Process), son rating (30 ou 60) dans « Noter le vélo » (6. Trajets)."
+          },
+          "id": "cyclocity-01-11b"
+        },
+        {
+          "name": "✅ live PDF des CGU valides (VLS), en base64",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Taknv1 {{takn}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/vnd.cgau.v2+json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/contracts/{{contract}}/cgau/VLS/valid/file",
+              "host": ["{{baseUrl}}"],
+              "path": ["contracts", "{{contract}}", "cgau", "VLS", "valid", "file"]
+            },
+            "description": "Pas de PDF brut : enveloppe JSON `{ id, filename, mimeType, translations: { id, locale, content } }`, le PDF en base64 dans `translations.content`. Le `Accept` est exigé (`415` sans, `406` avec `application/json` ou `application/pdf`). Même réponse sur `/cgau/VLS/versions/{version}/file`."
+          },
+          "id": "cyclocity-01-12"
+        }
+      ],
+      "id": "cyclocity-01"
+    },
+    {
+      "name": "2. Stations et vélos",
+      "description": "",
+      "item": [
+        {
+          "name": "✅ Station (v4)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Taknv1 {{takn}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/vnd.station.v4+json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/contracts/{{contract}}/stations/{{stationNumber}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["contracts", "{{contract}}", "stations", "{{stationNumber}}"]
+            },
+            "description": "Station bonus : `bonus: true`. Station virtuelle : `overflow: true`, avec `capacity.overflow`, `availabilities.overflow` et la zone `shape.vertices` (`hasShape`). Aucune des deux à Lyon au 24/09/2026 (README § 5.2)."
+          },
+          "id": "cyclocity-02-00"
+        },
+        {
+          "name": "✅ Station sans Accept (application/station+json, champs v4 ; legacy retirée le 23/10/2026)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Taknv1 {{takn}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/contracts/{{contract}}/stations/{{stationNumber}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["contracts", "{{contract}}", "stations", "{{stationNumber}}"]
+            },
+            "description": ""
+          },
+          "id": "cyclocity-02-01"
+        },
+        {
+          "name": "✅ live Station info",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Taknv1 {{takn}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/contracts/{{contract}}/stations/{{stationNumber}}/info",
+              "host": ["{{baseUrl}}"],
+              "path": ["contracts", "{{contract}}", "stations", "{{stationNumber}}", "info"]
+            },
+            "description": ""
+          },
+          "id": "cyclocity-02-02"
+        },
+        {
+          "name": "✅ live Toutes les stations sans Accept (application/station+json, champs v4)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Taknv1 {{takn}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/contracts/{{contract}}/stations",
+              "host": ["{{baseUrl}}"],
+              "path": ["contracts", "{{contract}}", "stations"]
+            },
+            "description": ""
+          },
+          "id": "cyclocity-02-03"
+        },
+        {
+          "name": "✅ Vélos d'une station",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Taknv1 {{takn}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/vnd.bikes.v4+json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/contracts/{{contract}}/bikes?stationNumber={{stationNumber}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["contracts", "{{contract}}", "bikes"],
+              "query": [
+                {
+                  "key": "stationNumber",
+                  "value": "{{stationNumber}}"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "id": "cyclocity-02-04"
+        },
+        {
+          "name": "✅ live Un vélo par numéro",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Taknv1 {{takn}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/vnd.bikes.v4+json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/contracts/{{contract}}/bikes?number={{bikeNumber}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["contracts", "{{contract}}", "bikes"],
+              "query": [
+                {
+                  "key": "number",
+                  "value": "{{bikeNumber}}"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "id": "cyclocity-02-05"
+        },
+        {
+          "name": "✅ live Tout le parc (~1,3 Mo)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Taknv1 {{takn}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/vnd.bikes.v4+json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/contracts/{{contract}}/bikes",
+              "host": ["{{baseUrl}}"],
+              "path": ["contracts", "{{contract}}", "bikes"]
+            },
+            "description": "17 652 vélos, tous statuts. Ne pas boucler dessus."
+          },
+          "id": "cyclocity-02-06"
+        },
+        {
+          "name": "✅ live Notes de vélos",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Taknv1 {{takn}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/vnd.bikes.v4+json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/contracts/{{contract}}/bikes/ratings",
+              "host": ["{{baseUrl}}"],
+              "path": ["contracts", "{{contract}}", "bikes", "ratings"]
+            },
+            "description": ""
+          },
+          "id": "cyclocity-02-07"
+        },
+        {
+          "name": "✅ live GBFS 3.0 station_status (sans auth)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/contracts/{{contract}}/gbfs/v3/station_status.json",
+              "host": ["{{baseUrl}}"],
+              "path": ["contracts", "{{contract}}", "gbfs", "v3", "station_status.json"]
+            },
+            "description": ""
+          },
+          "id": "cyclocity-02-08"
+        },
+        {
+          "name": "✅ live GBFS index 2.3 (sans auth)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/contracts/{{contract}}/gbfs/gbfs.json",
+              "host": ["{{baseUrl}}"],
+              "path": ["contracts", "{{contract}}", "gbfs", "gbfs.json"]
+            },
+            "description": ""
+          },
+          "id": "cyclocity-02-09"
+        }
+      ],
+      "id": "cyclocity-02"
+    },
+    {
+      "name": "3. Compte",
+      "description": "Toutes ces requêtes exigent `identity` (access token Keycloak) et `accountId`.",
+      "item": [
+        {
+          "name": "✅ Profil",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Taknv1 {{takn}}"
+              },
+              {
+                "key": "Identity",
+                "value": "{{identity}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/vnd.account.v4+json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/contracts/{{contract}}/accounts/{{accountId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["contracts", "{{contract}}", "accounts", "{{accountId}}"]
+            },
+            "description": ""
+          },
+          "id": "cyclocity-03-00"
+        },
+        {
+          "name": "✅ Modifier le profil (PATCH partiel)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Taknv1 {{takn}}"
+              },
+              {
+                "key": "Identity",
+                "value": "{{identity}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/vnd.account.v4+json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/contracts/{{contract}}/accounts/{{accountId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["contracts", "{{contract}}", "accounts", "{{accountId}}"]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"country\": \"FR\",\n  \"zipCode\": \"69008\",\n  \"city\": \"Lyon\",\n  \"phoneNumber\": \"+33600000000\",\n  \"address\": {\n    \"name\": \"1 rue Exemple\",\n    \"complement\": \"\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "id": "cyclocity-03-01"
+        },
+        {
+          "name": "✅ Compléter le profil (PATCH, compte neuf)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Taknv1 {{takn}}"
+              },
+              {
+                "key": "Identity",
+                "value": "{{identity}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/vnd.account.v4+json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/contracts/{{contract}}/accounts/{{accountId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["contracts", "{{contract}}", "accounts", "{{accountId}}"]
+            },
+            "description": "Les champs que l'app officielle fait compléter à un compte neuf (`CompleteAccountActivity`). Ils suffisent à porter `completion` à 1.0, sans adresse. `sex` vaut `M` ou `F`, `O` seulement si la feature `gender.other.enabled` du contrat est vraie. Un téléphone hors plage attribuée rend `400 accounts.exception.validation.failed`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sex\": \"M\",\n  \"firstName\": \"Jean\",\n  \"lastName\": \"Dupont\",\n  \"birthDate\": \"1984-09-12\",\n  \"phoneNumber\": \"+33600000000\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "id": "cyclocity-03-01"
+        },
+        {
+          "name": "✅ Alertes",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Taknv1 {{takn}}"
+              },
+              {
+                "key": "Identity",
+                "value": "{{identity}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/vnd.account.v4+json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/contracts/{{contract}}/accounts/{{accountId}}/alerts",
+              "host": ["{{baseUrl}}"],
+              "path": ["contracts", "{{contract}}", "accounts", "{{accountId}}", "alerts"]
+            },
+            "description": ""
+          },
+          "id": "cyclocity-03-02"
+        },
+        {
+          "name": "✅ État CGU",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Taknv1 {{takn}}"
+              },
+              {
+                "key": "Identity",
+                "value": "{{identity}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/vnd.account.v4+json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/contracts/{{contract}}/accounts/{{accountId}}/cgau",
+              "host": ["{{baseUrl}}"],
+              "path": ["contracts", "{{contract}}", "accounts", "{{accountId}}", "cgau"]
+            },
+            "description": ""
+          },
+          "id": "cyclocity-03-03"
+        },
+        {
+          "name": "✅ IDs des offres accessibles",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Taknv1 {{takn}}"
+              },
+              {
+                "key": "Identity",
+                "value": "{{identity}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/vnd.account.v4+json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/contracts/{{contract}}/accounts/{{accountId}}/offers",
+              "host": ["{{baseUrl}}"],
+              "path": ["contracts", "{{contract}}", "accounts", "{{accountId}}", "offers"]
+            },
+            "description": ""
+          },
+          "id": "cyclocity-03-04"
+        },
+        {
+          "name": "✅ Éligibilité d'un groupe d'offres",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Taknv1 {{takn}}"
+              },
+              {
+                "key": "Identity",
+                "value": "{{identity}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/vnd.account.v4+json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/contracts/{{contract}}/accounts/{{accountId}}/offerGroups/{{groupId}}/offers",
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "contracts",
+                "{{contract}}",
+                "accounts",
+                "{{accountId}}",
+                "offerGroups",
+                "{{groupId}}",
+                "offers"
+              ]
+            },
+            "description": ""
+          },
+          "id": "cyclocity-03-05"
+        },
+        {
+          "name": "✅ live Ajouter une station favorite",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Taknv1 {{takn}}"
+              },
+              {
+                "key": "Identity",
+                "value": "{{identity}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/vnd.account.v4+json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/contracts/{{contract}}/accounts/{{accountId}}/stationbookmarks/{{stationNumber}}/",
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "contracts",
+                "{{contract}}",
+                "accounts",
+                "{{accountId}}",
+                "stationbookmarks",
+                "{{stationNumber}}",
+                ""
+              ]
+            },
+            "description": ""
+          },
+          "id": "cyclocity-03-06"
+        },
+        {
+          "name": "✅ live Retirer une station favorite",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Taknv1 {{takn}}"
+              },
+              {
+                "key": "Identity",
+                "value": "{{identity}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/vnd.account.v4+json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/contracts/{{contract}}/accounts/{{accountId}}/stationbookmarks/{{stationNumber}}/",
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "contracts",
+                "{{contract}}",
+                "accounts",
+                "{{accountId}}",
+                "stationbookmarks",
+                "{{stationNumber}}",
+                ""
+              ]
+            },
+            "description": ""
+          },
+          "id": "cyclocity-03-07"
+        },
+        {
+          "name": "✅ Enregistrer le token push",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Taknv1 {{takn}}"
+              },
+              {
+                "key": "Identity",
+                "value": "{{identity}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/vnd.message.v2+json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/contracts/{{contract}}/accounts/{{accountId}}/devices",
+              "host": ["{{baseUrl}}"],
+              "path": ["contracts", "{{contract}}", "accounts", "{{accountId}}", "devices"]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"platform\": \"IOS\",\n  \"deviceToken\": \"<token FCM>\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "id": "cyclocity-03-08"
+        },
+        {
+          "name": "✅ Supprimer le token push (avant logout)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Taknv1 {{takn}}"
+              },
+              {
+                "key": "Identity",
+                "value": "{{identity}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/vnd.message.v2+json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/contracts/{{contract}}/accounts/{{accountId}}/devices",
+              "host": ["{{baseUrl}}"],
+              "path": ["contracts", "{{contract}}", "accounts", "{{accountId}}", "devices"]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"platform\": \"IOS\",\n  \"deviceToken\": \"<token FCM>\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "id": "cyclocity-03-09"
+        },
+        {
+          "name": "✅ Réservations",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Taknv1 {{takn}}"
+              },
+              {
+                "key": "Identity",
+                "value": "{{identity}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/contracts/{{contract}}/accounts/{{accountId}}/bookings",
+              "host": ["{{baseUrl}}"],
+              "path": ["contracts", "{{contract}}", "accounts", "{{accountId}}", "bookings"]
+            },
+            "description": "Réservations en cours : [{ id, contractName, accountId, subscriptionId, stationId, stationNumber, standNumber, bikeId, endTime }], [] sans réservation (seule forme capturée). Sans Accept, réponse en application/booking+json. L'app Android croise la liste avec les vélos de la station par bikeId : un vélo RESERVED absent de la liste est réservé par un autre usager. Voir § 5.9."
+          },
+          "id": "cyclocity-03-10"
+        },
+        {
+          "name": "📱 ⚠️ Réserver un vélo (15 min, débite 10 points)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Taknv1 {{takn}}"
+              },
+              {
+                "key": "Identity",
+                "value": "{{identity}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json; charset=UTF-8"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/contracts/{{contract}}/accounts/{{accountId}}/bookings",
+              "host": ["{{baseUrl}}"],
+              "path": ["contracts", "{{contract}}", "accounts", "{{accountId}}", "bookings"]
+            },
+            "description": "ACTION RÉELLE : débite 10 points de fidélité et retire le vélo aux autres usagers pendant 15 min (feature bike.booking.duration), sans route d'annulation. Lu dans le binaire Android 3.3.10, relu identique dans la 3.6.1 ; refus observés, réponse de succès jamais relevée telle quelle (📱). stationId est l'id (UUID) de « Détail d'une station », bikeId l'id (UUID) du vélo dans « Vélos d'une station » — ni l'un ni l'autre n'est un numéro. subscriptionId : un abonnement ST ou LT en cours, non verrouillé. L'app ne déclare aucun en-tête : corps en application/json; charset=UTF-8 (convertisseur Jackson), pas d'Accept. Avant l'appel, elle vérifie que le solde (GET …/rewards) couvre le reward de BIKE_BOOKING (« Règles du programme fidélité »). Réponse : la réservation, avec endTime. Voir § 5.9. Refus observé le 06/10/2026 sur un vélo réservé par un autre usager : 400 booking.exception.bike.already.reserved. Refus observé le 12/10/2026 avec une réservation déjà en cours sur le compte (une seule à la fois) : 400 bookings.exception.not.authorized. En station, un vélo réservé reste AVAILABLE et porte isReserved: true (bikes.v4) : le vérifier avant d'appeler.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"stationId\": \"{{stationId}}\",\n  \"stationNumber\": {{stationNumber}},\n  \"standNumber\": {{standNumber}},\n  \"subscriptionId\": \"{{subscriptionId}}\",\n  \"bikeId\": \"{{bikeId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "id": "cyclocity-03-11"
+        }
+      ],
+      "id": "cyclocity-03"
+    },
+    {
+      "name": "4. Offres, groupes, badges",
+      "description": "",
+      "item": [
+        {
+          "name": "✅ Groupes d'offres (mobile)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Taknv1 {{takn}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/contracts/{{contract}}/offerGroups?platform=MOBILE",
+              "host": ["{{baseUrl}}"],
+              "path": ["contracts", "{{contract}}", "offerGroups"],
+              "query": [
+                {
+                  "key": "platform",
+                  "value": "MOBILE"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "id": "cyclocity-04-00"
+        },
+        {
+          "name": "✅ Offres d'un groupe",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Taknv1 {{takn}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/vnd.offer.v2+json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/contracts/{{contract}}/offerGroups/{{groupId}}/offers",
+              "host": ["{{baseUrl}}"],
+              "path": ["contracts", "{{contract}}", "offerGroups", "{{groupId}}", "offers"]
+            },
+            "description": ""
+          },
+          "id": "cyclocity-04-01"
+        },
+        {
+          "name": "✅ Toutes les offres",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Taknv1 {{takn}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/vnd.offer.v2+json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/contracts/{{contract}}/offers",
+              "host": ["{{baseUrl}}"],
+              "path": ["contracts", "{{contract}}", "offers"]
+            },
+            "description": ""
+          },
+          "id": "cyclocity-04-02"
+        },
+        {
+          "name": "✅ Une offre",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Taknv1 {{takn}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/vnd.offer.v2+json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/contracts/{{contract}}/offers/{{offerId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["contracts", "{{contract}}", "offers", "{{offerId}}"]
+            },
+            "description": ""
+          },
+          "id": "cyclocity-04-03"
+        },
+        {
+          "name": "✅ Suppléments d'une offre",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Taknv1 {{takn}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/contracts/{{contract}}/offers/{{offerId}}/supplements?isValid=true",
+              "host": ["{{baseUrl}}"],
+              "path": ["contracts", "{{contract}}", "offers", "{{offerId}}", "supplements"],
+              "query": [
+                {
+                  "key": "isValid",
+                  "value": "true"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "id": "cyclocity-04-04"
+        },
+        {
+          "name": "✅ Badge",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Taknv1 {{takn}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/contracts/{{contract}}/badges/{{badgeId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["contracts", "{{contract}}", "badges", "{{badgeId}}"]
+            },
+            "description": ""
+          },
+          "id": "cyclocity-04-05"
+        },
+        {
+          "name": "✅ Logo d'un badge (base64)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Taknv1 {{takn}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/contracts/{{contract}}/badges/{{badgeId}}/logo",
+              "host": ["{{baseUrl}}"],
+              "path": ["contracts", "{{contract}}", "badges", "{{badgeId}}", "logo"]
+            },
+            "description": ""
+          },
+          "id": "cyclocity-04-06"
+        },
+        {
+          "name": "✅ Devis (ne débite pas)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Taknv1 {{takn}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json; charset=UTF-8"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/contracts/{{contract}}/offers/{{offerId}}/supplements/badges/{{badgeId}}/packages",
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "contracts",
+                "{{contract}}",
+                "offers",
+                "{{offerId}}",
+                "supplements",
+                "badges",
+                "{{badgeId}}",
+                "packages"
+              ]
+            },
+            "description": "Calcul de prix uniquement. Le débit intervient dans le process SHORT_TERM_SUBSCRIPTION_V2 (dossier 8). Corps OfferSupplements de l'app Android 3.6.1, toutes les clés, null compris ; sans Identity ni Accept (l'app iOS ajoute Identity). birthDate et paymentMethod seulement pour un compte qui a un moyen de paiement.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"supplements\": [],\n  \"promocode\": null,\n  \"subscriptionStart\": \"2026-03-01T10:12:00\",\n  \"birthDate\": \"1990-01-01\",\n  \"paymentMethod\": \"CB\",\n  \"deliveryType\": null,\n  \"bikeModelId\": null,\n  \"renewal\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "id": "cyclocity-04-07"
+        }
+      ],
+      "id": "cyclocity-04"
+    },
+    {
+      "name": "5. Abonnements",
+      "description": "",
+      "item": [
+        {
+          "name": "✅ Mes abonnements (toutes périodes)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Taknv1 {{takn}}"
+              },
+              {
+                "key": "Identity",
+                "value": "{{identity}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/vnd.subscription.v6+json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/contracts/{{contract}}/accounts/{{accountId}}/subscriptions?periods=PAST,CURRENT,FUTURE",
+              "host": ["{{baseUrl}}"],
+              "path": ["contracts", "{{contract}}", "accounts", "{{accountId}}", "subscriptions"],
+              "query": [
+                {
+                  "key": "periods",
+                  "value": "PAST,CURRENT,FUTURE"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const j = pm.response.json(); if (Array.isArray(j) && j[0]) { pm.collectionVariables.set('subscriptionId', j[0].id); if (j[0].periods && j[0].periods[0]) pm.collectionVariables.set('periodId', j[0].periods[0].id); }"
+                ]
+              }
+            }
+          ],
+          "id": "cyclocity-05-00"
+        },
+        {
+          "name": "✅ Abonnements utilisables pour déverrouiller (ST et LT, app Android)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Taknv1 {{takn}}"
+              },
+              {
+                "key": "Identity",
+                "value": "{{identity}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/vnd.subscription.v6+json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/contracts/{{contract}}/accounts/{{accountId}}/subscriptions?periods=CURRENT&typeList=ST&typeList=LT&isLocked=false",
+              "host": ["{{baseUrl}}"],
+              "path": ["contracts", "{{contract}}", "accounts", "{{accountId}}", "subscriptions"],
+              "query": [
+                {
+                  "key": "periods",
+                  "value": "CURRENT"
+                },
+                {
+                  "key": "typeList",
+                  "value": "ST"
+                },
+                {
+                  "key": "typeList",
+                  "value": "LT"
+                },
+                {
+                  "key": "isLocked",
+                  "value": "false"
+                }
+              ]
+            },
+            "description": "Une requête, comme l'app Android 3.6.1 (typeList répété). L'app iOS envoie ?isLocked=0&periods=CURRENT&type=ST puis type=LT. L'app écarte ensuite les abonnements locked et ceux sans période."
+          },
+          "id": "cyclocity-05-01"
+        },
+        {
+          "name": "✅ Un abonnement",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Taknv1 {{takn}}"
+              },
+              {
+                "key": "Identity",
+                "value": "{{identity}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/vnd.subscription.v6+json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/contracts/{{contract}}/accounts/{{accountId}}/subscriptions/{{subscriptionId}}",
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "contracts",
+                "{{contract}}",
+                "accounts",
+                "{{accountId}}",
+                "subscriptions",
+                "{{subscriptionId}}"
+              ]
+            },
+            "description": ""
+          },
+          "id": "cyclocity-05-02"
+        },
+        {
+          "name": "✅ Statuts",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Taknv1 {{takn}}"
+              },
+              {
+                "key": "Identity",
+                "value": "{{identity}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/vnd.subscription.v6+json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/contracts/{{contract}}/accounts/{{accountId}}/subscriptions/{{subscriptionId}}/statuses",
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "contracts",
+                "{{contract}}",
+                "accounts",
+                "{{accountId}}",
+                "subscriptions",
+                "{{subscriptionId}}",
+                "statuses"
+              ]
+            },
+            "description": ""
+          },
+          "id": "cyclocity-05-03"
+        },
+        {
+          "name": "✅ live Reçu PDF d'une période (base64)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Taknv1 {{takn}}"
+              },
+              {
+                "key": "Identity",
+                "value": "{{identity}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/contracts/{{contract}}/accounts/{{accountId}}/subscriptions/{{subscriptionId}}/periods/{{periodId}}/reports",
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "contracts",
+                "{{contract}}",
+                "accounts",
+                "{{accountId}}",
+                "subscriptions",
+                "{{subscriptionId}}",
+                "periods",
+                "{{periodId}}",
+                "reports"
+              ]
+            },
+            "description": ""
+          },
+          "id": "cyclocity-05-04"
+        },
+        {
+          "name": "✅ Abonnements hors clos (app 3.6.1)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Taknv1 {{takn}}"
+              },
+              {
+                "key": "Identity",
+                "value": "{{identity}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/vnd.subscription.v6+json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/contracts/{{contract}}/accounts/{{accountId}}/subscriptions?noStatus=CLOSED&periods=CURRENT&type=LT",
+              "host": ["{{baseUrl}}"],
+              "path": ["contracts", "{{contract}}", "accounts", "{{accountId}}", "subscriptions"],
+              "query": [
+                {
+                  "key": "noStatus",
+                  "value": "CLOSED"
+                },
+                {
+                  "key": "periods",
+                  "value": "CURRENT"
+                },
+                {
+                  "key": "type",
+                  "value": "LT"
+                }
+              ]
+            },
+            "description": "`noStatus` est répétable (`&noStatus=INCOMPLETE_FILE&noStatus=NOT_VALID_YET`) ; `type` = LT, BATTERY, PARKING ou UB ; `periods` = CURRENT, FUTURE ou PAST. L'app 3.6.1 lance ces combinaisons en parallèle à l'ouverture du profil (§ 5.5 / § 7.4)."
+          },
+          "id": "cyclocity-05-05"
+        },
+        {
+          "name": "✅ Périodes par identifiants (404 observé)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Taknv1 {{takn}}"
+              },
+              {
+                "key": "Identity",
+                "value": "{{identity}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/vnd.subscription.v6+json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/contracts/{{contract}}/accounts/{{accountId}}/periods?periodIds={{periodId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["contracts", "{{contract}}", "accounts", "{{accountId}}", "periods"],
+              "query": [
+                {
+                  "key": "periodIds",
+                  "value": "{{periodId}}"
+                }
+              ]
+            },
+            "description": "Plusieurs ids séparés par des virgules. L'app 3.6.1 y passe les periodId tirés de « Ventes : périodes d'abonnement payées » (dossier 7). Seule réponse observée : 404 accounts.exception.notfound.searched.periods sur des périodes de tickets clos ; la forme du 200 n'est pas connue (§ 5.5)."
+          },
+          "id": "cyclocity-05-06"
+        }
+      ],
+      "id": "cyclocity-05"
+    },
+    {
+      "name": "6. Trajets et statistiques",
+      "description": "",
+      "item": [
+        {
+          "name": "✅ Trajet en cours",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Taknv1 {{takn}}"
+              },
+              {
+                "key": "Identity",
+                "value": "{{identity}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/vnd.trip.v6+json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/contracts/{{contract}}/accounts/{{accountId}}/trips/ongoing",
+              "host": ["{{baseUrl}}"],
+              "path": ["contracts", "{{contract}}", "accounts", "{{accountId}}", "trips", "ongoing"]
+            },
+            "description": ""
+          },
+          "id": "cyclocity-06-00"
+        },
+        {
+          "name": "✅ Historique des trajets",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Taknv1 {{takn}}"
+              },
+              {
+                "key": "Identity",
+                "value": "{{identity}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/vnd.trip.v6+json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/contracts/{{contract}}/accounts/{{accountId}}/trips",
+              "host": ["{{baseUrl}}"],
+              "path": ["contracts", "{{contract}}", "accounts", "{{accountId}}", "trips"]
+            },
+            "description": ""
+          },
+          "id": "cyclocity-06-01"
+        },
+        {
+          "name": "✅ Statistiques (semaine)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Taknv1 {{takn}}"
+              },
+              {
+                "key": "Identity",
+                "value": "{{identity}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/vnd.stats.v1+json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/contracts/{{contract}}/accounts/{{accountId}}/stats?period=WEEK&startDate=2026-03-01T23:00:00&endDate=2026-03-08T22:59:59&statsType=TRIPS_COUNTS&statsType=TRIPS_DURATIONS&statsType=TRIPS_REWARDS",
+              "host": ["{{baseUrl}}"],
+              "path": ["contracts", "{{contract}}", "accounts", "{{accountId}}", "stats"],
+              "query": [
+                {
+                  "key": "period",
+                  "value": "WEEK"
+                },
+                {
+                  "key": "startDate",
+                  "value": "2026-03-01T23:00:00"
+                },
+                {
+                  "key": "endDate",
+                  "value": "2026-03-08T22:59:59"
+                },
+                {
+                  "key": "statsType",
+                  "value": "TRIPS_COUNTS"
+                },
+                {
+                  "key": "statsType",
+                  "value": "TRIPS_DURATIONS"
+                },
+                {
+                  "key": "statsType",
+                  "value": "TRIPS_REWARDS"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "id": "cyclocity-06-02"
+        },
+        {
+          "name": "✅ ⚠️ DÉVERROUILLER un vélo (action réelle)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Taknv1 {{takn}}"
+              },
+              {
+                "key": "Identity",
+                "value": "{{identity}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/vnd.trip.v6+json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/contracts/{{contract}}/accounts/{{accountId}}/subscriptions/{{subscriptionId}}/trips",
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "contracts",
+                "{{contract}}",
+                "accounts",
+                "{{accountId}}",
+                "subscriptions",
+                "{{subscriptionId}}",
+                "trips"
+              ]
+            },
+            "description": "ACTION RÉELLE ET POTENTIELLEMENT PAYANTE : libère physiquement un vélo sur votre abonnement. Valeurs à prendre dans « Vélos d'une station » : les variables sont insérées sans guillemets, elles doivent contenir des entiers. La requête ne porte aucune position : un client doit lui-même vérifier que l'utilisateur est à moins de 200 m de la station (`bike.release.distance`), que le compte n'est pas verrouillé et que le paiement est valide. `200` ne veut pas dire libéré : seul `transactionState: OK` libère ; `ABORT`, `NOK`, `TIME_OUT`, `NOT_CONNECTED` sont des échecs. En-têtes et ordre des champs de l'app Android 3.6.1 : Content-Type en trip.v6, pas d'Accept (la 3.3.10 envoyait trip.v5, accepté aussi). Un vélo réservé par le compte se libère par la même requête, sans référence à la réservation. Refus métier (`code`) et messages de l'app : README § 5.6. Un vélo réservé par un autre usager (AVAILABLE avec isReserved: true en bikes.v4) est refusé : 404 trips.exception.bookings.already.reserved (observé le 06/10/2026). Le même code a refusé le 22/10/2026 un vélo réservé par le compte lui-même, réservation en cours et même abonnement : cause inconnue côté serveur.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"stationNumber\": {{stationNumber}},\n  \"standNumber\": {{standNumber}},\n  \"bikeNumber\": {{bikeNumber}},\n  \"typeFrom\": \"SMARTPHONE\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "id": "cyclocity-06-03"
+        },
+        {
+          "name": "📱 Noter le vélo d'un trajet (crédite 5 points)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Taknv1 {{takn}}"
+              },
+              {
+                "key": "Identity",
+                "value": "{{identity}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/vnd.trip.v6+json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/contracts/{{contract}}/accounts/{{accountId}}/trips/{{tripId}}/rate",
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "contracts",
+                "{{contract}}",
+                "accounts",
+                "{{accountId}}",
+                "trips",
+                "{{tripId}}",
+                "rate"
+              ]
+            },
+            "description": "Une seule notation par trajet, sur un trajet dont isRated vaut false ({{tripId}} = id d'une entrée de « Historique des trajets »). bikeId est le NUMÉRO du vélo (bikeNumber du trajet), pas son UUID. recommended est binaire ; rating vaut null pour un vélo recommandé, sinon le rating (30 ou 60) d'un motif de « Groupes de motifs » (1. Contrat). Pour « Je déconseille », l'app lance d'abord le process CREATE_BIKE_DEFECT (8. Process) et n'envoie cette notation que s'il réussit. Délai : 3 heures après la fin du trajet. Réponse : le corps en écho. Corps et Content-Type de l'app Android 3.6.1 (la 3.3.10 envoyait cdrCode en trip.v5), non exercés en capture.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bikeId\": {{bikeNumber}},\n  \"recommended\": true,\n  \"contract\": \"{{contract}}\",\n  \"rating\": null\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "id": "cyclocity-06-04"
+        },
+        {
+          "name": "✅ live Historique filtré, trip v6 (app 3.6.1)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Taknv1 {{takn}}"
+              },
+              {
+                "key": "Identity",
+                "value": "{{identity}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/vnd.trip.v6+json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/contracts/{{contract}}/accounts/{{accountId}}/trips?status=FINISHED&status=ERROR&status=REVERSED",
+              "host": ["{{baseUrl}}"],
+              "path": ["contracts", "{{contract}}", "accounts", "{{accountId}}", "trips"],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "FINISHED"
+                },
+                {
+                  "key": "status",
+                  "value": "ERROR"
+                },
+                {
+                  "key": "status",
+                  "value": "REVERSED"
+                }
+              ]
+            },
+            "description": "Ce que fait l'app 3.6.1 (sept. 2026). Le 15/10/2026, la même liste de trajets est sortie identique en v6 et en v5 (« Historique des trajets »). Un trajet passé peut y perdre ses stations, ses bornes et son vélo, puis disparaître, bien avant les seuils de la configuration ; les trajets payants restent entiers dans « Aide : justificatif de paiement » (§ 5.6)."
+          },
+          "id": "cyclocity-06-05"
+        }
+      ],
+      "id": "cyclocity-06"
+    },
+    {
+      "name": "7. Paiement, solde, transactions, récompenses",
+      "description": "",
+      "item": [
+        {
+          "name": "✅ Moyen de paiement",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Taknv1 {{takn}}"
+              },
+              {
+                "key": "Identity",
+                "value": "{{identity}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/vnd.payment.v3+json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/contracts/{{contract}}/accounts/{{accountId}}/payment",
+              "host": ["{{baseUrl}}"],
+              "path": ["contracts", "{{contract}}", "accounts", "{{accountId}}", "payment"]
+            },
+            "description": ""
+          },
+          "id": "cyclocity-07-00"
+        },
+        {
+          "name": "✅ Solde",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Taknv1 {{takn}}"
+              },
+              {
+                "key": "Identity",
+                "value": "{{identity}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/vnd.balance.v1+json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/contracts/{{contract}}/accounts/{{accountId}}/balance",
+              "host": ["{{baseUrl}}"],
+              "path": ["contracts", "{{contract}}", "accounts", "{{accountId}}", "balance"]
+            },
+            "description": ""
+          },
+          "id": "cyclocity-07-01"
+        },
+        {
+          "name": "✅ Transactions",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Taknv1 {{takn}}"
+              },
+              {
+                "key": "Identity",
+                "value": "{{identity}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/vnd.transaction.v1+json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/contracts/{{contract}}/accounts/{{accountId}}/transactions?showRegulationId=true",
+              "host": ["{{baseUrl}}"],
+              "path": ["contracts", "{{contract}}", "accounts", "{{accountId}}", "transactions"],
+              "query": [
+                {
+                  "key": "showRegulationId",
+                  "value": "true"
+                }
+              ]
+            },
+            "description": "`showRegulationId=true` : ce que l'app 3.6.1 envoie systématiquement (effet non observé sur un compte sans régularisation)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const j = pm.response.json(); if (Array.isArray(j) && j[0]) pm.collectionVariables.set('transactionId', j[0].id);"
+                ]
+              }
+            }
+          ],
+          "id": "cyclocity-07-02"
+        },
+        {
+          "name": "✅ Détail d'une transaction (+ sales)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Taknv1 {{takn}}"
+              },
+              {
+                "key": "Identity",
+                "value": "{{identity}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/vnd.transaction.v1+json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/contracts/{{contract}}/accounts/{{accountId}}/transactions/{{transactionId}}",
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "contracts",
+                "{{contract}}",
+                "accounts",
+                "{{accountId}}",
+                "transactions",
+                "{{transactionId}}"
+              ]
+            },
+            "description": ""
+          },
+          "id": "cyclocity-07-03"
+        },
+        {
+          "name": "✅ Checkout Worldline (enregistrer / changer de CB)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Taknv1 {{takn}}"
+              },
+              {
+                "key": "Identity",
+                "value": "{{identity}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/vnd.pay.v1+json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/contracts/{{contract}}/accounts/{{accountId}}/pay/checkout",
+              "host": ["{{baseUrl}}"],
+              "path": ["contracts", "{{contract}}", "accounts", "{{accountId}}", "pay", "checkout"]
+            },
+            "description": "Ouvre la page Worldline : la carte s'y saisit, puis la page revient sur `returnUrl`. Confirmer ensuite par un process `REGISTER_PAYMENT_METHOD` avec `checkoutId` (§ 6 du README). Vérifié le 24/10/2026 : le retour porte les mêmes paramètres (`RETURNMAC`, `hostedCheckoutId`) que la page ait été validée ou annulée ; après une annulation, `REGISTER_PAYMENT_METHOD` répond `inError: true` avec `pay.exception.checkout.payment-infos.not.found`. Montant affiché : 0,00 €.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"returnUrl\": \"https://velov.grandlyon.com/\",\n  \"paymentMethods\": [\n    \"CB\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "id": "cyclocity-07-04"
+        },
+        {
+          "name": "✅ Récompenses (solde de points)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Taknv1 {{takn}}"
+              },
+              {
+                "key": "Identity",
+                "value": "{{identity}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/vnd.rewards.v5+json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/contracts/{{contract}}/accounts/{{accountId}}/rewards",
+              "host": ["{{baseUrl}}"],
+              "path": ["contracts", "{{contract}}", "accounts", "{{accountId}}", "rewards"]
+            },
+            "description": ""
+          },
+          "id": "cyclocity-07-05"
+        },
+        {
+          "name": "✅ Récompenses : autoSpend",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Taknv1 {{takn}}"
+              },
+              {
+                "key": "Identity",
+                "value": "{{identity}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/vnd.rewards.v5+json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/contracts/{{contract}}/accounts/{{accountId}}/rewards",
+              "host": ["{{baseUrl}}"],
+              "path": ["contracts", "{{contract}}", "accounts", "{{accountId}}", "rewards"]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"autoSpend\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "id": "cyclocity-07-06"
+        },
+        {
+          "name": "✅ Règles du programme fidélité",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Taknv1 {{takn}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/vnd.rewards.v5+json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/contracts/{{contract}}/rewards/configurations",
+              "host": ["{{baseUrl}}"],
+              "path": ["contracts", "{{contract}}", "rewards", "configurations"]
+            },
+            "description": ""
+          },
+          "id": "cyclocity-07-07"
+        },
+        {
+          "name": "✅ live Aide : justificatif de paiement (ventes de trajets)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Taknv1 {{takn}}"
+              },
+              {
+                "key": "Identity",
+                "value": "{{identity}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/vnd.sale.v1+json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/contracts/{{contract}}/accounts/{{accountId}}/sales?direction=DEBIT&infoType=TRIP&natures=CONSUMPTION&status=PAID",
+              "host": ["{{baseUrl}}"],
+              "path": ["contracts", "{{contract}}", "accounts", "{{accountId}}", "sales"],
+              "query": [
+                {
+                  "key": "direction",
+                  "value": "DEBIT"
+                },
+                {
+                  "key": "infoType",
+                  "value": "TRIP"
+                },
+                {
+                  "key": "natures",
+                  "value": "CONSUMPTION"
+                },
+                {
+                  "key": "status",
+                  "value": "PAID"
+                }
+              ]
+            },
+            "description": "Écran « J'ai besoin d'un justificatif de paiement » du menu « Besoin d'aide » de l'app (session 13, § 7.4). Chaque ligne embarque le trajet facturé dans saleAdditionnalInfo.additionalInfos (noms de stations, elecTripsNb, overchargeAmount), que GET /trips ne renvoie pas ; le téléchargement du PDF n'a pas été capturé. L'app envoie le media-type en Content-Type avec Accept: */* ; la réponse est en application/vnd.sale.v1+json (§ 5.7)."
+          },
+          "id": "cyclocity-07-08"
+        },
+        {
+          "name": "✅ Aide : trajets contestables (6 mois glissants)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Taknv1 {{takn}}"
+              },
+              {
+                "key": "Identity",
+                "value": "{{identity}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/vnd.sale.v1+json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/contracts/{{contract}}/accounts/{{accountId}}/sales?infoType=TRIP&natures=CONSUMPTION&saleDateAfter=2026-03-15T16:21:45&status=PAID&status=TO_INVOICE&status=TO_CONTROL",
+              "host": ["{{baseUrl}}"],
+              "path": ["contracts", "{{contract}}", "accounts", "{{accountId}}", "sales"],
+              "query": [
+                {
+                  "key": "infoType",
+                  "value": "TRIP"
+                },
+                {
+                  "key": "natures",
+                  "value": "CONSUMPTION"
+                },
+                {
+                  "key": "saleDateAfter",
+                  "value": "2026-03-15T16:21:45",
+                  "description": "ISO 8601 local sans zone ; l'app calcule now - 6 mois"
+                },
+                {
+                  "key": "status",
+                  "value": "PAID"
+                },
+                {
+                  "key": "status",
+                  "value": "TO_INVOICE"
+                },
+                {
+                  "key": "status",
+                  "value": "TO_CONTROL"
+                }
+              ]
+            },
+            "description": "Écran « Je ne suis pas d'accord avec le montant » du menu « Besoin d'aide » (session 13, § 7.4) : les trajets contestables sur six mois glissants, prélevés ou non — d'où les trois status répétés. Liste vide observée sur un compte sans trajet récent. La contestation elle-même part sur un process (SELFCARE_TRIP_AMOUNT / CREATE_SALESFORCE_CASE) dont le corps n'est pas encore capturé (§ 5.7)."
+          },
+          "id": "cyclocity-07-08b"
+        },
+        {
+          "name": "✅ live Aide : justificatif d'abonnement (périodes payées)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Taknv1 {{takn}}"
+              },
+              {
+                "key": "Identity",
+                "value": "{{identity}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/vnd.sale.v1+json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/contracts/{{contract}}/accounts/{{accountId}}/sales?infoType=PERIOD&natures=SUBSCRIPTION&status=PAID",
+              "host": ["{{baseUrl}}"],
+              "path": ["contracts", "{{contract}}", "accounts", "{{accountId}}", "sales"],
+              "query": [
+                {
+                  "key": "infoType",
+                  "value": "PERIOD"
+                },
+                {
+                  "key": "natures",
+                  "value": "SUBSCRIPTION"
+                },
+                {
+                  "key": "status",
+                  "value": "PAID"
+                }
+              ]
+            },
+            "description": "Écran « Justificatif d'abonnement » du menu « Besoin d'aide » (session 13, § 7.4). Le test enregistre le premier periodId -> {{periodId}} (pour « Périodes par identifiants » et le reçu PDF)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const j = pm.response.json(); const s = Array.isArray(j) && j[0]; if (s && s.saleAdditionnalInfo && s.saleAdditionnalInfo.additionalInfos) { pm.collectionVariables.set('periodId', s.saleAdditionnalInfo.additionalInfos.periodId); if (s.subscriptionId) pm.collectionVariables.set('subscriptionId', s.subscriptionId); }"
+                ]
+              }
+            }
+          ],
+          "id": "cyclocity-07-09"
+        },
+        {
+          "name": "✅ Historique des points",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Taknv1 {{takn}}"
+              },
+              {
+                "key": "Identity",
+                "value": "{{identity}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/vnd.rewards.v5+json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/contracts/{{contract}}/accounts/{{accountId}}/rewards/history?page=0",
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "contracts",
+                "{{contract}}",
+                "accounts",
+                "{{accountId}}",
+                "rewards",
+                "history"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "0"
+                }
+              ]
+            },
+            "description": "Page Spring (200 par page) : content[] avec nature RULE_ACHIEVED|CONSUMPTION, direction CREDIT|DEBIT, amount, reason (RATE_BIKE, REDUCTION...), reference/referenceType TRIP, readStatus (§ 5.8)."
+          },
+          "id": "cyclocity-07-10"
+        },
+        {
+          "name": "📱 ⚠️ Inviter un ami (débite 50 points)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Taknv1 {{takn}}"
+              },
+              {
+                "key": "Identity",
+                "value": "{{identity}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/vnd.rewards.v5+json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/contracts/{{contract}}/accounts/{{accountId}}/rewards/consume/promocode",
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "contracts",
+                "{{contract}}",
+                "accounts",
+                "{{accountId}}",
+                "rewards",
+                "consume",
+                "promocode"
+              ]
+            },
+            "description": "ACTION RÉELLE : débite les points du reward PROMOCODE de « Règles du programme fidélité » (50). Lu dans le binaire Android 3.3.10 (qi/j.b(), écran reward/invite), jamais exercé (📱). POST sans corps. Réponse { promoCode, offerId, badgeId, badgeType, rewardsSpent } : le ticket n'existe pas encore, l'app enchaîne un process SHORT_TERM_SUBSCRIPTION_V2 sur le même compte avec promocode, offerId et badgeId typés Long, badgeType, startDate, platform MOBILE et les paramètres navigateur. Le ticket obtenu (offre 579060 « Invitation ami ») vaut 1 trajet, 24 h, pour libérer un second vélo. Refus : rewards.exception.insufficient.rewards, rewards.exception.locked.account, rewards.exception.no.valid.subscription. Les points ne remplacent pas une formule (APK 3.6.1, 25/10/2026) : sans abonnement en cours, le serveur refuse en rewards.exception.no.valid.subscription ; l'app ne vérifie que l'entrée PROMOCODE et le solde. Non vérifié : si un ticket ST en cours suffit. Voir § 5.8."
+          },
+          "id": "cyclocity-07-11"
+        }
+      ],
+      "id": "cyclocity-07"
+    },
+    {
+      "name": "8. Process",
+      "description": "Moteur transactionnel. Le process d'achat ci-dessous DÉBITE la CB enregistrée.",
+      "item": [
+        {
+          "name": "✅ ⚠️ ACHETER un ticket 1 trajet (SHORT_TERM_SUBSCRIPTION_V2, débite 1,80 €)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Taknv1 {{takn}}"
+              },
+              {
+                "key": "Identity",
+                "value": "{{identity}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/vnd.processes.v2+json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/contracts/{{contract}}/accounts/{{accountId}}/processes",
+              "host": ["{{baseUrl}}"],
+              "path": ["contracts", "{{contract}}", "accounts", "{{accountId}}", "processes"]
+            },
+            "description": "ACTION PAYANTE. `startDateMs` = timestamp ms de début souhaité ; `cgauVersion` = valeur de « CGU valides (VLS) ». Vérifier `inError: false` dans la réponse. Plusieurs tickets d'un coup : ajouter `\"nbTickets\": 3` (nombre nu, de 2 au `nbTickets` de l'offre) aux paramètres ; le débit devient finalPrice + (n - 1) × initialPrice (lu dans l'APK 3.3.10, jamais exercé). L'app Android 3.6.1 n'envoie que le Content-Type, et ajoute aux paramètres proofs: [], tacitResubscription et l'adresse du compte (address, city, zipcode) ; voir § 6.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"SHORT_TERM_SUBSCRIPTION_V2\",\n  \"parameters\": {\n    \"platform\": \"MOBILE\",\n    \"badgeType\": \"EXTERNAL\",\n    \"badgeId\": \"<[Format:java.lang.Long]>22\",\n    \"offerId\": \"<[Format:java.lang.Long]>75171\",\n    \"startDate\": \"<[Format:java.util.Date]>{{startDateMs}}\",\n    \"cgauVersion\": \"003.002\",\n    \"supplements\": [],\n    \"optionIds\": [],\n    \"optInPartner\": false,\n    \"optInSystem\": false,\n    \"browserJavaEnabled\": true,\n    \"browserTimeZone\": -60,\n    \"browserColorDepth\": 32,\n    \"browserScreenWidth\": 390,\n    \"browserScreenHeight\": 844\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "id": "cyclocity-08-00"
+        },
+        {
+          "name": "📱 ⚠️ Contester le montant d'un trajet (SELFCARE_TRIP_AMOUNT, ouvre un dossier réel)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Taknv1 {{takn}}"
+              },
+              {
+                "key": "Identity",
+                "value": "{{identity}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/vnd.processes.v2+json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/contracts/{{contract}}/accounts/{{accountId}}/processes?returns=incident_type",
+              "host": ["{{baseUrl}}"],
+              "path": ["contracts", "{{contract}}", "accounts", "{{accountId}}", "processes"],
+              "query": [
+                {
+                  "key": "returns",
+                  "value": "incident_type",
+                  "description": "Sans lui, le serveur crée un dossier muet au lieu de rendre un verdict"
+                }
+              ]
+            },
+            "description": "ACTION RÉELLE : ouvre une réclamation sur un vrai trajet et peut déclencher une annulation ou un remboursement. Lu dans le binaire Android 3.3.10, jamais exercé (📱). Le verdict revient dans results.incident_type de la même réponse, en clair : TECHNICAL_INCIDENT, POORLY_HANGED_BIKE, NO_INCIDENT, les six combinaisons NOT_PAID_AND_* / PAID_AND_*, NO_COMMERCIAL_GESTURE. tripId, subscriptionId et saleId viennent de GET /sales?infoType=TRIP ; stationId et endDate ne partent que si l'utilisateur les a corrigés. L'app ne déclare aucun Accept sur cette route. Voir § 6.3.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"SELFCARE_TRIP_AMOUNT\",\n  \"parameters\": {\n    \"tripId\": \"<[Format : java.util.UUID]>{{tripId}}\",\n    \"subscriptionId\": \"<[Format : java.util.UUID]>{{subscriptionId}}\",\n    \"saleId\": \"<[Format : java.util.UUID]>{{saleId}}\",\n    \"stationId\": \"2002\",\n    \"endDate\": \"<[Format : java.util.Date]>{{endDateMs}}\",\n    \"origin\": \"WEBFORM_APPLI\",\n    \"platform\": \"MOBILE\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "id": "cyclocity-08-00b"
+        },
+        {
+          "name": "📱 ⚠️ Signaler un défaut de vélo (CREATE_BIKE_DEFECT, ouvre un signalement réel)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Taknv1 {{takn}}"
+              },
+              {
+                "key": "Identity",
+                "value": "{{identity}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/vnd.processes.v2+json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/contracts/{{contract}}/accounts/{{accountId}}/processes",
+              "host": ["{{baseUrl}}"],
+              "path": ["contracts", "{{contract}}", "accounts", "{{accountId}}", "processes"]
+            },
+            "description": "ACTION RÉELLE : ouvre un signalement chez l'opérateur, et bikeDefectDeclaredBlocked à true peut retirer le vélo du service. Ne pas l'essayer sur un vélo en bon état. C'est l'écran « Je déconseille ce vélo » de l'app Android : ce process part d'abord, et la notation (6. Trajets, /rate avec recommended false et le rating du motif) seulement s'il réussit. bikeDefectTypeId est l'id (UUID) d'un motif de « Groupes de motifs » (1. Contrat) ; bikeDefectComment est absent quand il est vide ; bikeNumber est le numéro du vélo. Aucun identifiant de trajet. processOrigin: \"Selfcare\" s'ajoute quand le signalement part de « Besoin d'aide ». Pas de returns, pas d'Accept déclaré ; réponse : ProcessResult. Lu dans le binaire Android 3.3.10 puis 3.6.1, jamais exercé (📱). Voir § 6.4.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"CREATE_BIKE_DEFECT\",\n  \"parameters\": {\n    \"bikeDefectTypeId\": \"<[Format : java.util.UUID]>{{defectTypeId}}\",\n    \"bikeNumber\": \"<[Format : java.lang.Long]>{{bikeNumber}}\",\n    \"bikeDefectDomain\": \"BIKE\",\n    \"bikeDefectIsClosed\": false,\n    \"bikeDefectComment\": \"Frein arrière qui frotte\",\n    \"bikeDefectUserType\": \"CUSTOMER\",\n    \"accountId\": \"<[Format : java.util.UUID]>{{accountId}}\",\n    \"bikeDefectDeclaredBlocked\": false,\n    \"platform\": \"MOBILE\",\n    \"contract\": \"{{contract}}\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "id": "cyclocity-08-00c"
+        },
+        {
+          "name": "🌐 Reprendre / confirmer un process (toResume)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Taknv1 {{takn}}"
+              },
+              {
+                "key": "Identity",
+                "value": "{{identity}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/vnd.processes.v2+json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/vnd.processes.v2+json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/contracts/{{contract}}/accounts/{{accountId}}/processes/{{executionId}}",
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "contracts",
+                "{{contract}}",
+                "accounts",
+                "{{accountId}}",
+                "processes",
+                "{{executionId}}"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "id": "cyclocity-08-01"
+        }
+      ],
+      "id": "cyclocity-08"
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "https://api.cyclocity.fr"
+    },
+    {
+      "key": "contract",
+      "value": "lyon"
+    },
+    {
+      "key": "clientCode",
+      "value": "vls.web.lyon:PRD"
+    },
+    {
+      "key": "clientKey",
+      "value": "c3d9f5c22a9157a7cc7fe0e38269573bdd2f13ec48f867360ecdcbd35b196f87",
+      "description": "Clé publique du site web (bundle Angular)"
+    },
+    {
+      "key": "takn",
+      "value": "",
+      "description": "Rempli par « Client token »"
+    },
+    {
+      "key": "taknRefresh",
+      "value": ""
+    },
+    {
+      "key": "identity",
+      "value": "",
+      "description": "Access token Keycloak (à coller ; 15 min)"
+    },
+    {
+      "key": "email",
+      "value": "user%40example.com",
+      "description": "Votre email, encodé (@ -> %40)"
+    },
+    {
+      "key": "accountId",
+      "value": "",
+      "description": "Rempli par « Résoudre mon accountId »"
+    },
+    {
+      "key": "stationNumber",
+      "value": "2002"
+    },
+    {
+      "key": "bikeNumber",
+      "value": "20449"
+    },
+    {
+      "key": "standNumber",
+      "value": "1"
+    },
+    {
+      "key": "offerId",
+      "value": "75171"
+    },
+    {
+      "key": "badgeId",
+      "value": "22"
+    },
+    {
+      "key": "groupId",
+      "value": "190"
+    },
+    {
+      "key": "documentId",
+      "value": ""
+    },
+    {
+      "key": "subscriptionId",
+      "value": ""
+    },
+    {
+      "key": "tripId",
+      "value": "",
+      "description": "UUID d'un trajet (« Historique des trajets »)"
+    },
+    {
+      "key": "periodId",
+      "value": ""
+    },
+    {
+      "key": "transactionId",
+      "value": ""
+    },
+    {
+      "key": "executionId",
+      "value": ""
+    },
+    {
+      "key": "startDateMs",
+      "value": ""
+    },
+    {
+      "key": "saleId",
+      "value": ""
+    },
+    {
+      "key": "endDateMs",
+      "value": ""
+    },
+    {
+      "key": "defectTypeId",
+      "value": "",
+      "description": "id (UUID) d'une entrée de GET /defect-types, pour CREATE_BIKE_DEFECT"
+    },
+    {
+      "key": "stationId",
+      "value": ""
+    },
+    {
+      "key": "bikeId",
+      "value": ""
+    }
+  ]
+}

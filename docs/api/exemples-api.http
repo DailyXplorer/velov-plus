@@ -1,0 +1,132 @@
+@api = https://api.cyclocity.fr
+@contract = lyon
+@client_token = A_REMPLIR
+@identity = A_REMPLIR
+@account_id = 00000000-0000-0000-0000-000000000000
+@subscription_id = 00000000-0000-0000-0000-000000000000
+@station_id = 00000000-0000-0000-0000-000000000000
+@bike_id = 00000000-0000-0000-0000-000000000000
+@station_number = 0
+@stand_number = 0
+@bike_number = 0
+@email_encoded = utilisateur%40example.com
+
+### Jeton applicatif public. Vérifié le 28 octobre 2026.
+POST {{api}}/auth/environments/PRD/client_tokens
+Content-Type: application/json
+
+{
+  "code": "vls.web.lyon:PRD",
+  "key": "c3d9f5c22a9157a7cc7fe0e38269573bdd2f13ec48f867360ecdcbd35b196f87"
+}
+
+### Découverte de la connexion personnelle.
+GET https://iam.cyclocity.fr/realms/vls-default/.well-known/openid-configuration
+
+### Résolution du compte après la connexion OIDC. Issue des captures publiées.
+GET {{api}}/contracts/{{contract}}/accounts/{{email_encoded}}/id
+Authorization: Taknv1 {{client_token}}
+Identity: {{identity}}
+Accept: application/json
+
+### Profil.
+GET {{api}}/contracts/{{contract}}/accounts/{{account_id}}
+Authorization: Taknv1 {{client_token}}
+Identity: {{identity}}
+Accept: application/vnd.account.v4+json
+
+### Points.
+GET {{api}}/contracts/{{contract}}/accounts/{{account_id}}/rewards
+Authorization: Taknv1 {{client_token}}
+Identity: {{identity}}
+Accept: application/vnd.rewards.v5+json
+
+### Historique des points.
+GET {{api}}/contracts/{{contract}}/accounts/{{account_id}}/rewards/history?page=0
+Authorization: Taknv1 {{client_token}}
+Identity: {{identity}}
+Accept: application/vnd.rewards.v5+json
+
+### Règles publiques de fidélité. Vérifié le 28 octobre 2026.
+GET {{api}}/contracts/{{contract}}/rewards/configurations
+Authorization: Taknv1 {{client_token}}
+Accept: application/vnd.rewards.v5+json
+
+### Abonnements permettant la location. À valider avec le compte.
+GET {{api}}/contracts/{{contract}}/accounts/{{account_id}}/subscriptions?periods=CURRENT&typeList=ST&typeList=LT&isLocked=false
+Authorization: Taknv1 {{client_token}}
+Identity: {{identity}}
+Accept: application/vnd.subscription.v6+json
+
+### Station.
+GET {{api}}/contracts/{{contract}}/stations/{{station_number}}
+Authorization: Taknv1 {{client_token}}
+Accept: application/vnd.station.v4+json
+
+### Vélos. Cette route reçoit actuellement 403 dans l'environnement d'enquête.
+GET {{api}}/contracts/{{contract}}/bikes?stationNumber={{station_number}}
+Authorization: Taknv1 {{client_token}}
+Accept: application/vnd.bikes.v4+json
+
+### Réservations en cours.
+GET {{api}}/contracts/{{contract}}/accounts/{{account_id}}/bookings
+Authorization: Taknv1 {{client_token}}
+Identity: {{identity}}
+
+### Trajets en cours.
+GET {{api}}/contracts/{{contract}}/accounts/{{account_id}}/trips/ongoing
+Authorization: Taknv1 {{client_token}}
+Identity: {{identity}}
+Accept: application/vnd.trip.v6+json
+
+### Historique des trajets.
+GET {{api}}/contracts/{{contract}}/accounts/{{account_id}}/trips?status=FINISHED&status=ERROR&status=REVERSED
+Authorization: Taknv1 {{client_token}}
+Identity: {{identity}}
+Accept: application/vnd.trip.v6+json
+
+### Validité du paiement.
+GET {{api}}/contracts/{{contract}}/accounts/{{account_id}}/payment
+Authorization: Taknv1 {{client_token}}
+Identity: {{identity}}
+Accept: application/vnd.payment.v3+json
+
+### Carte publique sans jeton. Vérifié le 28 octobre 2026.
+GET {{api}}/contracts/{{contract}}/gbfs/v3/station_status.json
+
+### Mutation. Réserver consomme des points et immobilise le vélo. Corps Android rapporté.
+POST {{api}}/contracts/{{contract}}/accounts/{{account_id}}/bookings
+Authorization: Taknv1 {{client_token}}
+Identity: {{identity}}
+Content-Type: application/json; charset=UTF-8
+
+{
+  "stationId": "{{station_id}}",
+  "stationNumber": {{station_number}},
+  "standNumber": {{stand_number}},
+  "subscriptionId": "{{subscription_id}}",
+  "bikeId": "{{bike_id}}"
+}
+
+### Mutation. Libérer un vélo en étant présent à la station. Capture publiée, non exécutée ici.
+POST {{api}}/contracts/{{contract}}/accounts/{{account_id}}/subscriptions/{{subscription_id}}/trips
+Authorization: Taknv1 {{client_token}}
+Identity: {{identity}}
+Content-Type: application/vnd.trip.v6+json
+
+{
+  "stationNumber": {{station_number}},
+  "standNumber": {{stand_number}},
+  "bikeNumber": {{bike_number}},
+  "typeFrom": "SMARTPHONE"
+}
+
+### Mutation. Régler l'utilisation automatique des points. Capture publiée, non exécutée ici.
+PATCH {{api}}/contracts/{{contract}}/accounts/{{account_id}}/rewards
+Authorization: Taknv1 {{client_token}}
+Identity: {{identity}}
+Content-Type: application/vnd.rewards.v5+json
+
+{
+  "autoSpend": false
+}

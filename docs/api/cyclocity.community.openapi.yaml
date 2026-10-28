@@ -1,0 +1,3009 @@
+openapi: 3.1.0
+info:
+  title: API Cyclocity (Vélo'v Lyon), spécification communautaire non officielle
+  version: 2026.09.1
+  summary: Reverse-engineering de api.cyclocity.fr tel qu'utilisé par l'app Vélo'v officiel (iOS 3.3.1, puis 3.6.1) et velov.grandlyon.com.
+  description: |
+    Spécification **partielle et non officielle** dérivée de `README.md` (captures réseau
+    fév.-mars et sept. 2026, vérifications live du 18/08/2026). Elle couvre les endpoints observés (✅) et les
+    principaux endpoints déclarés dans le front web (🌐). Rien n'est supporté par JCDecaux ni par la
+    Métropole de Lyon ; les endpoints, clés et formats peuvent changer sans préavis.
+
+    **Deux tokens cumulatifs** :
+    - `Authorization: Taknv1 {clientToken}`, obtenu par `POST /auth/environments/PRD/client_tokens` (2 h) ;
+    - `Identity: {keycloakAccessToken}`, access token OIDC de `https://iam.cyclocity.fr/realms/vls-default`
+      (15 min), requis sur tout ce qui touche à un compte. Le flow Keycloak (PKCE + formulaire `device_id`)
+      est décrit au § 3.2 de la documentation ; il n'est pas modélisé ici.
+
+    **Négociation de contenu** : la plupart des ressources exigent un `Accept` versionné
+    (`application/vnd.{ressource}.v{n}+json`) ; sans lui, `406`/`415` ou une shape legacy.
+
+    Extension `x-status` sur chaque opération : `observed` (✅ capture), `live` (✅ vérifié par requête
+    directe), `declared` (🌐 front web), `decompiled` (📱 lu dans les interfaces Retrofit de l'app Android
+    officielle, 3.6.1 depuis le 23/10/2026 et 3.3.10 auparavant, non exercé en capture), `reported`
+    (📚 Pikari0 / 🧩 VLSKit, non revérifié). Les en-têtes communs de l'app Android 3.6.1 (`Accept-Language`,
+    `Taknv1` partout, `Identity` seulement sous `/accounts/`) sont au § 4.5 du README.
+
+    Utilisez uniquement **votre propre compte** et respectez les CGU du service. Pour les seules
+    stations/disponibilités, préférez l'open data officiel (GBFS servi sans authentification).
+  license:
+    name: CC BY 4.0
+    url: https://creativecommons.org/licenses/by/4.0/deed.fr
+  contact:
+    name: Yann Lombard, dépôt cyclocity-api-doc (README.md, issues, PR)
+    url: https://github.com/yannlombard/cyclocity-api-doc
+
+servers:
+  - url: https://api.cyclocity.fr
+    description: Production (seul environnement observé, `PRD`)
+
+tags:
+  - name: Auth
+    description: Client token applicatif (`Taknv1`). L'identité utilisateur vient de Keycloak (voir description générale).
+  - name: Contrat
+    description: Métadonnées, features, contenus, FAQ, CGU du contrat.
+  - name: Stations et vélos
+    description: Détail temps réel des stations et inventaire des vélos (statuts, batterie).
+  - name: Open data (GBFS)
+    description: Flux GBFS 2.3 / 3.0 servis par l'API **sans aucune authentification**.
+  - name: Compte
+    description: Profil, alertes, CGU, favoris, appareils push (`Identity` requis).
+  - name: Offres et badges
+    description: Catalogue des offres, groupes d'offres, badges (supports d'accès), devis.
+  - name: Abonnements
+    description: Abonnements du compte, statuts, reçus PDF.
+  - name: Trajets et statistiques
+    description: Déverrouillage, trajet en cours, historique, statistiques agrégées.
+  - name: Paiement
+    description: Moyen de paiement, solde, transactions, checkout Worldline.
+  - name: Récompenses
+    description: Programme fidélité (points, règles).
+  - name: Process
+    description: Moteur générique pour les opérations transactionnelles (souscription, paiement, changement de badge).
+
+security:
+  - Taknv1: []
+
+paths:
+  # ---------------------------------------------------------------- Auth
+  /auth/environments/PRD/client_tokens:
+    post:
+      tags: [Auth]
+      operationId: createClientToken
+      summary: Obtenir un client token (Taknv1)
+      description: |
+        Le couple `code`/`key` est une constante des clients officiels (non liée à un compte). Celui du site
+        web est public (dans le bundle Angular) : `vls.web.lyon:PRD`. Le token dure 2 h ; le `refreshToken`
+        permet de le renouveler via `POST /auth/access_tokens`. L'app Android 3.6.1 (`pg/b`) l'envoie en
+        `application/json; charset=UTF-8` et ne le redemande qu'à l'expiration du token.
+      security: []
+      x-status: observed
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code, key]
+              properties:
+                code: { type: string, examples: ['vls.web.lyon:PRD'] }
+                key: { type: string, description: 'Clé publique du front (hex, 64 caractères)' }
+      responses:
+        '200':
+          description: Token créé
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accessToken:
+                    { type: string, description: 'JWT RS256, payload zlib-compressé (`zip: DEF`)' }
+                  refreshToken: { type: string, format: uuid }
+  /auth/access_tokens:
+    post:
+      tags: [Auth]
+      operationId: refreshClientToken
+      summary: Renouveler le client token
+      security: []
+      x-status: observed
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refreshToken]
+              properties:
+                refreshToken: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Nouveau token (le refresh token reste le même)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accessToken: { type: string }
+        '401':
+          description: '`auth.error.token.expiredRefreshToken` -> refaire `POST /auth/environments/PRD/client_tokens`'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  # ---------------------------------------------------------------- Contrat
+  /contracts:
+    get:
+      tags: [Contrat]
+      operationId: listContracts
+      summary: Liste des 21 contrats de la plateforme (objets complets, features incluses)
+      x-status: live
+      responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Contract' }
+  /contracts/{contract}:
+    parameters: [{ $ref: '#/components/parameters/contract' }]
+    get:
+      tags: [Contrat]
+      operationId: getContract
+      summary: Métadonnées du contrat + features (175 sur Lyon)
+      x-status: observed
+      responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Contract' }
+  /contracts/{contract}/features:
+    parameters: [{ $ref: '#/components/parameters/contract' }]
+    get:
+      tags: [Contrat]
+      operationId: listFeatures
+      summary: Les features seules
+      x-status: observed
+      responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Feature' }
+  /contracts/{contract}/features/{name}:
+    parameters:
+      - $ref: '#/components/parameters/contract'
+      - {
+          name: name,
+          in: path,
+          required: true,
+          schema: { type: string },
+          example: default.short.term.offer.id,
+        }
+    get:
+      tags: [Contrat]
+      operationId: getFeature
+      summary: Une feature
+      x-status: live
+      responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Feature' }
+  /contracts/{contract}/sponsoring:
+    parameters: [{ $ref: '#/components/parameters/contract' }]
+    get:
+      tags: [Contrat]
+      operationId: listSponsoring
+      summary: Bannières / splash screen
+      description: "L'app Android 3.6.1 (`qi/l`) envoie `?platform=MOBILE&type=WELCOME_IMAGE&active=true`, dans cet ordre, sans `Accept`."
+      x-status: observed
+      parameters:
+        - { name: platform, in: query, schema: { type: string, enum: [WEB, MOBILE] } }
+        - { name: type, in: query, schema: { type: string, enum: [BANNER, WELCOME_IMAGE] } }
+        - { name: active, in: query, schema: { type: boolean } }
+      responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '200':
+          description: Sans filtre, tout l'historique (55 entrées)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id: { type: integer }
+                    contractCode: { type: string }
+                    platform: { type: string }
+                    type: { type: string }
+                    documentId: { type: string, format: uuid }
+                    active: { type: boolean }
+                    link: { type: string }
+                    clickable: { type: string, enum: [YES, 'NO'] }
+                    color: { type: string }
+                    colorBtn: { type: string }
+                    createdAt: { type: string }
+                    updatedAt: { type: string }
+  /contracts/{contract}/assets/{documentId}:
+    parameters:
+      - $ref: '#/components/parameters/contract'
+      - { name: documentId, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      tags: [Contrat]
+      operationId: getAsset
+      summary: Asset (image...) en base64
+      x-status: observed
+      responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '200':
+          description: OK
+          content:
+            application/vnd.document.v3+json:
+              schema: { $ref: '#/components/schemas/Document' }
+  /contracts/{contract}/shops:
+    parameters: [{ $ref: '#/components/parameters/contract' }]
+    get:
+      tags: [Contrat]
+      operationId: listShops
+      summary: Points de vente physiques
+      x-status: observed
+      responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '200':
+          description: OK
+          content:
+            application/vnd.shop.v1+json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id: { type: integer }
+                    contractName: { type: string }
+                    name: { type: string }
+                    address:
+                      type: object
+                      properties:
+                        street: { type: string }
+                        zipCode: { type: string }
+                        city: { type: string }
+                        country: { type: string }
+                    businessHours: { type: array, items: { type: object } }
+                    services: { type: array, items: { type: object } }
+                    status: { type: string, enum: [OPEN, CLOSED] }
+                    content: { type: array, items: { type: object } }
+                    updatedAt: { type: string }
+  /contracts/{contract}/events:
+    parameters: [{ $ref: '#/components/parameters/contract' }]
+    get:
+      tags: [Contrat]
+      operationId: listEvents
+      summary: Événements stations (fermetures, travaux), page Spring
+      x-status: observed
+      parameters:
+        - { name: page, in: query, schema: { type: integer, default: 0 } }
+        - { name: size, in: query, schema: { type: integer, default: 100 } }
+      responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  content:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: integer }
+                        type: { type: string, enum: [CLOSING] }
+                        nature: { type: string, enum: [WORKS, DETERIORATION] }
+                        startDate: { type: string }
+                        endDate: { type: string }
+                        highPriority: { type: boolean }
+                        stations:
+                          type: array
+                          items:
+                            {
+                              type: object,
+                              properties: { code: { type: integer }, label: { type: string } },
+                            }
+                        content:
+                          type: object
+                          properties:
+                            {
+                              language: { type: string },
+                              title: { type: string },
+                              description: { type: string },
+                            }
+                  totalPages: { type: integer }
+                  totalElements: { type: integer }
+                  size: { type: integer }
+                  number: { type: integer }
+  /contracts/{contract}/topics:
+    parameters: [{ $ref: '#/components/parameters/contract' }]
+    get:
+      tags: [Contrat]
+      operationId: listTopics
+      summary: 'Topics de FAQ (Lyon : RIDE, ABO, PAY, REWARDS)'
+      description: "Route du site web : l'app Android 3.6.1 n'a pas d'interface `/topics`, elle connaît ses codes (`PAY`, `ABO`, `RIDE`, `VLS`, `PARKING`)."
+      x-status: live
+      responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '200':
+          description: OK
+          content:
+            application/vnd.topic.v2+json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    {
+                      id: { type: integer },
+                      code: { type: string },
+                      contractName: { type: string },
+                    }
+  /contracts/{contract}/faqs/search:
+    parameters: [{ $ref: '#/components/parameters/contract' }]
+    post:
+      tags: [Contrat]
+      operationId: searchFaqs
+      summary: FAQ d'un topic (`GET /faqs` -> 405)
+      description: "Réponses en texte brut, `language: \"fr\"` seulement ; 35 questions sur Lyon au 16/09/2026 (`RIDE` 10, `ABO` 20, `PAY` 5, `REWARDS` 0). Rendue par le site (page tutoriels et espace client) ; aucune session Charles ne montre un client appeler cet endpoint, et le menu « Besoin d'aide » de l'app ne l'affiche pas."
+      x-status: observed
+      requestBody:
+        required: true
+        description: "Corps `FaqsCriterias` de l'app Android 3.6.1 (`ug/i`) : `topicId` part à `null`, en `application/json; charset=UTF-8`, sans `Accept`."
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [language, code]
+              properties:
+                topicId: { type: ['integer', 'null'], examples: [null] }
+                language: { type: string, examples: [fr] }
+                code: { type: string, examples: [RIDE] }
+      responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id: { type: integer }
+                    topicId: { type: integer }
+                    topicCode: { type: string }
+                    contractName: { type: string }
+                    rank: { type: integer }
+                    contents:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          {
+                            question: { type: string },
+                            response: { type: string },
+                            language: { type: string },
+                          }
+  /contracts/{contract}/cgau/{type}/valid:
+    parameters:
+      - $ref: '#/components/parameters/contract'
+      - {
+          name: type,
+          in: path,
+          required: true,
+          schema: { type: string, enum: [VLS, VLD, PARKING] },
+        }
+    get:
+      tags: [Contrat]
+      operationId: getValidCgau
+      summary: Version valide des CGU d'un type (à renvoyer dans les process, `cgauVersion`)
+      x-status: observed
+      responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '200':
+          description: OK
+          content:
+            application/vnd.cgau.v2+json:
+              schema:
+                type: object
+                properties:
+                  version: { type: string, examples: ['003.002'] }
+                  type: { type: string }
+                  amendmentLevel: { type: string, enum: [MINOR, MAJOR] }
+                  validityStart: { type: string, format: date }
+                  isValid: { type: boolean }
+                  documentId: { type: string, format: uuid }
+  /contracts/{contract}/cgau/{type}/valid/file:
+    parameters:
+      - $ref: '#/components/parameters/contract'
+      - {
+          name: type,
+          in: path,
+          required: true,
+          schema: { type: string, enum: [VLS, VLD, PARKING] },
+        }
+    get:
+      tags: [Contrat]
+      operationId: getValidCgauFile
+      summary: PDF des CGU valides d'un type, en base64 dans une enveloppe JSON
+      description: >-
+        Pas de PDF brut : le document est dans `translations.content` (base64). `Accept:
+        application/vnd.cgau.v2+json` est exigé ; sans `Accept` ou avec `*/*` -> `415`, avec
+        `application/json` ou `application/pdf` -> `406`. Sans client token -> `403 role.not.allowed`.
+        Même réponse sur `/cgau/{type}/versions/{version}/file`.
+      x-status: live
+      responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '200':
+          description: OK
+          content:
+            application/vnd.cgau.v2+json:
+              schema: { $ref: '#/components/schemas/CgauFile' }
+        '406': { description: '`Accept` autre que `application/vnd.cgau.v2+json` (page HTML Tomcat)' }
+        '415': { description: '`Accept` absent ou `*/*` (page HTML Tomcat)' }
+  /contracts/{contract}/cgau/{type}/versions/{version}/file:
+    parameters:
+      - $ref: '#/components/parameters/contract'
+      - {
+          name: type,
+          in: path,
+          required: true,
+          schema: { type: string, enum: [VLS, VLD, PARKING] },
+        }
+      - { name: version, in: path, required: true, schema: { type: string, examples: ['003.002'] } }
+    get:
+      tags: [Contrat]
+      operationId: getCgauVersionFile
+      summary: PDF d'une version donnée des CGU (même enveloppe que `.../valid/file`)
+      x-status: live
+      responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '200':
+          description: OK
+          content:
+            application/vnd.cgau.v2+json:
+              schema: { $ref: '#/components/schemas/CgauFile' }
+  /contracts/{contract}/cgau:
+    parameters: [{ $ref: '#/components/parameters/contract' }]
+    get:
+      tags: [Contrat]
+      operationId: listCgau
+      summary: Toutes les versions des CGU
+      x-status: live
+      responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '200':
+          description: OK
+          content:
+            application/vnd.cgau.v2+json:
+              schema: { type: array, items: { type: object } }
+  /contracts/{contract}/campaigns:
+    parameters: [{ $ref: '#/components/parameters/contract' }]
+    get:
+      tags: [Contrat]
+      operationId: listCampaigns
+      summary: Campagnes promotionnelles (36 sur Lyon, dont des codes génériques)
+      x-status: live
+      responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id: { type: integer }
+                    name: { type: string }
+                    campaignType: { type: string, enum: [UNIQUE, GENERIC] }
+                    promotionType: { type: string, enum: [PERCENTAGE, FIX_AMOUNT] }
+                    discount: { type: number }
+                    genericPromoCode:
+                      type: object
+                      properties:
+                        {
+                          id: { type: integer },
+                          value: { type: string },
+                          lastUpdate: { type: string },
+                        }
+                    validityStart: { type: string }
+                    validityEnd: { type: string }
+                    offersIds: { type: array, items: { type: integer } }
+                    friend: { type: boolean }
+                    sponsorship: { type: boolean }
+  /contracts/{contract}/defect-types:
+    parameters: [{ $ref: '#/components/parameters/contract' }]
+    get:
+      tags: [Contrat]
+      operationId: listDefectTypes
+      summary: 'Types de défauts signalables (exige `Accept: application/vnd.defect-type.v1+json`)'
+      description: |
+        Alimente le motif d'une notation négative : c'est le `code` de l'entrée retenue qui part dans le
+        corps de `POST .../trips/{tripId}/rate` (`cdrCode`), et son `id` qui part dans le process
+        `CREATE_BIKE_DEFECT` (`bikeDefectTypeId`). **Refusé au client token web** (`403 role.not.allowed`,
+        avec ou sans `Identity`, vérifié le 03/10/2026) ; ceux des apps iOS et Android la lisent sans compte. `category=DECLARED_CUSTOMER` correspond à ce que déclare un client,
+        `DECLARED_AGENT` à ce que saisit un agent. Pour un vélo qui n'est pas `ELECTRICAL`, l'app Android
+        retire les entrées `isElectricBike: true` avant de les afficher.
+      x-status: live
+      parameters:
+        - {
+            name: domain,
+            in: query,
+            schema: { type: string, enum: [BIKE, STAND, STATION, UNKNOWN] },
+          }
+        - {
+            name: category,
+            in: query,
+            schema: { type: string, enum: [DECLARED_CUSTOMER, DECLARED_AGENT] },
+          }
+        - { name: active, in: query, schema: { type: boolean } }
+      responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { description: '`role.not.allowed` : client token du site web' }
+        '200':
+          description: OK
+          content:
+            application/vnd.defect-type.v1+json:
+              schema: { type: array, items: { $ref: '#/components/schemas/DefectType' } }
+
+  /contracts/{contract}/defect-type-groups:
+    parameters: [{ $ref: '#/components/parameters/contract' }]
+    get:
+      tags: [Contrat]
+      operationId: listDefectTypeGroups
+      summary: 'Motifs de « Je déconseille » par groupe (app Android 3.6.1, `Accept: application/vnd.defect-type-group.v1+json`)'
+      description: |
+        La route de l'app Android 3.6.1 (`qi/b`), à la place de `/defect-types` : un groupe (« Frein ») puis un
+        motif (« Freine mal »). L'`id` du motif part dans le process `CREATE_BIKE_DEFECT` (`bikeDefectTypeId`),
+        son `rating` (30 ou 60 à Lyon) dans `POST .../trips/{tripId}/rate`. **Refusé au client token web**
+        (`403 role.not.allowed`) ; lu avec celui de l'app Android le 23/10/2026 : 9 groupes, 26 motifs.
+      x-status: live
+      parameters:
+        - { name: locale, in: query, schema: { type: string, examples: [fr] } }
+        - { name: withDefectTypes, in: query, schema: { type: boolean } }
+      responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { description: '`role.not.allowed` : client token du site web' }
+        '200':
+          description: OK
+          content:
+            application/vnd.defect-type-group.v1+json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id: { type: string, format: uuid }
+                    label: { type: string, examples: ['2. Frein'] }
+                    translation: { type: string, examples: [Frein] }
+                    isElectrical: { type: boolean }
+                    defectTypes:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          id: { type: string, format: uuid }
+                          value: { type: string, examples: [Freine mal] }
+                          isCommentMandatory: { type: boolean }
+                          rating: { type: integer, enum: [30, 60] }
+
+  # ---------------------------------------------------------------- Stations et vélos
+  /contracts/{contract}/stations:
+    parameters: [{ $ref: '#/components/parameters/contract' }]
+    get:
+      tags: [Stations et vélos]
+      operationId: listStations
+      summary: Toutes les stations
+      description: |
+        Sans `Accept` versionné -> `application/station+json`, mêmes champs que `vnd.station.v4` (inclut des
+        stations de test) ; la shape legacy `StationLegacy` est retirée au 23/10/2026. Avec `vnd.station.v4`
+        et `?bonus=true` -> `[]` sur Lyon. Pour la carte, préférez le GBFS (§ 10) ou l'API JCDecaux v3.
+      x-status: live
+      parameters:
+        - { name: bonus, in: query, schema: { type: boolean } }
+      responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '200':
+          description: OK
+          content:
+            application/station+json:
+              schema: { type: array, items: { $ref: '#/components/schemas/Station' } }
+            application/vnd.station.v4+json:
+              schema: { type: array, items: { $ref: '#/components/schemas/Station' } }
+  /contracts/{contract}/stations/{number}:
+    parameters:
+      - $ref: '#/components/parameters/contract'
+      - $ref: '#/components/parameters/stationNumber'
+    get:
+      tags: [Stations et vélos]
+      operationId: getStation
+      summary: Détail temps réel d'une station
+      description: 'Sans `Accept: application/vnd.station.v4+json`, `application/station+json` aux mêmes champs que la v4 (relevé du 23/10/2026) ; la shape legacy avec la liste des vélos (`bikes[]`) est retirée.'
+      x-status: observed
+      responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '200':
+          description: OK
+          content:
+            application/vnd.station.v4+json:
+              schema: { $ref: '#/components/schemas/Station' }
+            application/station+json:
+              schema: { $ref: '#/components/schemas/Station' }
+  /contracts/{contract}/stations/{number}/info:
+    parameters:
+      - $ref: '#/components/parameters/contract'
+      - $ref: '#/components/parameters/stationNumber'
+    get:
+      tags: [Stations et vélos]
+      operationId: getStationInfo
+      summary: Infos station (label, code, country, agency, district)
+      x-status: live
+      responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  label: { type: string }
+                  code: { type: integer }
+                  country: { type: integer }
+                  agency: { type: integer }
+                  district: { type: integer }
+  /contracts/{contract}/bikes:
+    parameters: [{ $ref: '#/components/parameters/contract' }]
+    get:
+      tags: [Stations et vélos]
+      operationId: listBikes
+      summary: Vélos d'une station / un vélo / tout le parc
+      description: |
+        `?stationNumber=` -> vélos garés dans la station (c'est de là que viennent `bikeNumber`/`standNumber` du
+        déverrouillage). `?number=` -> un vélo (tableau à 1 élément). Sans filtre -> **tout le parc** (17 652
+        entrées, ~1,3 Mo, tous statuts). Un `User-Agent` littéralement `node` est bloqué par le WAF (403).
+        `v4` (site web) est un sur-ensemble de `v3` (app mobile officielle) : mêmes champs, plus
+        `lastTripDateTime`, `lastControlDateTime`, `nextCheck`, `lastRevisionDateTime`, `nextReview`,
+        `isReserved` et `energySource` (comparé le 24/09/2026).
+      x-status: live
+      parameters:
+        - { name: stationNumber, in: query, schema: { type: integer }, example: 2002 }
+        - {
+            name: number,
+            in: query,
+            schema: { type: integer },
+            description: Numéro de vélo,
+            example: 20449,
+          }
+      responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '200':
+          description: OK
+          content:
+            application/vnd.bikes.v3+json:
+              schema: { type: array, items: { $ref: '#/components/schemas/Bike' } }
+            application/vnd.bikes.v4+json:
+              schema: { type: array, items: { $ref: '#/components/schemas/Bike' } }
+  /contracts/{contract}/bikes/ratings:
+    parameters: [{ $ref: '#/components/parameters/contract' }]
+    get:
+      tags: [Stations et vélos]
+      operationId: getBikeRatings
+      summary: 'Notes de vélos (exige `Accept: application/vnd.bikes.v4+json`, sinon 415/406)'
+      x-status: live
+      parameters:
+        - { name: id, in: query, schema: { type: string } }
+      responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '200':
+          description: '`[]` observé'
+          content:
+            application/vnd.bikes.v4+json:
+              schema: { type: array, items: { type: object } }
+
+  # ---------------------------------------------------------------- GBFS
+  /contracts/{contract}/gbfs/gbfs.json:
+    parameters: [{ $ref: '#/components/parameters/contract' }]
+    get:
+      tags: [Open data (GBFS)]
+      operationId: gbfsIndex
+      summary: Index GBFS 2.3 (sans authentification)
+      security: []
+      x-status: live
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: object } } } }
+  /contracts/{contract}/gbfs/gbfs_versions.json:
+    parameters: [{ $ref: '#/components/parameters/contract' }]
+    get:
+      tags: [Open data (GBFS)]
+      operationId: gbfsVersions
+      summary: Versions disponibles (2.3 -> `/gbfs/v2/`, 3.0 -> `/gbfs/v3/gbfs.json`)
+      security: []
+      x-status: live
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: object } } } }
+  /contracts/{contract}/gbfs/v3/{file}:
+    parameters:
+      - $ref: '#/components/parameters/contract'
+      - name: file
+        in: path
+        required: true
+        schema:
+          type: string
+          enum:
+            [
+              gbfs.json,
+              station_information.json,
+              station_status.json,
+              system_information.json,
+              vehicle_types.json,
+            ]
+    get:
+      tags: [Open data (GBFS)]
+      operationId: gbfsV3File
+      summary: Fichier GBFS 3.0 (`station_status` TTL 1 s, `station_information` 300 s, autres 3600 s)
+      description: Répond sans authentification ; l'app Android 3.6.1 (`ug/j`) l'appelle quand même avec `Taknv1`.
+      security: [{}, { Taknv1: [] }]
+      x-status: live
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: object } } } }
+  /contracts/{contract}/gbfs/v2/{file}:
+    parameters:
+      - $ref: '#/components/parameters/contract'
+      - name: file
+        in: path
+        required: true
+        schema:
+          type: string
+          enum:
+            [
+              station_information.json,
+              station_status.json,
+              system_information.json,
+              vehicle_types.json,
+              gbfs_versions.json,
+            ]
+    get:
+      tags: [Open data (GBFS)]
+      operationId: gbfsV2File
+      summary: Fichier GBFS 2.3
+      security: []
+      x-status: live
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: object } } } }
+
+  # ---------------------------------------------------------------- Compte
+  /contracts/{contract}/accounts/{email}/id:
+    parameters:
+      - $ref: '#/components/parameters/contract'
+      - {
+          name: email,
+          in: path,
+          required: true,
+          schema: { type: string, format: email },
+          description: 'Email encodé (`user%40example.com`)',
+        }
+    get:
+      tags: [Compte]
+      operationId: resolveAccountId
+      summary: Résolution email -> accountId (chaîne JSON)
+      security: [{ Taknv1: [], Identity: [] }]
+      x-status: observed
+      responses:
+        '200':
+          description: UUID du compte, entre guillemets
+          content:
+            application/json:
+              schema: { type: string, format: uuid }
+        '403': { $ref: '#/components/responses/ForbiddenIdentity' }
+  /contracts/{contract}/accounts/{accountId}:
+    parameters:
+      - $ref: '#/components/parameters/contract'
+      - $ref: '#/components/parameters/accountId'
+    get:
+      tags: [Compte]
+      operationId: getAccount
+      summary: Profil complet
+      security: [{ Taknv1: [], Identity: [] }]
+      x-status: observed
+      responses:
+        '200':
+          description: OK
+          content:
+            application/vnd.account.v4+json:
+              schema: { $ref: '#/components/schemas/Account' }
+        '403': { $ref: '#/components/responses/ForbiddenIdentity' }
+    patch:
+      tags: [Compte]
+      operationId: patchAccount
+      summary: Modifier le profil (corps partiel)
+      description: |
+        L'app Android 3.6.1 n'envoie que `Content-Type: application/vnd.account.v4+json`, sans `Accept` (`ug/a.c`, `ug/a.h`).
+        Sert aussi à compléter le profil d'un compte neuf (`CompleteAccountActivity` de l'app Android) :
+        `sex`, `firstName`, `lastName`, `birthDate`, `phoneNumber`, plus `personalIdentifier` si le contrat
+        porte la feature `account.personal.identifier.type` (absente à Lyon). Ces cinq champs suffisent à
+        porter `completion` à 1.0, sans adresse (vérifié sur un compte de test le 2026-10-02).
+        Le téléphone est validé comme le fait libphonenumber : un numéro d'une plage non attribuée est refusé.
+      security: [{ Taknv1: [], Identity: [] }]
+      x-status: observed
+      requestBody:
+        required: true
+        content:
+          application/vnd.account.v4+json:
+            schema:
+              type: object
+              properties:
+                sex:
+                  type: string
+                  enum: [M, F, O]
+                  description: '`O` seulement si la feature `gender.other.enabled` du contrat est vraie (absente à Lyon).'
+                firstName: { type: string }
+                lastName: { type: string }
+                birthDate: { type: string, format: date }
+                country: { type: string, examples: [FR] }
+                zipCode: { type: string }
+                city: { type: string }
+                phoneNumber: { type: string, examples: ['+33600000000'] }
+                address:
+                  type: object
+                  properties:
+                    name: { type: string, maxLength: 38 }
+                    complement: { type: string }
+                personalIdentifier: { type: string }
+      responses:
+        '400':
+          description: 'Valeur refusée, ex. `accounts.exception.validation.failed` (« Account invalid phone number »)'
+          content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/ForbiddenIdentity' }
+        '200':
+          description: Profil complet mis à jour
+          content:
+            application/vnd.account.v4+json:
+              schema: { $ref: '#/components/schemas/Account' }
+  /contracts/{contract}/accounts/{accountId}/alerts:
+    parameters:
+      - $ref: '#/components/parameters/contract'
+      - $ref: '#/components/parameters/accountId'
+    get:
+      tags: [Compte]
+      operationId: listAlerts
+      summary: Alertes (bloquantes ou non)
+      security: [{ Taknv1: [], Identity: [] }]
+      x-status: observed
+      responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/ForbiddenIdentity' }
+        '200':
+          description: OK
+          content:
+            application/vnd.account.v4+json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    value:
+                      {
+                        type: string,
+                        enum:
+                          [
+                            NO_VALID_SUBSCRIPTIONS,
+                            POST_PAYMENT_REJECTED,
+                            INVALID_CB,
+                            EXPIRING_CB,
+                            PROOF_WAITING,
+                          ],
+                      }
+                    key: { type: string }
+                    isBlockingStatus: { type: boolean }
+                    blockingStatus: { type: boolean }
+  /contracts/{contract}/accounts/{accountId}/cgau:
+    parameters:
+      - $ref: '#/components/parameters/contract'
+      - $ref: '#/components/parameters/accountId'
+    get:
+      tags: [Compte]
+      operationId: getAccountCgau
+      summary: État d'acceptation des CGU
+      security: [{ Taknv1: [], Identity: [] }]
+      x-status: observed
+      responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/ForbiddenIdentity' }
+        '200':
+          description: OK
+          content:
+            application/vnd.account.v4+json:
+              schema:
+                type: object
+                properties:
+                  vlsCgauValidated: { type: boolean }
+                  vldCgauValidated: { type: boolean }
+                  parkingCgauValidated: { type: boolean }
+  /contracts/{contract}/accounts/{accountId}/offers:
+    parameters:
+      - $ref: '#/components/parameters/contract'
+      - $ref: '#/components/parameters/accountId'
+    get:
+      tags: [Compte]
+      operationId: listAccountOfferIds
+      summary: IDs des offres accessibles au compte
+      security: [{ Taknv1: [], Identity: [] }]
+      x-status: observed
+      parameters:
+        - { name: platform, in: query, schema: { type: string }, example: 'WEB,PRIVATE' }
+      responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/ForbiddenIdentity' }
+        '200':
+          description: OK
+          content:
+            application/vnd.account.v4+json:
+              schema: { type: array, items: { type: integer } }
+  /contracts/{contract}/accounts/{accountId}/offerGroups/{groupId}/offers:
+    parameters:
+      - $ref: '#/components/parameters/contract'
+      - $ref: '#/components/parameters/accountId'
+      - $ref: '#/components/parameters/groupId'
+    get:
+      tags: [Compte]
+      operationId: getOfferEligibility
+      summary: Éligibilité par offre d'un groupe
+      security: [{ Taknv1: [], Identity: [] }]
+      x-status: observed
+      responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/ForbiddenIdentity' }
+        '200':
+          description: OK
+          content:
+            application/vnd.account.v4+json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    offerId: { type: integer }
+                    eligible: { type: boolean }
+                    eligibilityDetails:
+                      {
+                        type: string,
+                        enum:
+                          [
+                            ELIGIBLE,
+                            OFFER_AGE_INVALID,
+                            ALREADY_VALID_SUBSCRIPTION,
+                            BATTERY_SUBSCRIPTION_INELIGIBLE,
+                          ],
+                      }
+  /contracts/{contract}/accounts/{accountId}/devices:
+    parameters:
+      - $ref: '#/components/parameters/contract'
+      - $ref: '#/components/parameters/accountId'
+    post:
+      tags: [Compte]
+      operationId: registerDevice
+      summary: Enregistrer le token push (au login)
+      security: [{ Taknv1: [], Identity: [] }]
+      x-status: observed
+      requestBody: { $ref: '#/components/requestBodies/Device' }
+      responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/ForbiddenIdentity' }
+        '200': { description: Echo du corps }
+    delete:
+      tags: [Compte]
+      operationId: unregisterDevice
+      summary: Supprimer le token push (avant le logout Keycloak)
+      security: [{ Taknv1: [], Identity: [] }]
+      x-status: observed
+      requestBody: { $ref: '#/components/requestBodies/Device' }
+      responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/ForbiddenIdentity' }
+        '200': { description: Echo du corps }
+  /contracts/{contract}/accounts/{accountId}/stationbookmarks/{stationNumber}:
+    parameters:
+      - $ref: '#/components/parameters/contract'
+      - $ref: '#/components/parameters/accountId'
+      - $ref: '#/components/parameters/stationNumberBookmark'
+    post:
+      tags: [Compte]
+      operationId: addStationBookmark
+      summary: Ajouter une station favorite
+      description: L'app Android 3.6.1 écrit le chemin avec un slash final, `/stationbookmarks/{stationNumber}/` (`qi/m`).
+      security: [{ Taknv1: [], Identity: [] }]
+      x-status: live
+      responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/ForbiddenIdentity' }
+        '200':
+          description: Le numéro de station
+          content: { application/vnd.account.v4+json: { schema: { type: integer } } }
+    delete:
+      tags: [Compte]
+      operationId: removeStationBookmark
+      summary: Retirer une station favorite
+      security: [{ Taknv1: [], Identity: [] }]
+      x-status: live
+      responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/ForbiddenIdentity' }
+        '204': { description: No Content }
+  /contracts/{contract}/accounts/{accountId}/bookings:
+    parameters:
+      - $ref: '#/components/parameters/contract'
+      - $ref: '#/components/parameters/accountId'
+    get:
+      tags: [Compte]
+      operationId: listBookings
+      summary: Réservations en cours du compte (`[]` observé)
+      description: |
+        Capturé sur l'app iOS avec `Accept: */*`, toujours vide. L'app Android croise la liste avec
+        `GET /bikes` par `bikeId` : un vélo `RESERVED` absent de la liste est réservé par un autre
+        usager, et l'app refuse de le libérer. En station, un vélo réservé reste pourtant `AVAILABLE`
+        avec `isReserved: true` (`bikes.v4`) : c'est ce champ qu'il faut croiser. README § 5.9.
+      security: [{ Taknv1: [], Identity: [] }]
+      x-status: observed
+      responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/ForbiddenIdentity' }
+        '200':
+          description: OK
+          content:
+            application/booking+json:
+              schema: { type: array, items: { $ref: '#/components/schemas/Booking' } }
+    post:
+      tags: [Compte]
+      operationId: createBooking
+      summary: Réserver un vélo (15 min, 10 points de fidélité)
+      description: |
+        Lu dans le binaire Android 3.3.10 (`tg/d`, `CreateBooking`, `il/a$a`), relu identique dans la
+        3.6.1 (`ug/d`, `cl/a`) ; refus observés, réponse de succès jamais relevée telle quelle. L'appel
+        coûte des points et retire le vélo aux autres usagers pendant la durée de la feature
+        `bike.booking.duration` (900 s à Lyon). Aucun en-tête déclaré : le corps part en
+        `application/json; charset=UTF-8` (Jackson), sans `Accept`. Avant l'appel, l'app vérifie le solde
+        (`GET .../rewards`) contre le `reward` de l'entrée `BIKE_BOOKING` de
+        `GET /rewards/configurations`, puis choisit un abonnement ST ou LT en cours. Pas de route
+        d'annulation. README § 5.9.
+      security: [{ Taknv1: [], Identity: [] }]
+      x-status: decompiled
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateBooking' }
+      responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/ForbiddenIdentity' }
+        '200':
+          description: La réservation créée
+          content:
+            application/booking+json:
+              schema: { $ref: '#/components/schemas/Booking' }
+        '400':
+          description: >-
+            Vélo déjà réservé par un autre usager (observé le 06/10/2026) :
+            `booking.exception.bike.already.reserved`, « The requested bike is already reserved ».
+            Réservation déjà en cours sur le compte (observé le 12/10/2026, une seule
+            réservation à la fois) : `bookings.exception.not.authorized`, « The booking is not authorized ».
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  # ---------------------------------------------------------------- Offres et badges
+  /contracts/{contract}/offers:
+    parameters: [{ $ref: '#/components/parameters/contract' }]
+    get:
+      tags: [Offres et badges]
+      operationId: listOffers
+      summary: Toutes les offres du contrat (48 sur Lyon, y compris PRIVATE/TERMINAL)
+      x-status: observed
+      responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '200':
+          description: OK
+          content:
+            application/vnd.offer.v2+json:
+              schema: { type: array, items: { $ref: '#/components/schemas/Offer' } }
+  /contracts/{contract}/offers/{offerId}:
+    parameters:
+      - $ref: '#/components/parameters/contract'
+      - $ref: '#/components/parameters/offerId'
+    get:
+      tags: [Offres et badges]
+      operationId: getOffer
+      summary: Détail d'une offre
+      x-status: observed
+      responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '200':
+          description: OK
+          content:
+            application/vnd.offer.v2+json:
+              schema: { $ref: '#/components/schemas/Offer' }
+  /contracts/{contract}/offers/{offerId}/supplements:
+    parameters:
+      - $ref: '#/components/parameters/contract'
+      - $ref: '#/components/parameters/offerId'
+    get:
+      tags: [Offres et badges]
+      operationId: listOfferSupplements
+      summary: Suppléments (assurance, livraison... VLD), `[]` sur les offres VLS
+      x-status: observed
+      parameters:
+        - { name: isValid, in: query, schema: { type: boolean } }
+      responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '200':
+          {
+            description: OK,
+            content: { application/json: { schema: { type: array, items: { type: object } } } },
+          }
+  /contracts/{contract}/offers/{offerId}/supplements/badges/{badgeId}/packages:
+    parameters:
+      - $ref: '#/components/parameters/contract'
+      - $ref: '#/components/parameters/offerId'
+      - $ref: '#/components/parameters/badgeId'
+    post:
+      tags: [Offres et badges]
+      operationId: quoteOffer
+      summary: Devis / pré-achat d'une offre pour un badge (ne débite pas)
+      description: |
+        L'app le rappelle à chaque changement de date de début. Le débit intervient dans le process
+        `SHORT_TERM_SUBSCRIPTION_V2` (§ 6.1). L'app iOS y joint `Identity` ; l'app Android 3.6.1 non (pas de
+        segment `accounts` dans le chemin), avec le corps `OfferSupplements` entier, `null` compris, en
+        `application/json; charset=UTF-8` et sans `Accept` (`ul/b`, `fl/a`).
+      security: [{ Taknv1: [] }, { Taknv1: [], Identity: [] }]
+      x-status: observed
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [supplements, subscriptionStart]
+              properties:
+                supplements: { type: array, items: { type: integer } }
+                promocode: { type: ['string', 'null'] }
+                subscriptionStart: { type: string, examples: ['2026-03-01T10:12:00'] }
+                birthDate:
+                  type: ['string', 'null']
+                  description: '`yyyy-MM-dd` ; seulement pour un compte complet qui a un moyen de paiement'
+                  examples: ['1990-01-01']
+                paymentMethod: { type: ['string', 'null'], enum: [CB, ADP, null] }
+                deliveryType: { type: ['string', 'null'] }
+                bikeModelId: { type: ['integer', 'null'] }
+                renewal: { type: boolean }
+      responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/ForbiddenIdentity' }
+        '200':
+          description: Devis
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Package' }
+  /contracts/{contract}/offerGroups:
+    parameters: [{ $ref: '#/components/parameters/contract' }]
+    get:
+      tags: [Offres et badges]
+      operationId: listOfferGroups
+      summary: Groupes d'offres (rubriques)
+      description: L'app Android 3.6.1 l'appelle sans `Accept` (`ug/k.l`) ; la capture iOS envoie `application/vnd.offer.v2+json`.
+      x-status: observed
+      parameters:
+        - { name: platform, in: query, schema: { type: string, enum: [MOBILE, WEB] } }
+      responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '200':
+          description: OK
+          content:
+            application/vnd.offer.v2+json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id: { type: integer }
+                    contractCode: { type: string }
+                    title: { type: string }
+                    description: { type: string, description: HTML }
+                    platforms: { type: array, items: { type: string } }
+                    offerIds: { type: array, items: { type: integer } }
+                    position: { type: integer }
+  /contracts/{contract}/offerGroups/{groupId}/offers:
+    parameters:
+      - $ref: '#/components/parameters/contract'
+      - $ref: '#/components/parameters/groupId'
+    get:
+      tags: [Offres et badges]
+      operationId: listOfferGroupOffers
+      summary: Offres d'un groupe
+      x-status: observed
+      responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '200':
+          description: OK
+          content:
+            application/vnd.offer.v2+json:
+              schema: { type: array, items: { $ref: '#/components/schemas/Offer' } }
+  /contracts/{contract}/badges/{badgeId}:
+    parameters:
+      - $ref: '#/components/parameters/contract'
+      - $ref: '#/components/parameters/badgeId'
+    get:
+      tags: [Offres et badges]
+      operationId: getBadge
+      summary: Détail d'un badge (support d'accès)
+      x-status: observed
+      responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Badge' }
+  /contracts/{contract}/badges/{badgeId}/logo:
+    parameters:
+      - $ref: '#/components/parameters/contract'
+      - $ref: '#/components/parameters/badgeId'
+    get:
+      tags: [Offres et badges]
+      operationId: getBadgeLogo
+      summary: Logo (base64) d'un badge
+      x-status: observed
+      responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: { type: integer }
+                  filename: { type: string }
+                  mimeType: { type: string }
+                  translations:
+                    type: object
+                    properties:
+                      { id: { type: integer }, content: { type: string, contentEncoding: base64 } }
+
+  # ---------------------------------------------------------------- Abonnements
+  /contracts/{contract}/accounts/{accountId}/subscriptions:
+    parameters:
+      - $ref: '#/components/parameters/contract'
+      - $ref: '#/components/parameters/accountId'
+    get:
+      tags: [Abonnements]
+      operationId: listSubscriptions
+      summary: Liste des abonnements
+      description: "**Sans `periods`, seuls les abonnements courants sont renvoyés** (`[]` si aucun). Pour trouver l'abonnement utilisable pour déverrouiller, l'app iOS envoie `?isLocked=0&periods=CURRENT&type=ST` puis `type=LT` ; l'app Android 3.6.1 une seule requête, `?periods=CURRENT&typeList=ST&typeList=LT&isLocked=false` (`ug/r.c`), dont elle écarte ensuite les abonnements `locked` et ceux sans période."
+      security: [{ Taknv1: [], Identity: [] }]
+      x-status: observed
+      parameters:
+        - {
+            name: periods,
+            in: query,
+            schema: { type: string },
+            description: 'CURRENT, PAST, FUTURE, combinables',
+            example: 'PAST,CURRENT,FUTURE',
+          }
+        - { name: type, in: query, schema: { type: string, enum: [ST, LT, UB, BATTERY, PARKING] } }
+        - {
+            name: typeList,
+            in: query,
+            style: form,
+            explode: true,
+            schema: { type: array, items: { type: string, enum: [ST, LT, UB, BATTERY, PARKING] } },
+            description: 'Plusieurs types en une requête (répétable, app Android)',
+          }
+        - {
+            name: noStatus,
+            in: query,
+            style: form,
+            explode: true,
+            schema: { type: array, items: { type: string, enum: [CLOSED, INCOMPLETE_FILE, NOT_VALID_YET] } },
+            description: 'Exclut les abonnements portant ce statut (répétable, app 3.6.1)',
+          }
+        - {
+            name: isLocked,
+            in: query,
+            schema: { oneOf: [{ type: integer, enum: [0, 1] }, { type: boolean }] },
+            description: "`0` dans l'app iOS, `false` dans l'app Android",
+          }
+        - { name: sort, in: query, schema: { type: string, enum: [ASC, DESC] } }
+      responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/ForbiddenIdentity' }
+        '200':
+          description: OK
+          content:
+            application/vnd.subscription.v6+json:
+              schema: { type: array, items: { $ref: '#/components/schemas/Subscription' } }
+  /contracts/{contract}/accounts/{accountId}/subscriptions/{subscriptionId}:
+    parameters:
+      - $ref: '#/components/parameters/contract'
+      - $ref: '#/components/parameters/accountId'
+      - $ref: '#/components/parameters/subscriptionId'
+    get:
+      tags: [Abonnements]
+      operationId: getSubscription
+      summary: Détail d'un abonnement
+      security: [{ Taknv1: [], Identity: [] }]
+      x-status: observed
+      responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/ForbiddenIdentity' }
+        '200':
+          description: OK
+          content:
+            application/vnd.subscription.v6+json:
+              schema: { $ref: '#/components/schemas/Subscription' }
+  /contracts/{contract}/accounts/{accountId}/subscriptions/{subscriptionId}/statuses:
+    parameters:
+      - $ref: '#/components/parameters/contract'
+      - $ref: '#/components/parameters/accountId'
+      - $ref: '#/components/parameters/subscriptionId'
+    get:
+      tags: [Abonnements]
+      operationId: getSubscriptionStatuses
+      summary: Statuts d'un abonnement
+      security: [{ Taknv1: [], Identity: [] }]
+      x-status: observed
+      responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/ForbiddenIdentity' }
+        '200':
+          description: OK
+          content:
+            application/vnd.subscription.v6+json:
+              schema: { type: array, items: { $ref: '#/components/schemas/SubscriptionStatus' } }
+  /contracts/{contract}/accounts/{accountId}/subscriptions/{subscriptionId}/periods/{periodId}/reports:
+    parameters:
+      - $ref: '#/components/parameters/contract'
+      - $ref: '#/components/parameters/accountId'
+      - $ref: '#/components/parameters/subscriptionId'
+      - { name: periodId, in: path, required: true, schema: { type: string, format: uuid } }
+    post:
+      tags: [Abonnements]
+      operationId: getPeriodReceipt
+      summary: Reçu PDF d'une période (sans corps)
+      description: 'Avec `Accept: application/json` -> document base64 ; sans `Accept`, le PDF brut est renvoyé. L''app Android 3.6.1 (`ug/n`) envoie le `POST` sans corps ni `Content-Type`, avec `Accept: application/json`.'
+      security: [{ Taknv1: [], Identity: [] }]
+      x-status: live
+      responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/ForbiddenIdentity' }
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TranslatedDocument' }
+            application/pdf:
+              schema: { type: string, contentEncoding: binary }
+  /contracts/{contract}/accounts/{accountId}/periods:
+    parameters:
+      - $ref: '#/components/parameters/contract'
+      - $ref: '#/components/parameters/accountId'
+    get:
+      tags: [Abonnements]
+      operationId: getPeriodsByIds
+      summary: Périodes d'abonnement par identifiants
+      description: "Appelé par l'app 3.6.1 sur l'écran « justificatif d'abonnement » de son menu « Besoin d'aide », avec les `periodId` de `GET .../sales?infoType=PERIOD` et un `Content-Type: application/vnd.subscription.v6+json` sans `Accept`. Seule réponse observée : `404 accounts.exception.notfound.searched.periods` (périodes de tickets clos) ; la forme du `200` n'est pas connue."
+      security: [{ Taknv1: [], Identity: [] }]
+      x-status: observed
+      parameters:
+        - {
+            name: periodIds,
+            in: query,
+            required: true,
+            style: form,
+            explode: false,
+            schema: { type: array, items: { type: string, format: uuid } },
+            description: 'Identifiants séparés par des virgules',
+          }
+      responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/ForbiddenIdentity' }
+        '404':
+          description: '`accounts.exception.notfound.searched.periods`, « Listed periods for account could not be found »'
+          content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+        '200':
+          description: OK (non observé)
+          content:
+            application/json:
+              schema: { type: array, items: { type: object } }
+  /contracts/{contract}/accounts/{accountId}/subscriptions/{subscriptionId}/renewaloffers:
+    parameters:
+      - $ref: '#/components/parameters/contract'
+      - $ref: '#/components/parameters/accountId'
+      - $ref: '#/components/parameters/subscriptionId'
+    get:
+      tags: [Abonnements]
+      operationId: listRenewalOffers
+      summary: Offres de renouvellement possibles
+      security: [{ Taknv1: [], Identity: [] }]
+      x-status: declared
+      responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/ForbiddenIdentity' }
+        '200':
+          {
+            description: OK,
+            content:
+              {
+                application/vnd.renewalOffer.v2+json:
+                  { schema: { type: array, items: { type: object } } },
+              },
+          }
+
+  # ---------------------------------------------------------------- Trajets et statistiques
+  /contracts/{contract}/accounts/{accountId}/subscriptions/{subscriptionId}/trips:
+    parameters:
+      - $ref: '#/components/parameters/contract'
+      - $ref: '#/components/parameters/accountId'
+      - $ref: '#/components/parameters/subscriptionId'
+    post:
+      tags: [Trajets et statistiques]
+      operationId: unlockBike
+      summary: Déverrouiller un vélo
+      description: |
+        Toutes les valeurs proviennent de `GET /bikes?stationNumber=...`. `{subscriptionId}` = `id` d'un abonnement
+        courant non verrouillé. Après le `200`, la borne libère le vélo quelques secondes ; s'il n'est pas retiré,
+        elle se reverrouille et aucun trajet n'est créé. L'app polle ensuite `GET .../trips/ongoing` toutes les
+        5-10 s. **Action réelle et potentiellement payante.**
+
+        La requête ne porte aucune position : c'est le client qui vérifie, avant l'appel, que l'utilisateur est à
+        moins de `bike.release.distance` (200 m) de la station, que le compte n'est pas verrouillé (`isLocked`) et
+        que le moyen de paiement est valide (`paymentValid` de `GET .../payment`). L'app Android 3.6.1 n'envoie
+        que le `Content-Type: application/vnd.trip.v6+json`, sans `Accept`, champs dans l'ordre stationNumber,
+        standNumber, bikeNumber, typeFrom ; la 3.3.10 envoyait le même corps en `v5`, accepté aussi. Un vélo réservé
+        par le compte se libère par la même requête, sans référence à la réservation. Contrôles, messages par
+        `transactionState` et codes de refus : README § 5.6.
+      security: [{ Taknv1: [], Identity: [] }]
+      x-status: observed
+      requestBody:
+        required: true
+        content:
+          application/vnd.trip.v6+json:
+            schema: { $ref: '#/components/schemas/ReleaseBikeRequest' }
+          application/vnd.trip.v5+json:
+            schema: { $ref: '#/components/schemas/ReleaseBikeRequest' }
+      responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/ForbiddenIdentity' }
+        '200':
+          description: >-
+            Ordre transmis. Seul `OK` libère le vélo ; `ABORT`, `NOK`, `TIME_OUT` (le point d'attache n'a pas répondu)
+            et `NOT_CONNECTED` (aucun vélo sur le point d'attache) sont des échecs rendus avec ce même `200`.
+          content:
+            application/vnd.trip.v5+json:
+              schema:
+                type: object
+                properties:
+                  transactionState:
+                    type: string
+                    enum: [NOT_CONNECTED, UNKNOW, UNSTARTED, RUNNING, OK, NOK, ABORT, TIME_OUT]
+                    examples: [OK]
+        '4XX':
+          description: >-
+            Refus métier, lu dans l'app Android et jamais capturé (statut exact inconnu) :
+            `trips.exception.invalid.customer.maxBikesRented` (un autre trajet est en cours),
+            `kiwi.exception.customer.rent.time.limit` (délai entre deux courses non écoulé),
+            `kiwi.exception.customer.insuffisant.right` (abonnement hors validité),
+            `kiwi.exception.customer.paymentmode.not.valid` (moyen de paiement à mettre à jour),
+            `kiwi.exception.no.release.bike` (problème technique), `trips.exception.invalid.customer.credit`.
+            Observé hors de cette liste : `404 trips.exception.bookings.already.reserved` (« Bike reserved
+            by another user »), vélo `AVAILABLE` à `isReserved: true` réservé par un autre usager (06/10/2026),
+            et le même code sur un vélo réservé par le compte lui-même, réservation en cours et même abonnement
+            (22/10/2026, cause inconnue côté serveur).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+  /contracts/{contract}/accounts/{accountId}/trips/ongoing:
+    parameters:
+      - $ref: '#/components/parameters/contract'
+      - $ref: '#/components/parameters/accountId'
+    get:
+      tags: [Trajets et statistiques]
+      operationId: getOngoingTrips
+      summary: Trajet en cours (`[]` sinon)
+      description: "Les apps 3.6.1 (sept. 2026, iOS et Android `ug/s.e`) demandent `application/vnd.trip.v6+json`. Les deux `Accept` répondent `200` (vérifié live le 15/09/2026) ; le 15/10/2026, `GET /trips` a rendu la même réponse en v5 et en v6."
+      security: [{ Taknv1: [], Identity: [] }]
+      x-status: live
+      responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/ForbiddenIdentity' }
+        '200':
+          description: OK
+          content:
+            application/vnd.trip.v5+json:
+              schema: { type: array, items: { $ref: '#/components/schemas/Trip' } }
+            application/vnd.trip.v6+json:
+              schema: { type: array, items: { $ref: '#/components/schemas/Trip' } }
+  /contracts/{contract}/accounts/{accountId}/trips:
+    parameters:
+      - $ref: '#/components/parameters/contract'
+      - $ref: '#/components/parameters/accountId'
+    get:
+      tags: [Trajets et statistiques]
+      operationId: listTrips
+      summary: Historique des trajets (les plus récents en premier)
+      description: "L'app 3.6.1 (sept. 2026) filtre `?status=FINISHED&status=ERROR&status=REVERSED` et demande `application/vnd.trip.v6+json`. Les deux `Accept` et le filtre répondent `200` (vérifié live le 15/09/2026) ; le 15/10/2026, la même liste de trajets est sortie identique en v5 et en v6. **L'historique se dégrade bien avant `anonymization.threshold` (180 j) et `purge.all.trips.threshold` (780 j)** (relevé live du 15/10/2026, tickets « 1 trajet ») : un trajet `FINISHED` de 12 jours sortait sans `movementRef`, `bikeNumber`, `startStation`, `startStand`, `endStation` ni `endStand` (22 champs, quel que soit l'`Accept` ; hypothèse non vérifiée : anonymisation à l'échéance du ticket `ST`), et des trajets d'environ 13 mois ne sortaient plus du tout, avec ou sans filtre, en v6, ni avec `?page=0&size=200`. `GET .../sales?infoType=TRIP` garde en entier les trajets payants, y compris ceux-là ; un trajet sans vente n'est plus retrouvable."
+      security: [{ Taknv1: [], Identity: [] }]
+      x-status: live
+      parameters:
+        - {
+            name: status,
+            in: query,
+            style: form,
+            explode: true,
+            schema:
+              {
+                type: array,
+                items:
+                  {
+                    type: string,
+                    enum:
+                      [REQUESTED, STARTED, FINISHED, REJECTED, TIMEOUT, PAUSED, AUTO_FINISHED, ERROR, WARNING, REVERSED],
+                  },
+              },
+            description: 'Répétable',
+          }
+      responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/ForbiddenIdentity' }
+        '200':
+          description: OK
+          content:
+            application/vnd.trip.v5+json:
+              schema: { type: array, items: { $ref: '#/components/schemas/Trip' } }
+            application/vnd.trip.v6+json:
+              schema: { type: array, items: { $ref: '#/components/schemas/Trip' } }
+  /contracts/{contract}/accounts/{accountId}/trips/{tripId}/rate:
+    parameters:
+      - $ref: '#/components/parameters/contract'
+      - $ref: '#/components/parameters/accountId'
+      - $ref: '#/components/parameters/tripId'
+    post:
+      tags: [Trajets et statistiques]
+      operationId: rateTripBike
+      summary: Noter le vélo d'un trajet (crédite 5 points de fidélité)
+      description: |
+        L'invitation à noter n'est pas un push : c'est le champ `isRated: false` du trajet, relu au retour dans
+        l'app, qui la déclenche. La notation est binaire (`recommended`), possible une seule fois par trajet, et
+        crédite la règle `RATE_BIKE` (5 points). En cas de `recommended: false`, `rating` porte le `rating`
+        (30 ou 60) du motif choisi dans `GET /contracts/{contract}/defect-type-groups`.
+
+        « Je déconseille » fait deux appels : l'app lance d'abord le process `CREATE_BIKE_DEFECT` (motif,
+        commentaire, demande de retrait du vélo ; voir `startProcess` et le § 6.4 du README), puis, seulement
+        s'il réussit, cette notation avec `recommended: false` et ce `rating`. La notation reste possible
+        3 heures après la fin du trajet.
+
+        Route non exercée en capture : méthode, media-type et forme du corps viennent des interfaces Retrofit
+        de l'app Android officielle 3.6.1 (`ug/c`, modèle `Rate`) : `Content-Type: application/vnd.trip.v6+json`
+        seul, sans `Accept`. La 3.3.10 envoyait `cdrCode` (le `code` d'un `GET /defect-types`) en `trip.v5`.
+      security: [{ Taknv1: [], Identity: [] }]
+      x-status: decompiled
+      requestBody:
+        required: true
+        content:
+          application/vnd.trip.v6+json:
+            schema: { $ref: '#/components/schemas/BikeRate' }
+      responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/ForbiddenIdentity' }
+        '200':
+          description: Notation enregistrée (le corps est renvoyé en écho)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BikeRate' }
+  /contracts/{contract}/accounts/{accountId}/stats:
+    parameters:
+      - $ref: '#/components/parameters/contract'
+      - $ref: '#/components/parameters/accountId'
+    get:
+      tags: [Trajets et statistiques]
+      operationId: getStats
+      summary: Statistiques agrégées
+      security: [{ Taknv1: [], Identity: [] }]
+      x-status: observed
+      parameters:
+        - {
+            name: startDate,
+            in: query,
+            required: true,
+            schema: { type: string },
+            example: '2026-03-01T23:00:00',
+          }
+        - {
+            name: endDate,
+            in: query,
+            required: true,
+            schema: { type: string },
+            example: '2026-03-08T22:59:59',
+          }
+        - {
+            name: period,
+            in: query,
+            required: true,
+            schema: { type: string, enum: [WEEK, MONTH, YEAR] },
+          }
+        - name: statsType
+          in: query
+          required: true
+          style: form
+          explode: true
+          schema:
+            type: array
+            items:
+              {
+                type: string,
+                enum:
+                  [
+                    TRIPS_COUNTS,
+                    TRIPS_COUNTS_MECA,
+                    TRIPS_COUNTS_ELEC,
+                    TRIPS_DURATIONS,
+                    TRIPS_REWARDS,
+                  ],
+              }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/vnd.stats.v1+json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    statsType: { type: string }
+                    periodTotal: { type: number }
+                    periodicity: { type: string }
+                    values: { type: object, additionalProperties: { type: number } }
+        '404':
+          description: '`stats.exception.stats.not.found`, aucun trajet sur la période'
+          content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+
+  # ---------------------------------------------------------------- Paiement
+  /contracts/{contract}/accounts/{accountId}/payment:
+    parameters:
+      - $ref: '#/components/parameters/contract'
+      - $ref: '#/components/parameters/accountId'
+    get:
+      tags: [Paiement]
+      operationId: getPayment
+      summary: Moyen de paiement enregistré
+      security: [{ Taknv1: [], Identity: [] }]
+      x-status: observed
+      responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/ForbiddenIdentity' }
+        '200':
+          description: OK
+          content:
+            application/vnd.payment.v3+json:
+              schema:
+                type: object
+                properties:
+                  id: { type: string, format: uuid }
+                  paymentMethod: { type: string, enum: [CB, ADP] }
+                  paymentProvider: { type: string, examples: [CB_OGONE] }
+                  paymentValid: { type: boolean }
+                  cardNumber: { type: string, examples: ['************1234'] }
+                  cardExpirationDate: { type: string, format: date }
+                  createdAt: { type: string }
+                  updatedAt: { type: string }
+  /contracts/{contract}/accounts/{accountId}/balance:
+    parameters:
+      - $ref: '#/components/parameters/contract'
+      - $ref: '#/components/parameters/accountId'
+    get:
+      tags: [Paiement]
+      operationId: getBalance
+      summary: Solde (centimes)
+      security: [{ Taknv1: [], Identity: [] }]
+      x-status: observed
+      responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/ForbiddenIdentity' }
+        '200':
+          description: OK
+          content:
+            application/vnd.balance.v1+json:
+              schema:
+                type: object
+                properties:
+                  due: { type: integer }
+                  dueToControl: { type: integer }
+                  credit: { type: integer }
+  /contracts/{contract}/accounts/{accountId}/transactions:
+    parameters:
+      - $ref: '#/components/parameters/contract'
+      - $ref: '#/components/parameters/accountId'
+    get:
+      tags: [Paiement]
+      operationId: listTransactions
+      summary: Transactions (prélèvements CB)
+      security: [{ Taknv1: [], Identity: [] }]
+      x-status: observed
+      parameters:
+        - { name: showRegulationId, in: query, schema: { type: boolean } }
+      responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/ForbiddenIdentity' }
+        '200':
+          description: OK
+          content:
+            application/vnd.transaction.v1+json:
+              schema: { type: array, items: { $ref: '#/components/schemas/Transaction' } }
+  /contracts/{contract}/accounts/{accountId}/transactions/{transactionId}:
+    parameters:
+      - $ref: '#/components/parameters/contract'
+      - $ref: '#/components/parameters/accountId'
+      - { name: transactionId, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      tags: [Paiement]
+      operationId: getTransaction
+      summary: Détail d'une transaction + lignes `sales`
+      security: [{ Taknv1: [], Identity: [] }]
+      x-status: observed
+      responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/ForbiddenIdentity' }
+        '200':
+          description: OK
+          content:
+            application/vnd.transaction.v1+json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Transaction'
+                  - type: object
+                    properties:
+                      sales: { type: array, items: { $ref: '#/components/schemas/Sale' } }
+  /contracts/{contract}/accounts/{accountId}/sales:
+    parameters:
+      - $ref: '#/components/parameters/contract'
+      - $ref: '#/components/parameters/accountId'
+    get:
+      tags: [Paiement]
+      operationId: listSales
+      summary: Lignes de vente, avec le trajet facturé si `infoType=TRIP`
+      description: "L'app 3.6.1 envoie `Content-Type: application/vnd.sale.v1+json` avec `Accept: */*` ; la réponse est en `application/vnd.sale.v1+json` (le même type en `Accept` fonctionne aussi, vérifié live le 15/09/2026). Les trois requêtes observées sont les trois écrans de son menu « Besoin d'aide » (session 13), pas l'historique des trajets, qui se lit par `GET /trips` : `?direction=DEBIT&infoType=TRIP&natures=CONSUMPTION&status=PAID` = « j'ai besoin d'un justificatif de paiement » ; `?infoType=TRIP&natures=CONSUMPTION&saleDateAfter={now - 6 mois}&status=PAID&status=TO_INVOICE&status=TO_CONTROL` = « je ne suis pas d'accord avec le montant », d'où la fenêtre de six mois et les trois `status` ; `?infoType=PERIOD&natures=SUBSCRIPTION&status=PAID` = « justificatif d'abonnement », dont les `periodId` alimentent `GET /periods`. L'app Android 3.6.1 (`qi/f.b`) envoie les mêmes filtres dans l'ordre de son interface, celui des paramètres ci-dessous : `infoType`, `natures`, `saleDateAfter`, `status`, `direction`. Relevé live du 15/10/2026 : avec `infoType=TRIP&natures=CONSUMPTION`, la vente garde le trajet en entier (31 champs, stations et vélo compris), y compris quand `GET /trips` l'a anonymisé ou ne le rend plus ; seuls les trajets payants ont une vente. `saleAdditionnalInfo.additionalInfos.id` = `id` du trajet ; `subscriptionId` d'un trajet = celui de la vente `SUBSCRIPTION` d'achat du ticket (`infoType=PERIOD`, qui rend aussi les tickets « 1 trajet »)."
+      security: [{ Taknv1: [], Identity: [] }]
+      x-status: live
+      parameters:
+        - { name: infoType, in: query, schema: { type: string, enum: [TRIP, PERIOD] } }
+        - {
+            name: natures,
+            in: query,
+            schema: { type: string, enum: [SUBSCRIPTION, RENEWAL, CONSUMPTION, CONSUMPTION_REDUCTION] },
+          }
+        - {
+            name: saleDateAfter,
+            in: query,
+            schema: { type: string },
+            description: 'ISO 8601 local sans zone',
+            example: '2026-03-15T16:21:45',
+          }
+        - {
+            name: status,
+            in: query,
+            style: form,
+            explode: true,
+            schema: { type: array, items: { type: string, enum: [PAID, TO_INVOICE, TO_CONTROL] } },
+            description: 'Répétable',
+          }
+        - { name: direction, in: query, schema: { type: string, enum: [DEBIT, CREDIT] } }
+      responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/ForbiddenIdentity' }
+        '200':
+          description: OK
+          content:
+            application/vnd.sale.v1+json:
+              schema: { type: array, items: { $ref: '#/components/schemas/Sale' } }
+  /contracts/{contract}/accounts/{accountId}/pay/checkout:
+    parameters:
+      - $ref: '#/components/parameters/contract'
+      - $ref: '#/components/parameters/accountId'
+    post:
+      tags: [Paiement]
+      operationId: createCheckout
+      summary: Ouvrir une page de paiement hébergée Worldline (enregistrement / changement de CB, 3-DS)
+      description: "L'utilisateur saisit sa carte sur `redirectUrl` puis revient sur `returnUrl` ; le front confirme ensuite via un process `REGISTER_PAYMENT_METHOD` (`checkoutId`). L'app Android 3.6.1 (`qi/i`) n'envoie que le `Content-Type`, sans `Accept`, avec `{ paymentMethods: [CB], returnUrl }`. Vérifié le 24/10/2026 : Worldline revient sur `returnUrl` avec les mêmes paramètres (`RETURNMAC`, `hostedCheckoutId`) que la page ait été validée ou annulée ; seul `REGISTER_PAYMENT_METHOD` les distingue (`inError` avec `pay.exception.checkout.payment-infos.not.found` après une annulation). Montant affiché par la page et par le 3-DS : 0,00 €."
+      security: [{ Taknv1: [], Identity: [] }]
+      x-status: observed
+      requestBody:
+        required: true
+        content:
+          application/vnd.pay.v1+json:
+            schema:
+              type: object
+              required: [returnUrl, paymentMethods]
+              properties:
+                returnUrl: { type: string, format: uri, examples: ['https://velov.grandlyon.com/'] }
+                paymentMethods: { type: array, items: { type: string, enum: [CB] } }
+                customer:
+                  {
+                    type: object,
+                    description: 'Web uniquement : ipAddress, browser{...}, details{...}',
+                  }
+      responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/ForbiddenIdentity' }
+        '200':
+          description: OK
+          content:
+            application/vnd.pay.v1+json:
+              schema:
+                type: object
+                properties:
+                  id: { type: string }
+                  redirectUrl: { type: string, format: uri }
+
+  # ---------------------------------------------------------------- Récompenses
+  /contracts/{contract}/accounts/{accountId}/rewards:
+    parameters:
+      - $ref: '#/components/parameters/contract'
+      - $ref: '#/components/parameters/accountId'
+    get:
+      tags: [Récompenses]
+      operationId: getRewards
+      summary: Solde de points
+      security: [{ Taknv1: [], Identity: [] }]
+      x-status: observed
+      responses:
+        '200':
+          description: OK
+          content:
+            application/vnd.rewards.v5+json:
+              schema: { $ref: '#/components/schemas/Rewards' }
+        '404':
+          description: '`rewards.exception.notfound.account`, compte neuf'
+          content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    patch:
+      tags: [Récompenses]
+      operationId: patchRewards
+      summary: Utilisation automatique des points
+      security: [{ Taknv1: [], Identity: [] }]
+      x-status: observed
+      requestBody:
+        required: true
+        content:
+          application/vnd.rewards.v5+json:
+            schema:
+              type: object
+              properties: { autoSpend: { type: boolean } }
+      responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/ForbiddenIdentity' }
+        '200':
+          description: OK
+          content:
+            application/vnd.rewards.v5+json:
+              schema: { $ref: '#/components/schemas/Rewards' }
+  /contracts/{contract}/accounts/{accountId}/rewards/history:
+    parameters:
+      - $ref: '#/components/parameters/contract'
+      - $ref: '#/components/parameters/accountId'
+    get:
+      tags: [Récompenses]
+      operationId: getRewardsHistory
+      summary: Historique des mouvements de points (page Spring, 200 par page)
+      security: [{ Taknv1: [], Identity: [] }]
+      x-status: observed
+      parameters:
+        - { name: page, in: query, schema: { type: integer, default: 0 } }
+      responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/ForbiddenIdentity' }
+        '200':
+          description: OK
+          content:
+            application/vnd.rewards.v5+json:
+              schema: { $ref: '#/components/schemas/RewardHistoryPage' }
+  /contracts/{contract}/accounts/{accountId}/rewards/consume/promocode:
+    parameters:
+      - $ref: '#/components/parameters/contract'
+      - $ref: '#/components/parameters/accountId'
+    post:
+      tags: [Récompenses]
+      operationId: consumeRewardsPromoCode
+      summary: Échanger des points contre un ticket « Inviter un ami »
+      description: |
+        Lu dans le binaire Android 3.3.10 (`qi/j.b()`, écran `reward/invite`, use case `sk/a`), jamais
+        exercé : l'appel débite les points. `POST` sans corps, `Accept: application/vnd.rewards.v5+json`.
+        Le prix est le `reward` de l'entrée `PROMOCODE` de `GET /rewards/configurations` (50) ; l'app
+        masque l'écran si cette entrée est désactivée et grise le bouton quand le solde ne suffit pas.
+
+        La réponse ne crée pas le ticket : l'app enchaîne un process `SHORT_TERM_SUBSCRIPTION_V2`
+        (`startProcess`) **sur le compte même**, avec `promocode`, `offerId` et `badgeId` typés `Long`,
+        `badgeType`, `startDate` (maintenant), `platform: MOBILE` et les paramètres « navigateur ». Le
+        ticket obtenu est l'offre 579060 « Invitation ami » : 1 trajet, valable 24 h, pour libérer un
+        second vélo. README § 5.8.
+
+        Refus reconnus par l'app : `rewards.exception.insufficient.rewards`,
+        `rewards.exception.locked.account`, `rewards.exception.no.valid.subscription`.
+
+        Les points ne remplacent pas une formule (APK 3.6.1, relue le 25/10/2026) : sans abonnement en
+        cours, le serveur refuse en `rewards.exception.no.valid.subscription`. L'app ne vérifie pas
+        l'abonnement avant l'appel, seulement l'entrée `PROMOCODE` et le solde. Non vérifié : si un
+        ticket `ST` en cours suffit. README § 5.8.
+      security: [{ Taknv1: [], Identity: [] }]
+      x-status: decompiled
+      responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/ForbiddenIdentity' }
+        '200':
+          description: Le code promo, à souscrire par process
+          content:
+            application/vnd.rewards.v5+json:
+              schema:
+                type: object
+                properties:
+                  promoCode: { type: string }
+                  offerId: { type: integer, format: int64, example: 579060 }
+                  badgeId: { type: integer, format: int64 }
+                  badgeType: { type: string, enum: [EXTERNAL, OWNER, TICKET, NO_BADGE] }
+                  rewardsSpent: { type: integer, example: 50 }
+  /contracts/{contract}/rewards/configurations:
+    parameters: [{ $ref: '#/components/parameters/contract' }]
+    get:
+      tags: [Récompenses]
+      operationId: getRewardsConfiguration
+      summary: Règles du programme fidélité (415 sans l'`Accept` versionné)
+      x-status: observed
+      responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '200':
+          description: OK
+          content:
+            application/vnd.rewards.v5+json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id: { type: integer }
+                    contractName: { type: string }
+                    name:
+                      {
+                        type: string,
+                        examples:
+                          [
+                            START_STATION_FULL,
+                            END_STATION_EMPTY,
+                            TRIP_BONUS,
+                            RATE_BIKE,
+                            START_TRIP_OVERFLOW,
+                            CURRENCY,
+                            PROMOCODE,
+                            BIKE_BOOKING,
+                          ],
+                      }
+                    type: { type: string, enum: [RULE, VALUATION] }
+                    i18nKey: { type: string }
+                    enable: { type: boolean }
+                    reward: { type: integer }
+
+  # ---------------------------------------------------------------- Process
+  /contracts/{contract}/accounts/{accountId}/processes:
+    parameters:
+      - $ref: '#/components/parameters/contract'
+      - $ref: '#/components/parameters/accountId'
+    post:
+      tags: [Process]
+      operationId: startProcess
+      summary: Lancer un process (souscription, paiement, changement de badge...)
+      description: |
+        Certains paramètres sont sérialisés en chaînes **préfixées par un type Java** (§ 4.4) :
+        `"<[Format:java.lang.Long]>75171"` (offerId, badgeId, kiwiId, bikeModelId),
+        `"<[Format:java.util.Date]>1772562420000"` (startDate, subscriptionStart, timestamp ms),
+        `"<[Format:java.util.UUID]>..."` (subscriptionId, transactionId, parkingId, deliveryShopId, tripId, saleId).
+        Vérifier `inError: false` ; `toResume: true` signifie qu'un `PATCH .../processes/{executionId}` est attendu.
+        `parameters` est une map plate sérialisée par Jackson, sans objet typé par process.
+        Le paramètre de requête `returns` demande une valeur calculée en retour, rendue dans `results` :
+        les parcours selfcare l'utilisent pour obtenir un verdict immédiat (`SELFCARE_TRIP_AMOUNT` et
+        `SELFCARE_RETURNED_BIKE` -> `incident_type`, `SELFCARE_RESCIND_SUBSCRIPTION` ->
+        `subscription_condition_status`). Voir § 6.3 du README.
+        `CREATE_BIKE_DEFECT` signale un défaut de vélo (§ 6.4) : sans `returns` ni identifiant de trajet ;
+        `bikeDefectTypeId` est l'`id` d'un motif de `GET .../defect-type-groups` (3.6.1 ; d'un type de
+        `GET .../defect-types` en 3.3.10), `bikeDefectDeclaredBlocked` demande que le vélo ne soit plus
+        proposé, `bikeDefectComment` est absent quand il est vide. Lu dans le binaire Android, jamais exercé.
+        L'app Android 3.6.1 (`ug/m`, `pg/q`, `Process$a`) n'envoie que le `Content-Type`, sans `Accept` ;
+        elle écarte des `parameters` les chaînes vides et les `null`, garde `supplements: []` et `proofs: []`,
+        ajoute `platform: MOBILE` (sauf à `REGISTER_PAYMENT_METHOD`) et, aux souscriptions,
+        `tacitResubscription`, `address`, `city`, `zipcode`, sans `orderCard`. `REGISTER_PAYMENT_METHOD` y porte
+        `amount: 0`, `orphan` (carte changée hors achat) et `checkoutId`. Détail au § 6 du README.
+        Un `SHORT_TERM_SUBSCRIPTION_V2` peut aussi souscrire le code de
+        `POST .../rewards/consume/promocode` (`promocode`, `offerId`, `badgeId`, `badgeType`, `startDate`),
+        sans `cgauVersion` : le ticket « Inviter un ami » (📱, jamais exercé).
+      security: [{ Taknv1: [], Identity: [] }]
+      x-status: observed
+      parameters:
+        - {
+            name: returns,
+            in: query,
+            style: form,
+            explode: true,
+            schema:
+              {
+                type: array,
+                items:
+                  { type: string, enum: [incident_type, subscription_condition_status] },
+              },
+            description: 'Répétable. Lu dans le binaire Android (3.3.10, inchangé en 3.6.1), jamais exercé en capture.',
+          }
+      requestBody:
+        required: true
+        content:
+          application/vnd.processes.v2+json:
+            schema: { $ref: '#/components/schemas/ProcessRequest' }
+            examples:
+              achatTicket:
+                summary: SHORT_TERM_SUBSCRIPTION_V2 (achat d'un ticket 1 trajet, § 6.1)
+                value:
+                  type: SHORT_TERM_SUBSCRIPTION_V2
+                  parameters:
+                    platform: MOBILE
+                    badgeType: EXTERNAL
+                    badgeId: '<[Format:java.lang.Long]>22'
+                    offerId: '<[Format:java.lang.Long]>75171'
+                    startDate: '<[Format:java.util.Date]>1772562420000'
+                    cgauVersion: '003.002'
+                    supplements: []
+                    optionIds: []
+                    optInPartner: false
+                    optInSystem: false
+                    browserJavaEnabled: true
+                    browserTimeZone: -60
+                    browserColorDepth: 32
+                    browserScreenWidth: 390
+                    browserScreenHeight: 844
+              achatPlusieursTickets:
+                summary: SHORT_TERM_SUBSCRIPTION_V2 avec nbTickets (plusieurs tickets d'un coup, § 6.1 ; lu dans l'APK, jamais exercé)
+                value:
+                  type: SHORT_TERM_SUBSCRIPTION_V2
+                  parameters:
+                    platform: MOBILE
+                    badgeType: EXTERNAL
+                    badgeId: '<[Format:java.lang.Long]>22'
+                    offerId: '<[Format:java.lang.Long]>75171'
+                    startDate: '<[Format:java.util.Date]>1772562420000'
+                    cgauVersion: '003.002'
+                    nbTickets: 3
+                    supplements: []
+                    optionIds: []
+                    optInPartner: false
+                    optInSystem: false
+              signalementDefaut:
+                summary: CREATE_BIKE_DEFECT (je déconseille ce vélo, § 6.4 ; lu dans l'APK, jamais exercé)
+                value:
+                  type: CREATE_BIKE_DEFECT
+                  parameters:
+                    bikeDefectTypeId: '<[Format : java.util.UUID]>00000000-0000-0000-0000-000000000000'
+                    bikeNumber: '<[Format : java.lang.Long]>20449'
+                    bikeDefectDomain: BIKE
+                    bikeDefectIsClosed: false
+                    bikeDefectComment: Frein arrière qui frotte
+                    bikeDefectUserType: CUSTOMER
+                    accountId: '<[Format : java.util.UUID]>00000000-0000-0000-0000-000000000000'
+                    bikeDefectDeclaredBlocked: true
+                    platform: MOBILE
+                    contract: lyon
+      responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/ForbiddenIdentity' }
+        '200':
+          description: Process exécuté (~3 s pour un achat de ticket)
+          content:
+            application/vnd.processes.v2+json:
+              schema: { $ref: '#/components/schemas/ProcessResult' }
+  /contracts/{contract}/accounts/{accountId}/processes/{executionId}:
+    parameters:
+      - $ref: '#/components/parameters/contract'
+      - $ref: '#/components/parameters/accountId'
+      - { name: executionId, in: path, required: true, schema: { type: integer } }
+    patch:
+      tags: [Process]
+      operationId: resumeProcess
+      summary: Confirmer / reprendre un process (`toResume`, ex. retour 3-DS)
+      security: [{ Taknv1: [], Identity: [] }]
+      x-status: declared
+      requestBody:
+        content:
+          application/vnd.processes.v2+json:
+            schema: { type: object }
+      responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/ForbiddenIdentity' }
+        '200':
+          description: OK
+          content:
+            application/vnd.processes.v2+json:
+              schema: { $ref: '#/components/schemas/ProcessResult' }
+    delete:
+      tags: [Process]
+      operationId: cancelProcess
+      summary: Annuler un process, rapporté par Pikari0
+      security: [{ Taknv1: [], Identity: [] }]
+      x-status: reported
+      responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/ForbiddenIdentity' }
+        '200': { description: OK }
+
+components:
+  securitySchemes:
+    Taknv1:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: '`Authorization: Taknv1 {clientToken}` : client token applicatif (§ 3.1). Requis sur toutes les routes sauf GBFS.'
+    Identity:
+      type: apiKey
+      in: header
+      name: Identity
+      description: "`Identity: {access_token}` : access token Keycloak de l'utilisateur (realm `vls-default`, § 3.2). Requis sur `/accounts/...`."
+
+  parameters:
+    contract:
+      name: contract
+      in: path
+      required: true
+      description: Code du contrat (ville). Les 21 contrats sont listés par `GET /contracts` (§ 11).
+      schema: { type: string, default: lyon }
+      example: lyon
+    accountId:
+      name: accountId
+      in: path
+      required: true
+      description: UUID du compte (`GET /accounts/{email}/id`), accepté en majuscules ou minuscules.
+      schema: { type: string, format: uuid }
+    stationNumber:
+      name: number
+      in: path
+      required: true
+      schema: { type: integer }
+      example: 2002
+    stationNumberBookmark:
+      name: stationNumber
+      in: path
+      required: true
+      schema: { type: integer }
+      example: 2002
+    offerId:
+      name: offerId
+      in: path
+      required: true
+      schema: { type: integer }
+      example: 75171
+    badgeId:
+      name: badgeId
+      in: path
+      required: true
+      schema: { type: integer }
+      example: 22
+    groupId:
+      name: groupId
+      in: path
+      required: true
+      schema: { type: integer }
+      example: 190
+    subscriptionId:
+      name: subscriptionId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    tripId:
+      name: tripId
+      in: path
+      required: true
+      description: UUID du trajet (`id` d'une entrée de `GET .../trips`).
+      schema: { type: string, format: uuid }
+
+  requestBodies:
+    Device:
+      required: true
+      content:
+        application/vnd.message.v2+json:
+          schema:
+            type: object
+            required: [platform, deviceToken]
+            properties:
+              platform: { type: string, enum: [IOS, ANDROID] }
+              deviceToken: { type: string, description: Token push FCM }
+
+  responses:
+    Unauthorized:
+      description: 'Header `Authorization: Taknv1 ...` absent ou client token expiré (corps vide ou `Error`).'
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    ForbiddenIdentity:
+      description: Page HTML Tomcat, header `Identity` absent/invalide ou `accountId` invalide.
+
+  schemas:
+    Error:
+      type: object
+      description: Format d'erreur standard, doublé du header `Bloot-Error-Code`.
+      properties:
+        code: { type: string, examples: [stats.exception.stats.not.found] }
+        message: { type: string }
+
+    CgauFile:
+      type: object
+      description: Enveloppe d'un PDF de CGU, même forme que le logo d'un badge ou un reçu de période.
+      properties:
+        id: { type: string, format: uuid, description: '`documentId` de la version' }
+        filename: { type: string, examples: ["20250101_CGAU Vélo'v 2.pdf"] }
+        mimeType: { type: string, examples: [application/pdf] }
+        translations:
+          type: object
+          properties:
+            id: { type: integer }
+            locale: { type: string, examples: [fr] }
+            content: { type: string, contentEncoding: base64, description: PDF encodé en base64 }
+
+    Feature:
+      type: object
+      properties:
+        active: { type: boolean }
+        name: { type: string }
+        description: { type: string }
+        parameter:
+          type: object
+          properties:
+            name: { type: string }
+            defaultValue: { type: string }
+            value: { type: string }
+
+    Contract:
+      type: object
+      properties:
+        id: { type: integer }
+        name: { type: string, examples: [lyon] }
+        commercialName: { type: string, examples: [Vélov] }
+        language: { type: string }
+        kiwiName: { type: string }
+        currency: { type: string, examples: [EUR] }
+        timezone: { type: string, examples: [Europe/Paris] }
+        url: { type: string, format: uri }
+        type: { type: string, examples: [VLS2] }
+        inMaintenance: { type: boolean }
+        aliases: { type: array, items: { type: string } }
+        contractLanguages:
+          type: array
+          items:
+            type: object
+            properties: { locale: { type: string }, defaultLanguage: { type: boolean } }
+        geoPosition:
+          type: object
+          properties: { latitude: { type: string }, longitude: { type: string } }
+        features:
+          type: array
+          items: { $ref: '#/components/schemas/Feature' }
+
+    Document:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        filename: { type: string }
+        mimeType: { type: string }
+        content: { type: string, contentEncoding: base64 }
+
+    TranslatedDocument:
+      type: object
+      properties:
+        id: { type: integer }
+        filename: { type: string }
+        mimeType: { type: string }
+        translations:
+          type: object
+          properties:
+            id: { type: integer }
+            locale: { type: string }
+            content: { type: string, contentEncoding: base64 }
+
+    Availability:
+      type: object
+      properties:
+        stands: { type: integer }
+        bikes:
+          type: object
+          properties:
+            mechanical: { type: integer }
+            electrical: { type: integer }
+            electricalInternalBattery: { type: integer }
+            electricalRemovableBattery: { type: integer }
+
+    Station:
+      type: object
+      description: '`Accept: application/vnd.station.v4+json`'
+      properties:
+        id: { type: string, format: uuid }
+        contractName: { type: string }
+        number: { type: integer }
+        name: { type: string, examples: ['2002 - BELLECOUR / ST EXUPÉRY'] }
+        open: { type: boolean }
+        connected: { type: boolean }
+        connectionState: { type: string, examples: [CONNECTED] }
+        maintenance: { type: boolean }
+        active: { type: boolean }
+        furnitureId:
+          type: object
+          properties:
+            { country: { type: integer }, agency: { type: integer }, district: { type: integer } }
+        capacity:
+          type: object
+          properties:
+            main: { type: integer }
+            overflow: { type: integer, description: Places de la station virtuelle }
+        bonus:
+          type: boolean
+          description: Station bonus, la repose y rapporte des points (règle `TRIP_BONUS`). Aucune à Lyon au 24/09/2026.
+        description: { type: string, description: 'Lue par l''app Android 3.3.10 ; absente de la réponse donnée en exemple (§ 5.2)' }
+        address: { type: string }
+        location:
+          type: object
+          properties: { latitude: { type: number }, longitude: { type: number } }
+        hasShape: { type: boolean, description: 'Vrai quand `shape` décrit la zone de la station virtuelle' }
+        shape:
+          type: [object, 'null']
+          description: Zone de la station virtuelle, lue par l'app Android 3.3.10
+          properties:
+            vertices:
+              type: array
+              items:
+                type: object
+                properties: { latitude: { type: number }, longitude: { type: number } }
+        overflow:
+          type: boolean
+          description: >-
+            Station virtuelle (débordement) : des vélos peuvent être rendus hors bornette, dans la zone `shape`.
+            Aucune à Lyon au 24/09/2026, où la feature `overflow.enabled` vaut `false`.
+        availabilities:
+          type: object
+          properties:
+            main: { $ref: '#/components/schemas/Availability' }
+            overflow: { $ref: '#/components/schemas/Availability' }
+        lastComm: { type: string }
+        paymentTerminal: { type: boolean }
+        metricsEnabled: { type: boolean }
+        createdAt: { type: string }
+        updatedAt: { type: string }
+
+    StationLegacy:
+      type: object
+      description: Shape renvoyée sans `Accept` versionné jusqu'au 23/10/2026, retirée depuis (`application/station+json` aux champs de `Station`). Gardée pour les anciens clients.
+      properties:
+        label: { type: string }
+        open: { type: boolean }
+        connected: { type: boolean }
+        code: { type: integer }
+        country: { type: integer }
+        agency: { type: integer }
+        district: { type: integer }
+        nbBikeBases: { type: integer }
+        nbBikes: { type: integer }
+        bonus: { type: boolean }
+        bikes:
+          type: array
+          description: Présent sur `GET /stations/{number}` uniquement
+          items:
+            type: object
+            properties:
+              bikeType: { type: integer }
+              bikeBaseNo: { type: integer }
+              bikeNo: { type: integer }
+              bikeAvailable: { type: boolean }
+
+    Bike:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        number: { type: integer, description: Numéro à utiliser pour déverrouiller }
+        contractName: { type: string }
+        type: { type: string, enum: [MECHANICAL, ELECTRICAL] }
+        frameId: { type: string, description: Numéro de cadre }
+        stationNumber:
+          {
+            type: integer,
+            description: '`101010` = hors station (feature `bike.station.disabled`)',
+          }
+        standNumber: { type: integer }
+        status:
+          type: string
+          enum:
+            [
+              AVAILABLE,
+              RENTED,
+              RESERVED,
+              REGULATION,
+              OUTSIDE_STATION,
+              NOT_RECOGNIZED,
+              MAINTENANCE,
+              MAINTENANCE_HEAVY,
+              TO_BE_REPARED,
+              NEW_BIKE_IN_STOCK,
+              AVAILABLE_IN_STOCK,
+              TRANSFERRED,
+              DISMANTLED,
+              DESTROYED,
+              STOLEN,
+              SCRAPPED,
+              DELETED,
+            ]
+        statusLabel: { type: string }
+        hasBattery: { type: boolean }
+        hasLock:
+          type: boolean
+          description: Toujours `false` sur le parc lyonnais (relevé du 23/09/2026) ; l'app Android le lit avec `lock`, sans l'afficher
+        lock:
+          type: object
+          description: Cadenas connecté, lu par l'app Android mais jamais affiché ; absent à Lyon
+          properties:
+            latitude: { type: number }
+            longitude: { type: number }
+            batteryPercentage: { type: integer }
+        battery:
+          type: object
+          description: Vélos électriques uniquement
+          properties:
+            percentage:
+              type: number
+              description: Charge en %, mais des valeurs de 2 059 à 3 691 existent (surtout sur `REMOVABLE`), vraisemblablement une tension en mV ; écarter toute valeur hors de 0-100. Aucun client officiel ne le lit
+            type:
+              type: string
+              enum: [INTERNAL, REMOVABLE]
+              description: Les clients officiels n'affichent la batterie que d'un vélo `INTERNAL`
+            level:
+              type: integer
+              description: Palier calculé, `ceil(percentage / 25)` ; 0 à 4 pour un pourcentage valide. L'app Android affiche une pile en erreur à partir de 5
+        rating:
+          type: object
+          description: |
+            Note des usagers **depuis le dernier contrôle** (`lastControlDateTime`) : elle
+            repart de zéro à chaque passage en atelier (déduit, README § 5.6). `count: 0` sans
+            les autres champs pour un vélo jamais noté depuis.
+          properties:
+            {
+              value:
+                {
+                  type: number,
+                  description: 'Moyenne de votes valant chacun 100 (recommandé), 60 ou 30 (déconseillé) ; pas un pourcentage de recommandation',
+                },
+              count: { type: integer },
+              lastRatingDateTime: { type: string },
+            }
+        checked:
+          type: boolean
+          description: Vélo contrôlé sans aucun avis depuis ; affiché « Révisé » par les clients officiels, à la place de la note. Tombe au premier avis (déduit, README § 5.6)
+        createdAt: { type: string }
+        updatedAt: { type: string }
+        isReserved:
+          type: boolean
+          description: Le vélo est réservé. En station, une réservation laisse `status` à `AVAILABLE` et lève ce champ ; `RESERVED` ne s'y voit pas (mesuré le 07/10/2026, README § 5.2). Un client tient pour réservé un vélo `RESERVED` ou `isReserved`. Peut rester `true` quelque temps sur un vélo `RENTED`. `bikes.v4` seulement, lu par aucun client officiel
+        energySource:
+          type: integer
+          description: '`0` mécanique, `1` ou `2` électrique ; absent sur les vélos à batterie `REMOVABLE` (e-Vélo''v à batterie amovible). `bikes.v4` seulement, lu par aucun client'
+        lastTripDateTime:
+          type: string
+          description: Dernier trajet ; le seul champ qui dise si le vélo roule vraiment (`status` garde des fiches dormantes)
+        lastControlDateTime:
+          type: string
+          description: Dernier contrôle en atelier ; remet `rating` à zéro
+        nextCheck:
+          type: string
+          description: Contrôle suivant, fixé à `lastControlDateTime` + 5 jours
+        lastRevisionDateTime:
+          type: string
+          description: Dernière révision complète
+        nextReview:
+          type: string
+          description: Révision suivante, fixée à `lastRevisionDateTime` + 730 jours
+        lastDataFrameDate: { type: string }
+        bikeBatteryMv: { type: integer }
+        bikeTopSwVersion: { type: string }
+        bikeTopHwVersion: { type: string }
+        zedSwVersion: { type: string }
+
+    Account:
+      type: object
+      description: '`Accept: application/vnd.account.v4+json`'
+      properties:
+        type: { type: string, enum: [END_USER, ENTERPRISE, VIP] }
+        id: { type: string, format: uuid }
+        email: { type: string, format: email }
+        createdAt: { type: string }
+        updatedAt: { type: string }
+        contractCode: { type: string }
+        firstName: { type: string }
+        lastName: { type: string }
+        sex: { type: string }
+        phoneNumber: { type: string }
+        birthDate: { type: string, format: date }
+        address:
+          type: object
+          properties: { name: { type: string }, complement: { type: string } }
+        zipCode: { type: string }
+        city: { type: string }
+        country: { type: string }
+        defaultLocale: { type: string }
+        optInSystem: { type: string, enum: [UNSEEN, SEEN, ACTIVATED] }
+        optInPartner: { type: string, enum: [UNSEEN, SEEN, ACTIVATED] }
+        children: { type: array, items: { type: object } }
+        completion: { type: number, minimum: 0, maximum: 1 }
+        paymentInfosId: { type: string, format: uuid }
+        stations: { type: array, items: { type: integer }, description: Stations favorites }
+        isAnonymous: { type: boolean }
+        isLocked: { type: boolean }
+        tags: { type: array, items: { type: string } }
+
+    Badge:
+      type: object
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        description: { type: string }
+        type: { type: string, enum: [OWNER, EXTERNAL, TICKET, NO_BADGE] }
+        paymentMethods: { type: array, items: { type: string } }
+        validityStart: { type: string, format: date }
+        ratePlanId: { type: string, format: uuid }
+        amountReedit: { type: integer }
+        isControlledPlugIn: { type: boolean }
+        badgeOrder: { type: integer }
+        canBeOrdered: { type: boolean }
+        proofIds: { type: array, items: { type: integer } }
+
+    Offer:
+      type: object
+      description: '`Accept: application/vnd.offer.v2+json` : prix en centimes ; `duration` en jours (`IMMEDIATE`) ou en mois (`MONTHLY`)'
+      properties:
+        accountType: { type: string }
+        id: { type: integer }
+        contractCode: { type: string }
+        title: { type: string }
+        description: { type: string }
+        shortDescription: { type: string }
+        duration: { type: integer }
+        invoicingLag: { type: integer }
+        price: { type: integer }
+        type: { type: string, enum: [ST, LT, CT, VU, UB, BATTERY, PARKING] }
+        validityStart: { type: string, format: date }
+        badges: { type: array, items: { $ref: '#/components/schemas/Badge' } }
+        hasCampaigns: { type: boolean }
+        platforms: { type: array, items: { type: string, enum: [MOBILE, WEB, PRIVATE, TERMINAL] } }
+        paymentMethods: { type: array, items: { type: string } }
+        paymentFrequency: { type: string, enum: [IMMEDIATE, MONTHLY] }
+        proofs: { type: array, items: { type: object } }
+        renewal:
+          type: object
+          properties:
+            isAuto: { type: boolean }
+            isManual: { type: boolean }
+            defaultIsAuto: { type: boolean }
+            defaultIsManual: { type: boolean }
+            earlyPeriod: { type: integer }
+            expiredRenewalPeriod: { type: integer }
+            manualOffers: { type: array, items: { type: integer } }
+            autoOffers: { type: array, items: { type: integer } }
+        nbTickets:
+          type: integer
+          description: Nombre maximal de tickets par achat (sélecteur de quantité de l'app, offres `ST`), envoyé ensuite comme `nbTickets` du process (§ 6.1).
+        optionIds: { type: array, items: { type: integer } }
+        relatedOffers: { type: array, items: { type: integer } }
+        offersMigration: { type: array, items: { type: integer } }
+        creditedOffer: { type: boolean }
+        supplementIds: { type: array, items: { type: integer } }
+        ageMin: { type: [integer, 'null'] }
+        ageMax: { type: [integer, 'null'] }
+
+    Package:
+      type: object
+      description: Devis renvoyé par `POST .../packages` (aucun débit).
+      properties:
+        offerId: { type: integer }
+        subtypeKiwiId: { type: integer }
+        initialPrice: { type: integer }
+        reductionAmount: { type: integer }
+        finalPrice: { type: integer }
+        optionOnlinePrice: { type: integer }
+        optionShopPrice: { type: integer }
+        subscriptionEndDate: { type: string }
+        isBlocking: { type: boolean }
+        paymentMethods: { type: array, items: { type: string } }
+        deferreds: { type: array, items: { type: object } }
+        deferredsShop: { type: array, items: { type: object } }
+        sight: { type: object }
+        supplements: { type: array, items: { type: object } }
+        itemSales:
+          type: array
+          items:
+            type: object
+            properties:
+              amount: { type: integer }
+              nature: { type: string }
+              date: { type: string }
+              direction: { type: string, enum: [DEBIT, CREDIT] }
+
+    SubscriptionStatus:
+      type: object
+      properties:
+        value:
+          type: string
+          enum:
+            [
+              BADGE_WAITING_ASSOCIATION,
+              BADGE_WAITING_MANDATORY_ASSOCIATION,
+              BADGE_TEMPORARY_ASSOCIATED,
+              EXPIRED,
+              CLOSED,
+              NOT_VALID_YET,
+              INCOMPLETE_FILE,
+              ADDRESS_EMPTY,
+              BADGE_ORDER_IN_PROGRESS,
+            ]
+        locking: { type: boolean, description: Bloque l'usage }
+
+    Subscription:
+      type: object
+      description: '`Accept: application/vnd.subscription.v6+json`'
+      properties:
+        id: { type: string, format: uuid }
+        externalRef: { type: string, description: Identifiant Kiwi (`kiwiId`) }
+        externalSrc: { type: string, examples: [KIWI] }
+        displayRef: { type: string, description: Référence courte affichée (4 caractères) }
+        accountEmail: { type: string }
+        accountId: { type: string, format: uuid }
+        contractCode: { type: string }
+        type: { type: string, enum: [ST, LT, UB, BATTERY, PARKING] }
+        badgeId: { type: integer }
+        periods:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: string, format: uuid }
+              subscriptionId: { type: string, format: uuid }
+              offerId: { type: integer }
+              renewalDetails:
+                type: object
+                properties:
+                  autoRenewalValue: { type: boolean }
+                  autoRenewalBtn: { type: boolean }
+                  autoRenewalMsg: { type: boolean }
+                  manuRenewalBtn: { type: boolean }
+              validityStart: { type: string }
+              validityEnd: { type: string }
+              platform: { type: string }
+              subscriptionOptions: { type: object }
+              createdAt: { type: string }
+              updatedAt: { type: string }
+        statuses: { type: array, items: { $ref: '#/components/schemas/SubscriptionStatus' } }
+        isLocked: { type: boolean }
+
+    Trip:
+      type: object
+      description: '`Accept: application/vnd.trip.v5+json` (l''app 3.6.1 demande `v6`, même réponse sur les trajets comparés le 15/10/2026). Un trajet passé peut sortir anonymisé, sans `movementRef`, `bikeNumber`, `startStation`, `startStand`, `endStation` ni `endStand` (vu dès 12 jours) : `duration` en minutes arrondies au supérieur ; `bikeType` 0 = mécanique, 1 = électrique ; `origin` 4 = smartphone'
+      properties:
+        id: { type: string, format: uuid }
+        movementRef: { type: string }
+        subscriptionId: { type: string, format: uuid }
+        subscriptionRef: { type: string }
+        contractName: { type: string }
+        accountId: { type: string, format: uuid }
+        status:
+          {
+            type: string,
+            enum:
+              [
+                REQUESTED,
+                STARTED,
+                FINISHED,
+                REJECTED,
+                TIMEOUT,
+                PAUSED,
+                AUTO_FINISHED,
+                ERROR,
+                WARNING,
+                REVERSED,
+              ],
+          }
+        bikeNumber: { type: integer }
+        startDateTime: { type: string }
+        startStation: { type: integer }
+        startStand: { type: integer }
+        endDateTime: { type: string }
+        endStation: { type: integer }
+        endStand: { type: integer }
+        duration: { type: integer }
+        rewardsEarned: { type: integer }
+        rewardsSpent: { type: integer }
+        price: { type: integer }
+        discount: { type: integer }
+        reducedPrice: { type: integer }
+        litigious: { type: boolean }
+        isSpecial: { type: boolean }
+        isRated: { type: boolean, description: '`false` -> l''app propose de noter le vélo' }
+        token: { type: string, description: Code du trajet }
+        bikeType: { type: integer, enum: [0, 1] }
+        origin: { type: integer }
+        createdAt: { type: string }
+        updatedAt: { type: string }
+
+    BikeRate:
+      type: object
+      description: Corps et écho de `POST .../trips/{tripId}/rate`.
+      required: [bikeId, recommended, contract, rating]
+      properties:
+        bikeId:
+          type: integer
+          description: '**Numéro** du vélo (`bikeNumber` du trajet), pas son UUID'
+          examples: [20449]
+        recommended:
+          type: boolean
+          description: Notation binaire (« Je recommande ce vélo » / « Je déconseille ce vélo »)
+        contract: { type: string, examples: [lyon] }
+        rating:
+          type: [integer, 'null']
+          description: |
+            `null` pour un vélo recommandé ; sinon le `rating` du motif choisi dans
+            `GET /contracts/{contract}/defect-type-groups` (30 ou 60 à Lyon). Part `null` compris.
+          examples: [30]
+
+    DefectType:
+      type: object
+      description: 'Motif de défaut signalable, `Accept: application/vnd.defect-type.v1+json`.'
+      properties:
+        id: { type: string, format: uuid }
+        label: { type: string, description: 'Libellé serveur (« Frein »), que l''app officielle n''affiche pas' }
+        rating: { type: integer }
+        order:
+          type: [integer, 'null']
+          description: Renseigné sur les 8 motifs de premier niveau, `null` sur les sous-motifs
+        code:
+          type: string
+          description: |
+            Repris tel quel dans `BikeRate.cdrCode` (l'app Android le nomme `cdrCode`). Motifs de premier
+            niveau : `DT_DECLARED_399` autre, `317` selle, `316` guidon, `315` pédale, `314` frein,
+            `313` roue, `312` feu, `441` assistance électrique. Les sous-motifs (« Frein - Freine mal »…)
+            portent `ONE_STAR` ou `TWO_STARS`. L'app officielle montre une icône par code, `ic_defect_other`
+            pour tout code inconnu.
+          examples: [DT_DECLARED_313]
+        isElectricBike: { type: boolean, description: Motif réservé aux vélos électriques }
+
+    ReleaseBikeRequest:
+      type: object
+      description: >-
+        Corps de `POST .../subscriptions/{subscriptionId}/trips` (README § 5.6), dans l'ordre de l'app
+        Android 3.6.1. Les trois nombres sont nullables : `standNumber` manque pour un vélo de station virtuelle.
+      required: [stationNumber, standNumber, bikeNumber, typeFrom]
+      properties:
+        stationNumber: { type: integer, examples: [2002] }
+        standNumber: { type: integer, examples: [1] }
+        bikeNumber: { type: integer, examples: [20449] }
+        typeFrom: { type: string, enum: [SMARTPHONE] }
+    CreateBooking:
+      type: object
+      description: Corps de `POST .../bookings` (README § 5.9).
+      required: [stationId, stationNumber, standNumber, subscriptionId, bikeId]
+      properties:
+        stationId:
+          type: string
+          format: uuid
+          description: '`id` de la station (`GET /stations/{n}`), pas son numéro'
+        stationNumber: { type: integer, examples: [2002] }
+        standNumber: { type: integer, examples: [12] }
+        subscriptionId:
+          type: string
+          format: uuid
+          description: Abonnement ST ou LT en cours, non verrouillé
+        bikeId:
+          type: string
+          format: uuid
+          description: '`id` du vélo (`GET /bikes`), pas son numéro'
+
+    Booking:
+      type: object
+      description: Une réservation, rendue par `POST` et listée par `GET .../bookings`.
+      properties:
+        id: { type: string, format: uuid }
+        contractName: { type: string, examples: [lyon] }
+        accountId: { type: string, format: uuid }
+        subscriptionId: { type: string, format: uuid }
+        stationId: { type: string, format: uuid }
+        stationNumber: { type: integer, examples: [2002] }
+        standNumber: { type: integer, examples: [12] }
+        bikeId: { type: string, format: uuid }
+        endTime:
+          type: string
+          description: |
+            Fin de la réservation. Format jamais capturé ; probablement la convention des autres dates
+            (ISO 8601 sans fuseau, en UTC — README § 4.3).
+          examples: ['2026-03-02T09:47:14']
+
+    Transaction:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        contractCode: { type: string }
+        accountEmail: { type: string }
+        accountId: { type: string, format: uuid }
+        status: { type: string, examples: [PAID] }
+        nature: { type: string, enum: [SUBSCRIPTION, RENEWAL, CONSUMPTION, CONSUMPTION_REDUCTION] }
+        amount: { type: integer, description: Centimes }
+        pankey: { type: string }
+        createdAt: { type: string }
+        updatedAt: { type: string }
+        offerId: { type: integer }
+        paymentRef: { type: string }
+        paymentProvider: { type: string, examples: [CB_OGONE] }
+        submissionNumber: { type: integer }
+        paybackAmount: { type: integer }
+
+    Sale:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        contractCode: { type: string }
+        accountId: { type: string, format: uuid }
+        accountEmail: { type: string }
+        subscriptionId: { type: string, format: uuid }
+        externalRef: { type: string }
+        nature: { type: string, enum: [SUBSCRIPTION, RENEWAL, CONSUMPTION, CONSUMPTION_REDUCTION] }
+        date: { type: string }
+        createdAt: { type: string }
+        updatedAt: { type: string }
+        amount: { type: integer }
+        direction: { type: string, enum: [DEBIT, CREDIT] }
+        status: { type: string, examples: [PAID], description: 'Filtre `GET /sales` : PAID, TO_INVOICE, TO_CONTROL' }
+        transactionId: { type: string, format: uuid }
+        subscriptionType: { type: string }
+        pankey: { type: string }
+        accountType: { type: string }
+        platform: { type: string, description: 'Présent sur les ventes de période (`MOBILE`, `WEB`...)' }
+        paybackAmount: { type: integer }
+        saleAdditionnalInfo:
+          type: object
+          description: 'Présent sur `GET /sales` (pas dans `sales[]` du détail de transaction). `type: TRIP` -> `additionalInfos` est le trajet facturé ; `type: PERIOD` -> `additionalInfos: { periodId }`'
+          properties:
+            id: { type: string, description: '`movementRef` du trajet ou `periodId`' }
+            type: { type: string, enum: [TRIP, PERIOD] }
+            additionalInfos:
+              oneOf:
+                - allOf:
+                    - $ref: '#/components/schemas/Trip'
+                    - type: object
+                      description: 'Champs absents de `GET /trips`'
+                      properties:
+                        startStationName: { type: string }
+                        endStationName: { type: string }
+                        elecTripsNb: { type: integer }
+                        overchargeAmount: { type: integer, description: Centimes }
+                        overchargeMaxTrips: { type: integer }
+                - type: object
+                  properties: { periodId: { type: string, format: uuid } }
+
+    Rewards:
+      type: object
+      properties:
+        contractName: { type: string }
+        accountId: { type: string, format: uuid }
+        balance: { type: integer }
+        autoSpend: { type: boolean }
+        total: { type: integer }
+        friendsInvitedCount: { type: integer }
+
+    RewardHistoryEntry:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        accountRewardId: { type: string, format: uuid }
+        nature: { type: string, enum: [RULE_ACHIEVED, CONSUMPTION] }
+        direction: { type: string, enum: [CREDIT, DEBIT] }
+        amount: { type: integer, description: Points }
+        reason:
+          {
+            type: string,
+            description: '`name` de la règle (`RATE_BIKE`...) pour un crédit, `REDUCTION` pour un débit',
+            examples: [RATE_BIKE, REDUCTION],
+          }
+        reference: { type: string, description: 'Id du trajet pour un débit ; la chaîne `"null"` pour un crédit de règle' }
+        referenceType: { type: string, enum: [TRIP] }
+        createdAt: { type: string }
+        updatedAt: { type: string }
+        readStatus: { type: string, examples: [NOT_APPLICABLE] }
+
+    RewardHistoryPage:
+      type: object
+      properties:
+        content: { type: array, items: { $ref: '#/components/schemas/RewardHistoryEntry' } }
+        totalElements: { type: integer }
+        totalPages: { type: integer }
+        size: { type: integer, examples: [200] }
+        number: { type: integer }
+        numberOfElements: { type: integer }
+        first: { type: boolean }
+        last: { type: boolean }
+
+    ProcessRequest:
+      type: object
+      required: [type, parameters]
+      properties:
+        type:
+          type: string
+          enum:
+            [
+              SHORT_TERM_SUBSCRIPTION_V2,
+              LONG_TERM_SUBSCRIPTION_V2,
+              MANUAL_RESUBSCRIPTION_V2,
+              CHANGE_BADGE,
+              REGISTER_CB,
+              REGISTER_ADP,
+              REGISTER_PAYMENT_METHOD,
+              ADP_SUBSCRIPTION,
+              INVOICE_TRANSACTION,
+              BATTERY_SUBSCRIPTION,
+              VLD_SUBSCRIPTION,
+              VLD_RESUBSCRIPTION,
+              PARKING_SUBSCRIPTION,
+              PARKING_RESUBSCRIPTION,
+              ACCOUNT_UNSUBSCRIBE,
+              STATION_SUBSCRIPTION,
+              CREATE_BIKE_DEFECT,
+              CREATE_CAB,
+              CREATE_SALESFORCE_CASE,
+              SELFCARE_RETURNED_BIKE,
+              SELFCARE_TRIP_AMOUNT,
+              SELFCARE_RESCIND_SUBSCRIPTION,
+              REDEFINE_ACCOUNT_EMAIL,
+              CREATE_SPONSORSHIP_PROMOCODE,
+            ]
+        parameters:
+          type: object
+          description: Paramètres obligatoires selon le type (§ 6) ; identifiants sérialisés avec préfixe de type (§ 4.4).
+          additionalProperties: true
+
+    ProcessResult:
+      type: object
+      properties:
+        executionId: { type: integer }
+        type: { type: string }
+        inError: { type: boolean }
+        toResume: { type: boolean }
+        startTime: { type: string }
+        endTime: { type: string }
+        results:
+          type: object
+          description: 'Valeurs demandées par `?returns=`. Ex. `{ "incident_type": "PAID_AND_NO_INCIDENT" }` — rendu en clair, sans préfixe de format. Vide sans `returns`.'
+        error:
+          type: object
+          description: "Présent quand `inError: true`. ✅ Relevé le 24/10/2026 sur un `REGISTER_PAYMENT_METHOD` dont le checkout a été annulé : `{ type: FUNCTIONAL, message: '404:pay.exception.checkout.payment-infos.not.found:Payment Infos cannot be found for given checkout ID', complement: '[PayException] …' }`. `message` commence par le statut et le code métier."
+          properties:
+            type: { type: string }
+            message: { type: string }
+            complement: { type: string }

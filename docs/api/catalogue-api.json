@@ -1,0 +1,1497 @@
+{
+  "scope": "Declarations from official Lyon web protocol registry and original community Android interface inventory. This is not a complete server API and does not establish access permissions or successful execution.",
+  "official_web_registry": [
+    {
+      "category": "business",
+      "endpoint_key": "oneStation",
+      "path": "/contracts/lyon/stations/{id}",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "getStations",
+      "path": "/contracts/lyon/stations",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "getShops",
+      "path": "/contracts/lyon/shops",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "getBikes",
+      "path": "/contracts/lyon/bikes",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "getCard",
+      "path": "/contracts/lyon/cards/search",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "documentsContractContext",
+      "path": "/contracts/lyon/assets/{id}",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "documentsContractAccountContext",
+      "path": "/contracts/lyon/accounts/{accountId}/documents/{id}",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "allSubscriptions",
+      "path": "/contracts/lyon/accounts/{accountId}/subscriptions",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "oneSubscription",
+      "path": "/contracts/lyon/accounts/{accountId}/subscriptions/{subscriptionId}",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "allStatuses",
+      "path": "/contracts/lyon/accounts/{accountId}/subscriptions/{subscriptionId}/statuses",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "statusesByStatus",
+      "path": "/contracts/lyon/accounts/{accountId}/subscriptions/{subscriptionId}/statuses/{status}",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "isAccountRentingBikeCurrently",
+      "path": "/contracts/lyon/accounts/{accountId}/subscriptions/{subscriptionId}/rentbike",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "subscriptionReceipt",
+      "path": "/contracts/lyon/accounts/{accountId}/subscriptions/{subscriptionId}/periods/{periodId}/reports",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "offersByGroupId",
+      "path": "/contracts/lyon/offerGroups/{groupId}/offers",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "getOfferGroupImage",
+      "path": "/contracts/lyon/offerGroups/{groupId}/picture",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "allOffers",
+      "path": "/contracts/lyon/offers",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "oneOffer",
+      "path": "/contracts/lyon/offers/{offerID}",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "offersGroups",
+      "path": "/contracts/lyon/offerGroups",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "getOfferPrice",
+      "path": "/contracts/lyon/offers/{offerId}/price",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "allOffersIdFilterOnAccountAndSubscription",
+      "path": "/contracts/lyon/accounts/{accountId}/subscriptions/{subscriptionId}/renewaloffers",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "allAccounts",
+      "path": "/contracts/lyon/accounts",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "userOffersByGroup",
+      "path": "/contracts/lyon/accounts/{accountId}/offerGroups/{groupId}/offers",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "oneAccount",
+      "path": "/contracts/lyon/accounts/{accountId}/",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "accountAlerts",
+      "path": "/contracts/lyon/accounts/{accountId}/alerts",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "allOffersFilterOnAccount",
+      "path": "/contracts/lyon/accounts/{accountId}/offers",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "validateCGAUs",
+      "path": "/contracts/lyon/accounts/{accountId}/cgau",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "bookMarkedStation",
+      "path": "/contracts/lyon/accounts/{accountId}/stationbookmarks/{stationId}",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "bikeModelsByAccount",
+      "path": "/contracts/lyon/accounts/{accountId}/bikemodel",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "payment",
+      "path": "/contracts/lyon/accounts/{accountId}/payment",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "paymentMandateDocument",
+      "path": "/contracts/lyon/accounts/{accountId}/payment/mandate",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "process",
+      "path": "/contracts/lyon/accounts/{accountId}/processes",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "confirmProcess",
+      "path": "/contracts/lyon/accounts/{accountId}/processes/{processId}",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "getCgauByVersion",
+      "path": "/contracts/lyon/cgau/{cgauType}/versions/{cgauVersion}",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "getAllCGAUs",
+      "path": "/contracts/lyon/cgau",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "getCGAUFile",
+      "path": "/contracts/lyon/cgau/{id}/file",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "getValidGTUByType",
+      "path": "/contracts/lyon/cgau/{cgauType}/valid",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "getValidGTUFileByType",
+      "path": "/contracts/lyon/cgau/{cgauType}/valid/file",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "getGTUFileByTypeAndVersion",
+      "path": "/contracts/lyon/cgau/{cgauType}/versions/{cgauVersion}/file",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "allTrips",
+      "path": "/contracts/lyon/accounts/{accountId}/trips",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "getBalance",
+      "path": "/contracts/lyon/accounts/{accountId}/balance",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "getPayments",
+      "path": "/contracts/lyon/accounts/{accountId}/sales",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "getTransactions",
+      "path": "/contracts/lyon/accounts/{accountId}/transactions",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "getTransactionSales",
+      "path": "/contracts/lyon/accounts/{accountId}/transactions/{transaction}",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "transactionProof",
+      "path": "/contracts/lyon/accounts/{accountId}/transactions/{transaction}/bill",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "userRewards",
+      "path": "/contracts/lyon/accounts/{accountId}/rewards",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "configRewards",
+      "path": "/contracts/lyon/rewards/configurations",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "faqTopics",
+      "path": "/contracts/lyon/topics",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "faqSearch",
+      "path": "/contracts/lyon/faqs/search",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "faqByid",
+      "path": "/contracts/lyon/faqs/{faqId}",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "getStatistics",
+      "path": "/contracts/lyon/accounts/{accountId}/stats",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "supportLogo",
+      "path": "/contracts/lyon/badges/{id}/logo",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "supportById",
+      "path": "/contracts/lyon/badges/{id}",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "checkout",
+      "path": "/contracts/lyon/accounts/{accountId}/pay/checkout",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "register",
+      "path": "/contracts/lyon/accounts/{accountId}/pay/payment-infos/register",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "proofById",
+      "path": "/contracts/lyon/locales/{locale}/proofs/{proofId}",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "proofs",
+      "path": "/contracts/lyon/locales/{locale}/proofs",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "getContents",
+      "path": "/contracts/lyon/contents",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "stationInformation",
+      "path": "/contracts/lyon/gbfs/{version}/station_information.json",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "stationStatus",
+      "path": "/contracts/lyon/gbfs/{version}/station_status.json",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "allContractFeatures",
+      "path": "/contracts/lyon/features",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "oneContractFeature",
+      "path": "/contracts/lyon/features/{feature}",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "allContracts",
+      "path": "/contracts",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "oneContract",
+      "path": "/contracts/{name}",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "bikeRating",
+      "path": "/contracts/lyon/bikes/ratings",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "getOfferPackage",
+      "path": "/contracts/lyon/offers/{offerId}/supplements/badges/{badgeId}/packages",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "getVuOfferPackage",
+      "path": "/contracts/lyon/offers/{offerId}/supplements/packages",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "getBikeModels",
+      "path": "/contracts/lyon/bikemodels",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "getOptions",
+      "path": "/contracts/lyon/options",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "bikeModelPicture",
+      "path": "/contracts/lyon/bikemodels/{id}/picture",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "optionPicture",
+      "path": "/contracts/lyon/options/{id}/logo",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "supplementPicture",
+      "path": "/contracts/lyon/items/{id}/logo",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "getBikeModel",
+      "path": "/contracts/lyon/bikemodels/{bikeModelId}",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "getBikeModelByAccount",
+      "path": "/contracts/lyon/accounts/{accountId}/bikemodel",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "getDocument",
+      "path": "/contracts/lyon/documents/{documentId}",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "openDataStations",
+      "path": "/open-data-platform-webapp/vls/v3/stations",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "getStationEvents",
+      "path": "/contracts/lyon/events",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "getOneStationEvent",
+      "path": "/contracts/lyon/events/{eventId}",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "searchStationsEvents",
+      "path": "/contracts/lyon/events/{search}",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "newscasts",
+      "path": "/contracts/lyon/news/feed/{imagesize}",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "accountMigrationCheckAccount",
+      "path": "/contracts/lyon/migrations/{kiwiId}/login",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "updateAccountMigration",
+      "path": "/contracts/lyon/migrations/{accountMigrationId}",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "infosFromVLS1WithKiwiOrEmailVLS2",
+      "path": "/contracts/lyon/migrations",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "oneStationInfo",
+      "path": "/contracts/lyon/stations/{id}/info",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "getProof",
+      "path": "/contracts/lyon/proofs/{id}/content",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "getValidCGAU",
+      "path": "/contracts/lyon/cgau/valid",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "getParkings",
+      "path": "/contracts/lyon/parkings",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "getParkingsID",
+      "path": "/contracts/lyon/parkings/{parkingID}",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "contractOfferReports",
+      "path": "/contracts/lyon/offers/{offer}/reports",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "sponsoring",
+      "path": "/contracts/lyon/sponsoring",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "getSupplements",
+      "path": "/contracts/lyon/offers/{offerId}/supplements",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "getSupplement",
+      "path": "/contracts/lyon/offers/{offerId}/supplements/{supplementId}",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "getItemsSupplements",
+      "path": "/contracts/lyon/offers/{offerId}/supplements/{supplementId}/items",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "accountId",
+      "path": "/contracts/lyon/accounts/{email}/id",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "business",
+      "endpoint_key": "subscriptionSendMessage",
+      "path": "/contracts/lyon/accounts/{accountId}/mail",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "application-authentication",
+      "endpoint_key": "clientsTokens",
+      "path": "/auth/environments/PRD/client_tokens",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "application-authentication",
+      "endpoint_key": "accountTokens",
+      "path": "/auth/environments/PRD/account_tokens",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    },
+    {
+      "category": "application-authentication",
+      "endpoint_key": "refreshToken",
+      "path": "/auth/access_tokens",
+      "http_method": null,
+      "evidence_type": "static official website declaration; method not inferred from URL"
+    }
+  ],
+  "community_android_declarations": [
+    {
+      "method": "GET",
+      "path": "/contracts/lyon",
+      "declared_headers": "—",
+      "query": "—",
+      "body_model": "—",
+      "android_interface": "ug/h.a",
+      "evidence_type": "reported Android 3.6.1 decompilation by Yann Lombard, not independently decompiled or executed in this investigation"
+    },
+    {
+      "method": "POST",
+      "path": "/contracts/lyon/accounts/{accountId}/subscriptions/{subscriptionId}/periods/{periodId}/reports",
+      "declared_headers": "`Accept: json`",
+      "query": "—",
+      "body_model": "—",
+      "android_interface": "ug/n.a",
+      "evidence_type": "reported Android 3.6.1 decompilation by Yann Lombard, not independently decompiled or executed in this investigation"
+    },
+    {
+      "method": "GET",
+      "path": "/contracts/lyon/accounts/{accountId}",
+      "declared_headers": "`Accept: vnd.account.v4+json`",
+      "query": "—",
+      "body_model": "—",
+      "android_interface": "ug/a.a",
+      "evidence_type": "reported Android 3.6.1 decompilation by Yann Lombard, not independently decompiled or executed in this investigation"
+    },
+    {
+      "method": "PATCH",
+      "path": "/contracts/lyon/accounts/{accountId}",
+      "declared_headers": "`Content-Type: vnd.account.v4+json`",
+      "query": "—",
+      "body_model": "`PatchAccount`",
+      "android_interface": "ug/a.c",
+      "evidence_type": "reported Android 3.6.1 decompilation by Yann Lombard, not independently decompiled or executed in this investigation"
+    },
+    {
+      "method": "PATCH",
+      "path": "/contracts/lyon/accounts/{accountId}",
+      "declared_headers": "`Content-Type: vnd.account.v4+json`",
+      "query": "—",
+      "body_model": "`CompleteAccount`",
+      "android_interface": "ug/a.h",
+      "evidence_type": "reported Android 3.6.1 decompilation by Yann Lombard, not independently decompiled or executed in this investigation"
+    },
+    {
+      "method": "GET",
+      "path": "/contracts/lyon/accounts/{accountId}/alerts",
+      "declared_headers": "`Accept: vnd.account.v4+json`",
+      "query": "—",
+      "body_model": "—",
+      "android_interface": "ug/a.f",
+      "evidence_type": "reported Android 3.6.1 decompilation by Yann Lombard, not independently decompiled or executed in this investigation"
+    },
+    {
+      "method": "GET",
+      "path": "/contracts/lyon/accounts/{accountId}/balance",
+      "declared_headers": "`Accept: vnd.balance.v1+json`",
+      "query": "—",
+      "body_model": "—",
+      "android_interface": "qi/f.d",
+      "evidence_type": "reported Android 3.6.1 decompilation by Yann Lombard, not independently decompiled or executed in this investigation"
+    },
+    {
+      "method": "GET",
+      "path": "/contracts/lyon/accounts/{accountId}/bookings",
+      "declared_headers": "—",
+      "query": "—",
+      "body_model": "—",
+      "android_interface": "ug/d.c",
+      "evidence_type": "reported Android 3.6.1 decompilation by Yann Lombard, not independently decompiled or executed in this investigation"
+    },
+    {
+      "method": "POST",
+      "path": "/contracts/lyon/accounts/{accountId}/bookings",
+      "declared_headers": "—",
+      "query": "—",
+      "body_model": "`CreateBooking`",
+      "android_interface": "ug/d.d",
+      "evidence_type": "reported Android 3.6.1 decompilation by Yann Lombard, not independently decompiled or executed in this investigation"
+    },
+    {
+      "method": "GET",
+      "path": "/contracts/lyon/accounts/{accountId}/cgau",
+      "declared_headers": "`Accept: vnd.account.v4+json`",
+      "query": "—",
+      "body_model": "—",
+      "android_interface": "ug/a.g",
+      "evidence_type": "reported Android 3.6.1 decompilation by Yann Lombard, not independently decompiled or executed in this investigation"
+    },
+    {
+      "method": "DELETE",
+      "path": "/contracts/lyon/accounts/{accountId}/devices",
+      "declared_headers": "`Content-Type: vnd.message.v2+json`",
+      "query": "—",
+      "body_model": "`Device`",
+      "android_interface": "qi/c.b",
+      "evidence_type": "reported Android 3.6.1 decompilation by Yann Lombard, not independently decompiled or executed in this investigation"
+    },
+    {
+      "method": "POST",
+      "path": "/contracts/lyon/accounts/{accountId}/devices",
+      "declared_headers": "`Content-Type: vnd.message.v2+json`",
+      "query": "—",
+      "body_model": "`Device`",
+      "android_interface": "qi/c.a",
+      "evidence_type": "reported Android 3.6.1 decompilation by Yann Lombard, not independently decompiled or executed in this investigation"
+    },
+    {
+      "method": "DELETE",
+      "path": "/contracts/lyon/accounts/{accountId}/documents",
+      "declared_headers": "`Content-Type: vnd.document.v3+json`",
+      "query": "—",
+      "body_model": "`DeleteDocuments`",
+      "android_interface": "qi/d.b",
+      "evidence_type": "reported Android 3.6.1 decompilation by Yann Lombard, not independently decompiled or executed in this investigation"
+    },
+    {
+      "method": "POST",
+      "path": "/contracts/lyon/accounts/{accountId}/documents",
+      "declared_headers": "—",
+      "query": "—",
+      "body_model": "`multipart`",
+      "android_interface": "qi/d.c",
+      "evidence_type": "reported Android 3.6.1 decompilation by Yann Lombard, not independently decompiled or executed in this investigation"
+    },
+    {
+      "method": "POST",
+      "path": "/contracts/lyon/accounts/{accountId}/mail",
+      "declared_headers": "`Accept: multipart/form-data`",
+      "query": "—",
+      "body_model": "`multipart champs : complaintType,message,subscriptionId,tripId,transactionId,amount,date,status,parkingId,parkingNumber,parkingName`",
+      "android_interface": "qi/e.a",
+      "evidence_type": "reported Android 3.6.1 decompilation by Yann Lombard, not independently decompiled or executed in this investigation"
+    },
+    {
+      "method": "GET",
+      "path": "/contracts/lyon/accounts/{accountId}/offerGroups/{group}/offers",
+      "declared_headers": "`Accept: vnd.account.v4+json`",
+      "query": "—",
+      "body_model": "—",
+      "android_interface": "ug/a.b",
+      "evidence_type": "reported Android 3.6.1 decompilation by Yann Lombard, not independently decompiled or executed in this investigation"
+    },
+    {
+      "method": "GET",
+      "path": "/contracts/lyon/accounts/{accountId}/offers",
+      "declared_headers": "`Accept: vnd.account.v4+json`",
+      "query": "—",
+      "body_model": "—",
+      "android_interface": "ug/k.c",
+      "evidence_type": "reported Android 3.6.1 decompilation by Yann Lombard, not independently decompiled or executed in this investigation"
+    },
+    {
+      "method": "POST",
+      "path": "/contracts/lyon/accounts/{accountId}/parkings/{parkId}/open",
+      "declared_headers": "`Accept: vnd.parkings.v2+json`",
+      "query": "—",
+      "body_model": "—",
+      "android_interface": "qi/h.c",
+      "evidence_type": "reported Android 3.6.1 decompilation by Yann Lombard, not independently decompiled or executed in this investigation"
+    },
+    {
+      "method": "POST",
+      "path": "/contracts/lyon/accounts/{accountId}/pay/checkout",
+      "declared_headers": "`Content-Type: vnd.pay.v1+json`",
+      "query": "—",
+      "body_model": "`GetCheckoutInfosBody`",
+      "android_interface": "qi/i.a",
+      "evidence_type": "reported Android 3.6.1 decompilation by Yann Lombard, not independently decompiled or executed in this investigation"
+    },
+    {
+      "method": "GET",
+      "path": "/contracts/lyon/accounts/{accountId}/payment",
+      "declared_headers": "`Accept: vnd.payment.v3+json`",
+      "query": "—",
+      "body_model": "—",
+      "android_interface": "ug/a.e",
+      "evidence_type": "reported Android 3.6.1 decompilation by Yann Lombard, not independently decompiled or executed in this investigation"
+    },
+    {
+      "method": "GET",
+      "path": "/contracts/lyon/accounts/{accountId}/periods",
+      "declared_headers": "`Accept: vnd.subscription.v6+json`",
+      "query": "`periodIds`",
+      "body_model": "—",
+      "android_interface": "ug/r.i",
+      "evidence_type": "reported Android 3.6.1 decompilation by Yann Lombard, not independently decompiled or executed in this investigation"
+    },
+    {
+      "method": "POST",
+      "path": "/contracts/lyon/accounts/{accountId}/processes",
+      "declared_headers": "`Content-Type: vnd.processes.v2+json`",
+      "query": "`returns`",
+      "body_model": "`Process`",
+      "android_interface": "ug/m.a",
+      "evidence_type": "reported Android 3.6.1 decompilation by Yann Lombard, not independently decompiled or executed in this investigation"
+    },
+    {
+      "method": "GET",
+      "path": "/contracts/lyon/accounts/{accountId}/rewards",
+      "declared_headers": "`Accept: vnd.rewards.v5+json`",
+      "query": "—",
+      "body_model": "—",
+      "android_interface": "qi/j.a",
+      "evidence_type": "reported Android 3.6.1 decompilation by Yann Lombard, not independently decompiled or executed in this investigation"
+    },
+    {
+      "method": "PATCH",
+      "path": "/contracts/lyon/accounts/{accountId}/rewards",
+      "declared_headers": "`Content-Type: vnd.rewards.v5+json`",
+      "query": "—",
+      "body_model": "`UpdateReward`",
+      "android_interface": "qi/j.e",
+      "evidence_type": "reported Android 3.6.1 decompilation by Yann Lombard, not independently decompiled or executed in this investigation"
+    },
+    {
+      "method": "POST",
+      "path": "/contracts/lyon/accounts/{accountId}/rewards/consume/promocode",
+      "declared_headers": "`Accept: vnd.rewards.v5+json`",
+      "query": "—",
+      "body_model": "—",
+      "android_interface": "qi/j.b",
+      "evidence_type": "reported Android 3.6.1 decompilation by Yann Lombard, not independently decompiled or executed in this investigation"
+    },
+    {
+      "method": "GET",
+      "path": "/contracts/lyon/accounts/{accountId}/rewards/history",
+      "declared_headers": "`Accept: vnd.rewards.v5+json`",
+      "query": "`page`, `limit`",
+      "body_model": "—",
+      "android_interface": "qi/j.c",
+      "evidence_type": "reported Android 3.6.1 decompilation by Yann Lombard, not independently decompiled or executed in this investigation"
+    },
+    {
+      "method": "GET",
+      "path": "/contracts/lyon/accounts/{accountId}/sales",
+      "declared_headers": "`Accept: vnd.sale.v1+json`",
+      "query": "`infoType`, `natures`, `saleDateAfter`, `status`, `direction`",
+      "body_model": "—",
+      "android_interface": "qi/f.b",
+      "evidence_type": "reported Android 3.6.1 decompilation by Yann Lombard, not independently decompiled or executed in this investigation"
+    },
+    {
+      "method": "DELETE",
+      "path": "/contracts/lyon/accounts/{accountId}/stationbookmarks/{stationId}/",
+      "declared_headers": "`Accept: vnd.account.v4+json`",
+      "query": "—",
+      "body_model": "—",
+      "android_interface": "qi/m.a",
+      "evidence_type": "reported Android 3.6.1 decompilation by Yann Lombard, not independently decompiled or executed in this investigation"
+    },
+    {
+      "method": "POST",
+      "path": "/contracts/lyon/accounts/{accountId}/stationbookmarks/{stationId}/",
+      "declared_headers": "`Accept: vnd.account.v4+json`",
+      "query": "—",
+      "body_model": "—",
+      "android_interface": "qi/m.b",
+      "evidence_type": "reported Android 3.6.1 decompilation by Yann Lombard, not independently decompiled or executed in this investigation"
+    },
+    {
+      "method": "GET",
+      "path": "/contracts/lyon/accounts/{accountId}/stats",
+      "declared_headers": "`Accept: vnd.stats.v1+json`",
+      "query": "`startDate`, `endDate`, `period`, `statsType`",
+      "body_model": "—",
+      "android_interface": "ug/q.a",
+      "evidence_type": "reported Android 3.6.1 decompilation by Yann Lombard, not independently decompiled or executed in this investigation"
+    },
+    {
+      "method": "GET",
+      "path": "/contracts/lyon/accounts/{accountId}/subscriptions",
+      "declared_headers": "`Accept: vnd.subscription.v6+json`",
+      "query": "`periods`, `typeList`, `isLocked`",
+      "body_model": "—",
+      "android_interface": "ug/r.c",
+      "evidence_type": "reported Android 3.6.1 decompilation by Yann Lombard, not independently decompiled or executed in this investigation"
+    },
+    {
+      "method": "GET",
+      "path": "/contracts/lyon/accounts/{accountId}/subscriptions",
+      "declared_headers": "`Accept: vnd.subscription.v6+json`",
+      "query": "`periods`",
+      "body_model": "—",
+      "android_interface": "ug/r.d",
+      "evidence_type": "reported Android 3.6.1 decompilation by Yann Lombard, not independently decompiled or executed in this investigation"
+    },
+    {
+      "method": "GET",
+      "path": "/contracts/lyon/accounts/{accountId}/subscriptions",
+      "declared_headers": "`Accept: vnd.subscription.v6+json`",
+      "query": "`periods`, `typeList`, `noStatus`, `isLocked`",
+      "body_model": "—",
+      "android_interface": "ug/r.e",
+      "evidence_type": "reported Android 3.6.1 decompilation by Yann Lombard, not independently decompiled or executed in this investigation"
+    },
+    {
+      "method": "GET",
+      "path": "/contracts/lyon/accounts/{accountId}/subscriptions/{id}",
+      "declared_headers": "`Accept: vnd.subscription.v6+json`",
+      "query": "`periods`",
+      "body_model": "—",
+      "android_interface": "ug/r.b",
+      "evidence_type": "reported Android 3.6.1 decompilation by Yann Lombard, not independently decompiled or executed in this investigation"
+    },
+    {
+      "method": "PATCH",
+      "path": "/contracts/lyon/accounts/{accountId}/subscriptions/{id}",
+      "declared_headers": "`Content-Type: vnd.subscription.v6+json`",
+      "query": "—",
+      "body_model": "`SubscriptionAutoRenewal`",
+      "android_interface": "ug/r.h",
+      "evidence_type": "reported Android 3.6.1 decompilation by Yann Lombard, not independently decompiled or executed in this investigation"
+    },
+    {
+      "method": "GET",
+      "path": "/contracts/lyon/accounts/{accountId}/subscriptions/{id}/statuses",
+      "declared_headers": "`Accept: vnd.subscription.v6+json`",
+      "query": "—",
+      "body_model": "—",
+      "android_interface": "ug/r.a",
+      "evidence_type": "reported Android 3.6.1 decompilation by Yann Lombard, not independently decompiled or executed in this investigation"
+    },
+    {
+      "method": "GET",
+      "path": "/contracts/lyon/accounts/{accountId}/subscriptions/{subscriptionId}/renewaloffers",
+      "declared_headers": "`Accept: vnd.renewalOffer.v2+json`",
+      "query": "`platform`",
+      "body_model": "—",
+      "android_interface": "ug/k.p",
+      "evidence_type": "reported Android 3.6.1 decompilation by Yann Lombard, not independently decompiled or executed in this investigation"
+    },
+    {
+      "method": "POST",
+      "path": "/contracts/lyon/accounts/{accountId}/subscriptions/{subscriptionId}/trips",
+      "declared_headers": "`Content-Type: vnd.trip.v6+json`",
+      "query": "—",
+      "body_model": "`ReleaseBikeRequest`",
+      "android_interface": "ug/s.d",
+      "evidence_type": "reported Android 3.6.1 decompilation by Yann Lombard, not independently decompiled or executed in this investigation"
+    },
+    {
+      "method": "POST",
+      "path": "/contracts/lyon/accounts/{accountId}/subscriptions/{subscriptionId}/via",
+      "declared_headers": "`Content-Type: vnd.subscription.v6+json`",
+      "query": "—",
+      "body_model": "`CreateVia`",
+      "android_interface": "ug/r.g",
+      "evidence_type": "reported Android 3.6.1 decompilation by Yann Lombard, not independently decompiled or executed in this investigation"
+    },
+    {
+      "method": "GET",
+      "path": "/contracts/lyon/accounts/{accountId}/transactions",
+      "declared_headers": "`Accept: vnd.transaction.v1+json`",
+      "query": "`showRegulationId`",
+      "body_model": "—",
+      "android_interface": "qi/f.c",
+      "evidence_type": "reported Android 3.6.1 decompilation by Yann Lombard, not independently decompiled or executed in this investigation"
+    },
+    {
+      "method": "GET",
+      "path": "/contracts/lyon/accounts/{accountId}/transactions/{transactionId}",
+      "declared_headers": "`Accept: vnd.transaction.v1+json`",
+      "query": "—",
+      "body_model": "—",
+      "android_interface": "qi/f.e",
+      "evidence_type": "reported Android 3.6.1 decompilation by Yann Lombard, not independently decompiled or executed in this investigation"
+    },
+    {
+      "method": "GET",
+      "path": "/contracts/lyon/accounts/{accountId}/transactions/{transactionId}/bill",
+      "declared_headers": "`Content-Type: vnd.transaction.v1+json`",
+      "query": "—",
+      "body_model": "—",
+      "android_interface": "qi/f.a",
+      "evidence_type": "reported Android 3.6.1 decompilation by Yann Lombard, not independently decompiled or executed in this investigation"
+    },
+    {
+      "method": "GET",
+      "path": "/contracts/lyon/accounts/{accountId}/trips",
+      "declared_headers": "`Accept: vnd.trip.v6+json`",
+      "query": "`status`",
+      "body_model": "—",
+      "android_interface": "ug/s.a",
+      "evidence_type": "reported Android 3.6.1 decompilation by Yann Lombard, not independently decompiled or executed in this investigation"
+    },
+    {
+      "method": "GET",
+      "path": "/contracts/lyon/accounts/{accountId}/trips/ongoing",
+      "declared_headers": "`Accept: vnd.trip.v6+json`",
+      "query": "—",
+      "body_model": "—",
+      "android_interface": "ug/s.e",
+      "evidence_type": "reported Android 3.6.1 decompilation by Yann Lombard, not independently decompiled or executed in this investigation"
+    },
+    {
+      "method": "POST",
+      "path": "/contracts/lyon/accounts/{accountId}/trips/{tripId}/rate",
+      "declared_headers": "`Content-Type: vnd.trip.v6+json`",
+      "query": "—",
+      "body_model": "`Rate`",
+      "android_interface": "ug/c.c",
+      "evidence_type": "reported Android 3.6.1 decompilation by Yann Lombard, not independently decompiled or executed in this investigation"
+    },
+    {
+      "method": "GET",
+      "path": "/contracts/lyon/accounts/{accountId}/trips/{tripId}/route",
+      "declared_headers": "`Content-Type: vnd.trip.v6+json`",
+      "query": "—",
+      "body_model": "—",
+      "android_interface": "ug/s.b",
+      "evidence_type": "reported Android 3.6.1 decompilation by Yann Lombard, not independently decompiled or executed in this investigation"
+    },
+    {
+      "method": "POST",
+      "path": "/contracts/lyon/accounts/{accountId}/trips/{tripId}/route",
+      "declared_headers": "`Content-Type: vnd.trip.v6+json`",
+      "query": "—",
+      "body_model": "`List<Point>`",
+      "android_interface": "ug/s.c",
+      "evidence_type": "reported Android 3.6.1 decompilation by Yann Lombard, not independently decompiled or executed in this investigation"
+    },
+    {
+      "method": "GET",
+      "path": "/contracts/lyon/accounts/{email}/id",
+      "declared_headers": "`Accept: json`",
+      "query": "—",
+      "body_model": "—",
+      "android_interface": "ug/a.d",
+      "evidence_type": "reported Android 3.6.1 decompilation by Yann Lombard, not independently decompiled or executed in this investigation"
+    },
+    {
+      "method": "GET",
+      "path": "/contracts/lyon/assets/{documentId}",
+      "declared_headers": "`Accept: vnd.document.v3+json`",
+      "query": "—",
+      "body_model": "—",
+      "android_interface": "qi/d.a",
+      "evidence_type": "reported Android 3.6.1 decompilation by Yann Lombard, not independently decompiled or executed in this investigation"
+    },
+    {
+      "method": "POST",
+      "path": "/auth/access_tokens",
+      "declared_headers": "—",
+      "query": "—",
+      "body_model": "`CreateAccessToken`",
+      "android_interface": "ug/b.a",
+      "evidence_type": "reported Android 3.6.1 decompilation by Yann Lombard, not independently decompiled or executed in this investigation"
+    },
+    {
+      "method": "POST",
+      "path": "/auth/environments/{environment}/client_tokens",
+      "declared_headers": "—",
+      "query": "—",
+      "body_model": "`CreateClientRefreshToken`",
+      "android_interface": "ug/b.b",
+      "evidence_type": "reported Android 3.6.1 decompilation by Yann Lombard, not independently decompiled or executed in this investigation"
+    },
+    {
+      "method": "GET",
+      "path": "/contracts/lyon/badges/{badgeId}",
+      "declared_headers": "—",
+      "query": "—",
+      "body_model": "—",
+      "android_interface": "ug/k.t",
+      "evidence_type": "reported Android 3.6.1 decompilation by Yann Lombard, not independently decompiled or executed in this investigation"
+    },
+    {
+      "method": "GET",
+      "path": "/contracts/lyon/badges/{badgeId}/logo",
+      "declared_headers": "—",
+      "query": "—",
+      "body_model": "—",
+      "android_interface": "ug/k.g",
+      "evidence_type": "reported Android 3.6.1 decompilation by Yann Lombard, not independently decompiled or executed in this investigation"
+    },
+    {
+      "method": "GET",
+      "path": "/contracts/lyon/bikemodels",
+      "declared_headers": "—",
+      "query": "`isValid`",
+      "body_model": "—",
+      "android_interface": "ug/k.f",
+      "evidence_type": "reported Android 3.6.1 decompilation by Yann Lombard, not independently decompiled or executed in this investigation"
+    },
+    {
+      "method": "GET",
+      "path": "/contracts/lyon/bikes",
+      "declared_headers": "`Accept: vnd.bikes.v3+json`",
+      "query": "`number`",
+      "body_model": "—",
+      "android_interface": "ug/c.a",
+      "evidence_type": "reported Android 3.6.1 decompilation by Yann Lombard, not independently decompiled or executed in this investigation"
+    },
+    {
+      "method": "GET",
+      "path": "/contracts/lyon/bikes",
+      "declared_headers": "`Accept: vnd.bikes.v3+json`",
+      "query": "`stationNumber`",
+      "body_model": "—",
+      "android_interface": "ug/c.b",
+      "evidence_type": "reported Android 3.6.1 decompilation by Yann Lombard, not independently decompiled or executed in this investigation"
+    },
+    {
+      "method": "GET",
+      "path": "/contracts/lyon/campaigns/{id}",
+      "declared_headers": "—",
+      "query": "—",
+      "body_model": "—",
+      "android_interface": "ug/e.b",
+      "evidence_type": "reported Android 3.6.1 decompilation by Yann Lombard, not independently decompiled or executed in this investigation"
+    },
+    {
+      "method": "GET",
+      "path": "/contracts/lyon/cgau",
+      "declared_headers": "`Accept: vnd.cgau.v2+json`",
+      "query": "—",
+      "body_model": "—",
+      "android_interface": "ug/k.n",
+      "evidence_type": "reported Android 3.6.1 decompilation by Yann Lombard, not independently decompiled or executed in this investigation"
+    },
+    {
+      "method": "GET",
+      "path": "/contracts/lyon/cgau/{type}/valid",
+      "declared_headers": "`Accept: vnd.cgau.v2+json`",
+      "query": "—",
+      "body_model": "—",
+      "android_interface": "ug/k.i",
+      "evidence_type": "reported Android 3.6.1 decompilation by Yann Lombard, not independently decompiled or executed in this investigation"
+    },
+    {
+      "method": "GET",
+      "path": "/contracts/lyon/cgau/{type}/valid/file",
+      "declared_headers": "`Accept: vnd.cgau.v2+json`",
+      "query": "—",
+      "body_model": "—",
+      "android_interface": "ug/k.k",
+      "evidence_type": "reported Android 3.6.1 decompilation by Yann Lombard, not independently decompiled or executed in this investigation"
+    },
+    {
+      "method": "GET",
+      "path": "/contracts/lyon/cgau/{type}/versions/{version}/file",
+      "declared_headers": "`Accept: vnd.cgau.v2+json`",
+      "query": "—",
+      "body_model": "—",
+      "android_interface": "ug/k.d",
+      "evidence_type": "reported Android 3.6.1 decompilation by Yann Lombard, not independently decompiled or executed in this investigation"
+    },
+    {
+      "method": "GET",
+      "path": "/contracts/lyon/contents",
+      "declared_headers": "—",
+      "query": "`contentType`",
+      "body_model": "—",
+      "android_interface": "qi/a.a",
+      "evidence_type": "reported Android 3.6.1 decompilation by Yann Lombard, not independently decompiled or executed in this investigation"
+    },
+    {
+      "method": "GET",
+      "path": "/contracts/lyon/defect-type-groups",
+      "declared_headers": "`Accept: vnd.defect-type-group.v1+json`",
+      "query": "`locale`, `withDefectTypes`",
+      "body_model": "—",
+      "android_interface": "qi/b.a",
+      "evidence_type": "reported Android 3.6.1 decompilation by Yann Lombard, not independently decompiled or executed in this investigation"
+    },
+    {
+      "method": "GET",
+      "path": "/contracts/lyon/events",
+      "declared_headers": "—",
+      "query": "`page`, `size`",
+      "body_model": "—",
+      "android_interface": "ug/o.b",
+      "evidence_type": "reported Android 3.6.1 decompilation by Yann Lombard, not independently decompiled or executed in this investigation"
+    },
+    {
+      "method": "GET",
+      "path": "/contracts/lyon/events/{eventId}",
+      "declared_headers": "—",
+      "query": "—",
+      "body_model": "—",
+      "android_interface": "ug/o.a",
+      "evidence_type": "reported Android 3.6.1 decompilation by Yann Lombard, not independently decompiled or executed in this investigation"
+    },
+    {
+      "method": "POST",
+      "path": "/contracts/lyon/faqs/search",
+      "declared_headers": "—",
+      "query": "—",
+      "body_model": "`FaqsCriterias`",
+      "android_interface": "ug/i.a",
+      "evidence_type": "reported Android 3.6.1 decompilation by Yann Lombard, not independently decompiled or executed in this investigation"
+    },
+    {
+      "method": "GET",
+      "path": "/contracts/lyon/gbfs/v3/station_information.json",
+      "declared_headers": "—",
+      "query": "—",
+      "body_model": "—",
+      "android_interface": "ug/j.a",
+      "evidence_type": "reported Android 3.6.1 decompilation by Yann Lombard, not independently decompiled or executed in this investigation"
+    },
+    {
+      "method": "GET",
+      "path": "/contracts/lyon/gbfs/v3/station_status.json",
+      "declared_headers": "—",
+      "query": "—",
+      "body_model": "—",
+      "android_interface": "ug/j.b",
+      "evidence_type": "reported Android 3.6.1 decompilation by Yann Lombard, not independently decompiled or executed in this investigation"
+    },
+    {
+      "method": "GET",
+      "path": "/contracts/lyon/items/{itemId}/logo",
+      "declared_headers": "—",
+      "query": "—",
+      "body_model": "—",
+      "android_interface": "ug/k.m",
+      "evidence_type": "reported Android 3.6.1 decompilation by Yann Lombard, not independently decompiled or executed in this investigation"
+    },
+    {
+      "method": "GET",
+      "path": "/contracts/lyon/news/feed/{platform}",
+      "declared_headers": "`Accept: rss+xml`",
+      "query": "—",
+      "body_model": "—",
+      "android_interface": "qi/g.a",
+      "evidence_type": "reported Android 3.6.1 decompilation by Yann Lombard, not independently decompiled or executed in this investigation"
+    },
+    {
+      "method": "GET",
+      "path": "/contracts/lyon/offerGroups",
+      "declared_headers": "—",
+      "query": "`platform`",
+      "body_model": "—",
+      "android_interface": "ug/k.l",
+      "evidence_type": "reported Android 3.6.1 decompilation by Yann Lombard, not independently decompiled or executed in this investigation"
+    },
+    {
+      "method": "GET",
+      "path": "/contracts/lyon/offerGroups/{group}/offers",
+      "declared_headers": "`Accept: vnd.offer.v2+json`",
+      "query": "—",
+      "body_model": "—",
+      "android_interface": "ug/k.o",
+      "evidence_type": "reported Android 3.6.1 decompilation by Yann Lombard, not independently decompiled or executed in this investigation"
+    },
+    {
+      "method": "GET",
+      "path": "/contracts/lyon/offers",
+      "declared_headers": "`Accept: vnd.offer.v2+json`",
+      "query": "—",
+      "body_model": "—",
+      "android_interface": "ug/k.a",
+      "evidence_type": "reported Android 3.6.1 decompilation by Yann Lombard, not independently decompiled or executed in this investigation"
+    },
+    {
+      "method": "GET",
+      "path": "/contracts/lyon/offers/{offerId}",
+      "declared_headers": "`Accept: vnd.offer.v2+json`",
+      "query": "—",
+      "body_model": "—",
+      "android_interface": "ug/k.b",
+      "evidence_type": "reported Android 3.6.1 decompilation by Yann Lombard, not independently decompiled or executed in this investigation"
+    },
+    {
+      "method": "POST",
+      "path": "/contracts/lyon/offers/{offerId}/badges/{badgeId}/packages",
+      "declared_headers": "—",
+      "query": "—",
+      "body_model": "`PackageOptions`",
+      "android_interface": "ug/k.s",
+      "evidence_type": "reported Android 3.6.1 decompilation by Yann Lombard, not independently decompiled or executed in this investigation"
+    },
+    {
+      "method": "POST",
+      "path": "/contracts/lyon/offers/{offerId}/packages",
+      "declared_headers": "—",
+      "query": "—",
+      "body_model": "`PackageOptions`",
+      "android_interface": "ug/k.e",
+      "evidence_type": "reported Android 3.6.1 decompilation by Yann Lombard, not independently decompiled or executed in this investigation"
+    },
+    {
+      "method": "GET",
+      "path": "/contracts/lyon/offers/{offerId}/supplements",
+      "declared_headers": "—",
+      "query": "`isValid`",
+      "body_model": "—",
+      "android_interface": "ug/k.j",
+      "evidence_type": "reported Android 3.6.1 decompilation by Yann Lombard, not independently decompiled or executed in this investigation"
+    },
+    {
+      "method": "POST",
+      "path": "/contracts/lyon/offers/{offerId}/supplements/badges/{badgeId}/packages",
+      "declared_headers": "—",
+      "query": "—",
+      "body_model": "`OfferSupplements`",
+      "android_interface": "ug/k.v",
+      "evidence_type": "reported Android 3.6.1 decompilation by Yann Lombard, not independently decompiled or executed in this investigation"
+    },
+    {
+      "method": "POST",
+      "path": "/contracts/lyon/offers/{offerId}/supplements/packages",
+      "declared_headers": "—",
+      "query": "—",
+      "body_model": "`OfferSupplements`",
+      "android_interface": "ug/k.u",
+      "evidence_type": "reported Android 3.6.1 decompilation by Yann Lombard, not independently decompiled or executed in this investigation"
+    },
+    {
+      "method": "GET",
+      "path": "/contracts/lyon/offers/{offerId}/supplements/{supplementId}/items",
+      "declared_headers": "—",
+      "query": "`isValid`",
+      "body_model": "—",
+      "android_interface": "ug/k.h",
+      "evidence_type": "reported Android 3.6.1 decompilation by Yann Lombard, not independently decompiled or executed in this investigation"
+    },
+    {
+      "method": "GET",
+      "path": "/contracts/lyon/options",
+      "declared_headers": "—",
+      "query": "`offerId`, `optionType`, `isValid`",
+      "body_model": "—",
+      "android_interface": "ug/k.q",
+      "evidence_type": "reported Android 3.6.1 decompilation by Yann Lombard, not independently decompiled or executed in this investigation"
+    },
+    {
+      "method": "GET",
+      "path": "/contracts/lyon/parkings",
+      "declared_headers": "—",
+      "query": "—",
+      "body_model": "—",
+      "android_interface": "qi/h.a",
+      "evidence_type": "reported Android 3.6.1 decompilation by Yann Lombard, not independently decompiled or executed in this investigation"
+    },
+    {
+      "method": "GET",
+      "path": "/contracts/lyon/parkings",
+      "declared_headers": "—",
+      "query": "`number`",
+      "body_model": "—",
+      "android_interface": "qi/h.b",
+      "evidence_type": "reported Android 3.6.1 decompilation by Yann Lombard, not independently decompiled or executed in this investigation"
+    },
+    {
+      "method": "GET",
+      "path": "/contracts/lyon/proofs/{proofId}/content",
+      "declared_headers": "—",
+      "query": "—",
+      "body_model": "—",
+      "android_interface": "ug/k.r",
+      "evidence_type": "reported Android 3.6.1 decompilation by Yann Lombard, not independently decompiled or executed in this investigation"
+    },
+    {
+      "method": "GET",
+      "path": "/contracts/lyon/rewards/configurations",
+      "declared_headers": "`Accept: vnd.rewards.v5+json`",
+      "query": "—",
+      "body_model": "—",
+      "android_interface": "qi/j.d",
+      "evidence_type": "reported Android 3.6.1 decompilation by Yann Lombard, not independently decompiled or executed in this investigation"
+    },
+    {
+      "method": "GET",
+      "path": "/contracts/lyon/shops",
+      "declared_headers": "—",
+      "query": "—",
+      "body_model": "—",
+      "android_interface": "qi/k.a",
+      "evidence_type": "reported Android 3.6.1 decompilation by Yann Lombard, not independently decompiled or executed in this investigation"
+    },
+    {
+      "method": "GET",
+      "path": "/contracts/lyon/sponsoring",
+      "declared_headers": "—",
+      "query": "`platform`, `type`, `active`",
+      "body_model": "—",
+      "android_interface": "qi/l.a",
+      "evidence_type": "reported Android 3.6.1 decompilation by Yann Lombard, not independently decompiled or executed in this investigation"
+    },
+    {
+      "method": "GET",
+      "path": "/contracts/lyon/stations",
+      "declared_headers": "`Accept: vnd.station.v4+json`",
+      "query": "—",
+      "body_model": "—",
+      "android_interface": "ug/p.a",
+      "evidence_type": "reported Android 3.6.1 decompilation by Yann Lombard, not independently decompiled or executed in this investigation"
+    },
+    {
+      "method": "GET",
+      "path": "/contracts/lyon/stations/{number}",
+      "declared_headers": "`Accept: vnd.station.v4+json`",
+      "query": "—",
+      "body_model": "—",
+      "android_interface": "ug/p.b",
+      "evidence_type": "reported Android 3.6.1 decompilation by Yann Lombard, not independently decompiled or executed in this investigation"
+    }
+  ],
+  "source": "https://github.com/yannlombard/cyclocity-api-doc",
+  "source_commit": "6126f71f63154f426a08f11b3dd712c2c607deb1",
+  "attribution": "Yann Lombard, cyclocity-api-doc, CC-BY-4.0. Android table converted to structured JSON with Lyon path prefixes.",
+  "summary": {
+    "official_web_declarations": 97,
+    "community_android_declarations": 89,
+    "community_android_distinct_method_paths": 84,
+    "community_postman_requests": 78,
+    "community_openapi_operations": 74
+  }
+}
