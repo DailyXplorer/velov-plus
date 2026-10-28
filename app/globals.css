@@ -397,11 +397,16 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
 .bike-row:hover { background: #fcfbfb; }
 .bike-row:hover .trip-arrow { transform: translateX(2px); }
 .bike-row-main { display: block; min-width: 0; }
-.bike-number, .bike-sheet-number, .bike-facts .bike-out-of { font-family: var(--font-title); font-weight: 400; letter-spacing: -.03em; font-variant-numeric: proportional-nums; }
+.bike-number, .bike-sheet-number, .bike-banner strong { font-family: var(--font-title); font-weight: 400; letter-spacing: -.03em; font-variant-numeric: proportional-nums; }
 .bike-number { display: block; font-size: 24px; line-height: 1.1; }
-.bike-meta, .bike-reserved, .bike-details dd > small { font-family: var(--font-label); font-weight: 500; text-transform: uppercase; letter-spacing: -.01em; }
+.bike-meta, .bike-reserved, .bike-avoid, .bike-more summary, .bike-details dd > small { font-family: var(--font-label); font-weight: 500; text-transform: uppercase; letter-spacing: -.01em; }
 .bike-meta { display: flex; align-items: center; gap: 8px; margin-top: 5px; color: var(--ink-soft); font-size: 11px; }
 .bike-reserved { display: inline-flex; align-items: center; padding: 3px 8px; border-radius: 999px; color: var(--red-deep); box-shadow: inset 0 0 0 1px var(--red); font-size: 10px; line-height: 1.2; }
+.bike-row-avoid > * { opacity: .6; }
+.bike-verdict { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-top: 8px; color: var(--ink-soft); font-size: 12px; line-height: 1.3; }
+.card-tag.bike-pick { gap: 6px; padding: 3px 10px 3px 3px; box-shadow: inset 0 0 0 1px var(--ink-line); font-size: 10px; }
+.bike-pick .card-tag-icon { width: 20px; height: 20px; }
+.bike-avoid { color: var(--ink); font-size: 10px; }
 .bike-row-facts { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; font-size: 13px; }
 .bike-score, .bike-battery { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
 .bike-score svg, .bike-stars { color: var(--red); }
@@ -412,13 +417,24 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
 .bike-sheet-number { font-size: 40px; line-height: 1; }
 .bike-sheet .detail-type { margin-top: 4px; }
 .bike-sheet-status { margin-top: 14px; color: var(--ink-soft); font-size: 14px; }
-.bike-facts { grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); margin-top: 22px; }
-.bike-facts .bike-out-of { margin-left: 2px; color: var(--ink-soft); font-size: 15px; }
-.bike-rating { display: flex; align-items: center; gap: 10px; margin-top: 16px; color: var(--ink-soft); font-size: 13px; }
+.bike-banner { display: flex; align-items: flex-start; gap: 12px; margin-top: 4px; padding: 14px 16px; border-radius: var(--radius); box-shadow: inset 0 0 0 1px var(--red); }
+.bike-banner-pick { background: var(--red-tint); box-shadow: none; }
+.bike-banner .card-tag-icon { width: 30px; height: 30px; }
+.bike-banner strong { display: block; font-size: 20px; line-height: 1.3; }
+.bike-banner ul { margin: 2px 0 0; padding: 0; list-style: none; color: var(--ink-soft); font-size: 13px; }
+.bike-banner + .detail-type { margin-top: 22px; }
+.bike-rating { display: inline-flex; align-items: center; gap: 8px; }
+.bike-out-of { color: var(--ink-soft); }
 .bike-stars { display: inline-flex; gap: 2px; }
 .bike-details { margin: 12px 0 0; }
 .bike-details dd { text-align: right; }
 .bike-details dd > small { display: block; margin-top: 3px; color: var(--ink-soft); font-size: 11px; }
+.bike-details dd > .bike-reserved { margin-right: 8px; vertical-align: 1px; }
+.bike-more summary { display: flex; align-items: center; gap: 8px; width: fit-content; padding: 18px 0 4px; color: var(--ink-soft); font-size: 12px; list-style: none; cursor: pointer; }
+.bike-more summary::-webkit-details-marker { display: none; }
+.bike-more summary svg { transition: rotate .2s ease; }
+.bike-more[open] summary svg { rotate: 180deg; }
+.bike-more .bike-details { margin-top: 0; }
 .bike-frame { font-family: var(--font-label); font-size: 13px; }
 @media (max-width: 620px) {
   .modal.bikes-drawer { width: 100%; height: auto; max-height: 88dvh; margin: auto 0 0; border-radius: var(--radius) var(--radius) 0 0; animation-name: sheet-in; }
