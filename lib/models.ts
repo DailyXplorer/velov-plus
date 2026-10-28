@@ -21,7 +21,7 @@ export const rewardMovementSchema = z.object({
   id: z.string(), date: z.string().nullable(), label: z.string(), amount: z.number()
 });
 export const subscriptionSchema = z.object({
-  id: z.string().nullable(), title: z.string(), type: z.string(), validUntil: z.string().nullable(), active: z.boolean(), autoRenewal: z.boolean().nullable()
+  id: z.string().nullable(), title: z.string(), type: z.string(), validUntil: z.string().nullable(), active: z.boolean(), autoRenewal: z.boolean().nullable(), autoRenewalAllowed: z.boolean().default(false)
 });
 /** One paid period of a subscription, whose receipt Vélo’v renders as a PDF. */
 export const receiptSchema = z.object({ subscriptionId: z.string(), periodId: z.string(), title: z.string(), start: z.string().nullable(), end: z.string().nullable() });
@@ -141,3 +141,4 @@ export function normalizePhone(raw: string, country: string | null) {
 
 export const autoSpendResultSchema = outcomeSchema.extend({ autoSpend: z.boolean().nullable() });
 export type AutoSpendResult = z.infer<typeof autoSpendResultSchema>;
+

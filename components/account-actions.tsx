@@ -193,15 +193,7 @@ export function Receipts({ receipts }: { receipts: Receipt[] | null }) {
   );
 }
 
-/** The documented PatchAccount body is known; SubscriptionAutoRenewal's is not, so the switch only shows the current state. */
-export function AutoRenewal({ value }: { value: boolean | null }) {
-  return (
-    <div className="soon-row">
-      <div><span className="metric-label">Renouvellement automatique</span><small className="soon-note">{value == null ? SOON : `${value ? "Activé" : "Désactivé"} · ${SOON.toLowerCase()}`}</small></div>
-      <Switch checked={value === true} label="Renouvellement automatique (bientôt disponible)" disabled/>
-    </div>
-  );
-}
+export { AutoRenewal } from "./auto-renewal";
 
 const countries = [
   { value: "FR", label: "France" }, { value: "BE", label: "Belgique" }, { value: "CH", label: "Suisse" }, { value: "LU", label: "Luxembourg" },
@@ -342,3 +334,4 @@ export function InviteFriend({ cost, balance }: { cost: number; balance: number 
     </div>
   );
 }
+

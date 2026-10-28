@@ -355,7 +355,7 @@ export function AccountPage({ data, onLogout, onSaved }: { data: Dashboard; onLo
           <h2>Abonnement</h2>
           <p className="subscription-name">{data.subscription === "unavailable" ? MISSING : subscription?.title ?? "Aucun abonnement"}</p>
           {subscription ? <p className="subscription-validity">{subscription.validUntil ? `Jusqu’au ${formatDate(subscription.validUntil, { day: "numeric", month: "long", year: "numeric" })}` : subscription.active ? "Actif" : "Inactif"}</p> : null}
-          {subscription?.type === "LT" ? <AutoRenewal value={subscription.autoRenewal}/> : null}
+          {subscription?.type === "LT" ? <AutoRenewal key={`${subscription.id}:${data.updatedAt}`} subscriptionId={subscription.id} value={subscription.autoRenewal} allowed={subscription.autoRenewalAllowed} onSaved={onSaved}/> : null}
           <Receipts receipts={data.receipts}/>
           <a className="text-link" href="https://velov.grandlyon.com/" target="_blank" rel="noreferrer">Gérer sur Vélo’v<CircleArrow external outline/></a>
         </section>
@@ -368,3 +368,4 @@ export function AccountPage({ data, onLogout, onSaved }: { data: Dashboard; onLo
     </div>
   );
 }
+

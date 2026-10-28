@@ -1,3 +1,4 @@
+import { AUTO_RENEWAL_FIELD, SUBSCRIPTION_MEDIA_TYPE } from "./guesses.ts";
 // The parts of the Cyclocity client that need no server secret, kept free of "server-only" so tests can import them.
 import { z } from "zod";
 import { type AutoSpendResult, type Outcome, type ProfileBody, type RateBody, type Station, type Trip, type UnlockBody, stationTitle } from "./models.ts";
@@ -162,21 +163,21 @@ export async function postBooking({ accountId, body, token, identity }: { accoun
   return { outcome, booking: outcome.ok && booking.success ? booking.data : null };
 }
 
-type Auth = { accountId: string; token: string; identity: string };
+export type Auth = { accountId: string; token: string; identity: string };
 const accountCodes: Record<string, string> = {
   "accounts.exception.validation.failed": "Vélo’v a refusé ces coordonnées : vérifiez le numéro de téléphone et l’adresse.",
   "accounts.exception.notacceptable.account.phone.invalid": "Ce numéro de téléphone n’est pas valide."
 };
 
 /** One call that changes the account, exactly once: whatever happens, it is never sent again without a new confirmation. */
-async function accountCall(url: string, init: { method: "POST" | "PATCH" | "DELETE"; headers: Record<string, string>; body?: string }, auth: Auth, failed: string, send: typeof fetch) {
+export async function accountCall(url: string, init: { method: "POST" | "PATCH" | "DELETE"; headers: Record<string, string>; body?: BodyInit }, auth: Auth, failed: string, send: typeof fetch, preserveUnauthorized = false) {
   let response: Response;
   try {
     response = await send(url, { ...init, headers: { Authorization: `Taknv1 ${auth.token}`, Identity: auth.identity, ...init.headers, "User-Agent": BROWSER_AGENT }, cache: "no-store", signal: AbortSignal.timeout(15_000) });
   } catch (error) {
     return { outcome: { ...refusal("network", "Vélo’v n’a pas répondu. La modification est peut-être passée : actualisez avant de réessayer."), detail: error instanceof Error ? error.name : null }, value: null };
   }
-  if (response.status === 401) throw new VelovError("expired", "Votre session doit être renouvelée. Reconnectez-vous pour continuer.");
+  if (response.status === 401 && !preserveUnauthorized) throw new VelovError("expired", "Votre session doit être renouvelée. Reconnectez-vous pour continuer.");
   const reply = await answer(response);
   const outcome: Outcome = { ok: response.ok, httpStatus: response.status, transactionState: null, code: reply.code, message: response.ok ? null : reply.code && accountCodes[reply.code] ? accountCodes[reply.code] : response.status === 403 ? sessionRefused : failed, detail: reply.detail };
   return { outcome, value: response.ok ? reply.value : null };
@@ -213,5 +214,14 @@ export async function postPeriodReport({ subscriptionId, periodId, ...auth }: Au
 export async function patchProfile({ body, ...auth }: Auth & { body: ProfileBody }, send: typeof fetch = fetch): Promise<Outcome> {
   const ordered = { country: body.country, zipCode: body.zipCode, city: body.city, phoneNumber: body.phoneNumber, address: body.address };
   const { outcome } = await accountCall(accountUrl(auth.accountId), { method: "PATCH", headers: { "Content-Type": "application/vnd.account.v4+json" }, body: JSON.stringify(ordered) }, auth, "Vélo’v n’a pas enregistré ces coordonnées.", send);
+  return outcome;
+}
+
+
+/** Experimental subscription setting. Never try an alternative body after a refusal. */
+export async function patchAutoRenewal({ subscriptionId, autoRenewal, ...auth }: Auth & { subscriptionId: string; autoRenewal: boolean }, send: typeof fetch = fetch): Promise<Outcome> {
+  const { outcome } = await accountCall(`${accountUrl(auth.accountId)}/subscriptions/${encodeURIComponent(subscriptionId)}`, {
+    method: "PATCH", headers: { "Content-Type": SUBSCRIPTION_MEDIA_TYPE }, body: JSON.stringify({ [AUTO_RENEWAL_FIELD]: autoRenewal })
+  }, auth, "Vélo’v n’a pas enregistré le renouvellement automatique.", send, true);
   return outcome;
 }

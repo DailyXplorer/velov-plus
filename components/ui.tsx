@@ -153,9 +153,10 @@ export function Modal({ children, titleId, onClose, className = "" }: { children
     };
   }, []);
   return (
-    <dialog className={`modal ${className}`} ref={element} aria-labelledby={titleId} onCancel={onClose}
+    <dialog className={`modal ${className}`} ref={element} aria-labelledby={titleId} onCancel={(event) => { event.preventDefault(); onClose(); }}
       onClick={(event) => { if (event.target === event.currentTarget) onClose(); }}>
       <div className="modal-content">{children}</div>
     </dialog>
   );
 }
+

@@ -1,7 +1,8 @@
+import { completeRenewalChange, renewalStateOf, type AutoRenewalBody } from "./renewal-models";
 import "server-only";
 import { z } from "zod";
 import { type AutoSpendResult, type BookBody, type BookResult, type Bike, type Booking, type Dashboard, type Outcome, type ProfileBody, type RateBody, type Receipt, type Station, type UnlockBody, type UnlockResult, dashboardSchema } from "./models";
-import { API, BASE, BROWSER_AGENT, lenient, normalizeTrip, patchAutoSpend, patchProfile, postBooking, postPeriodReport, postRating, postRelease, putStationBookmark, rawBooking, rawTrip, refusal, utcDate } from "./cyclocity";
+import { API, BASE, BROWSER_AGENT, lenient, normalizeTrip, patchAutoRenewal, patchAutoSpend, patchProfile, postBooking, postPeriodReport, postRating, postRelease, putStationBookmark, rawBooking, rawTrip, refusal, utcDate } from "./cyclocity";
 import { VelovError } from "./auth-protocol";
 import { memo } from "./memo";
 import { appToken, fetchTransient, getStations, getWithAppToken } from "./upstream";
@@ -14,7 +15,7 @@ const bookmark = z.union([z.number(), z.string(), z.object({ number: z.union([z.
 const rawProfile = z.object({ firstName: z.string().nullish(), lastName: z.string().nullish(), email: z.string(), isLocked: z.boolean().optional(), completion: z.number().optional(), phoneNumber: text, address: lenient(z.object({ name: text, complement: text })), zipCode: text, city: text, country: text, stations: lenient(z.array(bookmark)) });
 const rawRewards = z.object({ balance: z.number(), total: z.number().optional(), autoSpend: z.boolean().optional() });
 const rawMovement = z.object({ id: z.string(), createdAt: date, direction: z.string().optional(), amount: z.number(), reason: z.string().optional() });
-const rawPeriod = z.object({ id: lenient(z.string()), offerId: z.number().optional(), validityStart: date, validityEnd: date, renewalDetails: lenient(z.object({ autoRenewalValue: lenient(z.boolean()) })) });
+const rawPeriod = z.object({ id: lenient(z.string()), offerId: z.number().optional(), validityStart: date, validityEnd: date, renewalDetails: lenient(z.object({ autoRenewalValue: lenient(z.boolean()), autoRenewalBtn: lenient(z.boolean()) })) });
 const rawSubscription = z.object({ id: z.string().optional(), type: z.string(), isLocked: z.boolean().optional(), periods: z.array(rawPeriod).optional() });
 const offerSchema = z.object({ id: z.number(), title: z.string() });
 const ruleSchema = z.object({ name: z.string(), enable: z.boolean(), reward: z.number(), type: z.string() });
@@ -211,9 +212,20 @@ export async function getDashboard(session: Session): Promise<Dashboard> {
       movements: movements.content.map((movement) => ({ id: movement.id, date: utcDate(movement.createdAt), label: reasons[movement.reason ?? ""] ?? "Mouvement de points", amount: movement.amount * (movement.direction === "DEBIT" ? -1 : 1) })),
       rules: ruleList.filter((rule) => rule.enable && reasons[rule.name]).map((rule) => ({ name: rule.name, label: reasons[rule.name], points: rule.reward, kind: rule.type === "RULE" ? "earn" : "spend" }))
     },
-    subscription: !subscriptions ? "unavailable" : currentSubscription ? { id: currentSubscription.id ?? null, autoRenewal: period?.renewalDetails?.autoRenewalValue ?? null, title: offerList.find((offer) => offer.id === period?.offerId)?.title ?? (currentSubscription.type === "LT" ? "Abonnement longue durée" : "Ticket Vélo’v"), type: currentSubscription.type, validUntil: utcDate(period?.validityEnd), active: !currentSubscription.isLocked } : null,
+    subscription: !subscriptions ? "unavailable" : currentSubscription ? { id: currentSubscription.id ?? null, autoRenewal: period?.renewalDetails?.autoRenewalValue ?? null, autoRenewalAllowed: period?.renewalDetails?.autoRenewalBtn === true, title: offerList.find((offer) => offer.id === period?.offerId)?.title ?? (currentSubscription.type === "LT" ? "Abonnement longue durée" : "Ticket Vélo’v"), type: currentSubscription.type, validUntil: utcDate(period?.validityEnd), active: !currentSubscription.isLocked } : null,
     paymentValid: payment?.paymentValid ?? null, receipts: allSubscriptions ? receiptsOf(allSubscriptions, offerList) : null,
     trips: history?.map((trip) => normalizeTrip(trip, stationsByNumber)) ?? null, ongoing: ongoing?.map((trip) => normalizeTrip(trip, stationsByNumber)) ?? null,
     bookings: bookings?.length ?? null, updatedAt: new Date().toISOString(), warnings
   });
+}
+
+
+/** Verify permission before writing, then read the real server value rather than assuming the requested state. */
+export async function setAutoRenewal(session: Session, body: AutoRenewalBody) {
+  const auth = await writer(session);
+  const path = `/accounts/${encodeURIComponent(auth.accountId)}/subscriptions?periods=CURRENT&typeList=ST&typeList=LT&isLocked=false`;
+  const readState = async () => renewalStateOf((await read(path, z.array(rawSubscription), session, "application/vnd.subscription.v6+json")).find((item) => item.id === body.subscriptionId));
+  const before = await readState();
+  if (!before.autoRenewalAllowed || before.autoRenewal === null) return { ...refusal("local.renewal.not.allowed", "Le renouvellement automatique ne peut pas être modifié pour cet abonnement."), ...before, verified: true };
+  return completeRenewalChange(() => patchAutoRenewal({ ...auth, ...body }), readState);
 }
