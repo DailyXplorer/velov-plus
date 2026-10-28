@@ -135,24 +135,25 @@ export function TripSheet({ trip, onClose }: { trip: Trip; onClose: () => void }
         </div>
         <div className="trip-detail-facts">
           <span><small>Durée</small><strong>{trip.duration} min</strong></span>
-          <span><small>Distance</small><strong>{trip.distance != null && !sameStation ? formatDistance(trip.distance) : "—"}</strong>{trip.distance != null && !sameStation ? <span className="trip-fact-note">à vol d’oiseau</span> : null}</span>
+          <span><small>Distance</small><strong>{trip.distance != null && !sameStation ? formatDistance(trip.distance) : "—"}</strong></span>
           <span><small>Payé</small><strong>{formatPrice(trip.price)}</strong>{trip.discount > 0 && trip.fullPrice != null ? <span className="trip-fact-note">Prix {formatPrice(trip.fullPrice)} · remise {formatPrice(trip.discount)}</span> : null}</span>
         </div>
         {points ? <p className="trip-points">{points}</p> : null}
-        <div className="detail-type">
-          <Eyebrow icon={trip.bikeType === "electrical" ? LightningIcon : BicycleIcon}>{trip.bikeType === "electrical" ? "Électrique" : trip.bikeType === "mechanical" ? "Mécanique" : "Vélo’v"}</Eyebrow>
-          {trip.bikeNumber != null ? <button className="text-button" onClick={() => setBikeOpen(true)}>Vélo n° {trip.bikeNumber}<CaretRightIcon size={14} weight="bold" aria-hidden="true"/></button> : null}
-        </div>
         {trip.litigious ? (
           <div className="trip-alert" role="note">
             <p>Trajet signalé comme litigieux par Vélo’v</p>
             <a className="text-link" href={`mailto:contact.velov@jcdecaux.com?subject=${encodeURIComponent(subject)}`}>Contacter le service client</a>
           </div>
         ) : null}
-        {rated ? <p className="trip-rated">Vélo noté</p> : trip.bikeNumber != null && canRate(trip) ? <RateBike trip={trip} bikeNumber={trip.bikeNumber}/> : null}
+        {!rated && trip.bikeNumber != null && canRate(trip) ? <RateBike trip={trip} bikeNumber={trip.bikeNumber}/> : null}
         <details className="bike-more">
           <summary>Détails<CaretDownIcon size={14} weight="bold" aria-hidden="true"/></summary>
+          <div className="detail-type">
+            <Eyebrow icon={trip.bikeType === "electrical" ? LightningIcon : BicycleIcon}>{trip.bikeType === "electrical" ? "Électrique" : trip.bikeType === "mechanical" ? "Mécanique" : "Vélo’v"}</Eyebrow>
+            {trip.bikeNumber != null ? <button className="text-button" onClick={() => setBikeOpen(true)}>Vélo n° {trip.bikeNumber}<CaretRightIcon size={14} weight="bold" aria-hidden="true"/></button> : null}
+          </div>
           <dl className="account-details bike-details">
+            {rated ? <div><dt>Note du vélo</dt><dd>Déjà noté</dd></div> : null}
             {trip.token ? <div><dt>Code du trajet</dt><CopyCode token={trip.token}/></div> : null}
             <div><dt>Statut</dt><dd>{statuses[trip.status] ?? trip.status}</dd></div>
             {trip.origin != null && origins[trip.origin] ? <div><dt>Déverrouillage</dt><dd>{origins[trip.origin]}</dd></div> : null}
