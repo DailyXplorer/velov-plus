@@ -12,7 +12,7 @@ import { NavigationArrowIcon } from "@phosphor-icons/react/dist/csr/NavigationAr
 import { SignOutIcon } from "@phosphor-icons/react/dist/csr/SignOut";
 import { XIcon } from "@phosphor-icons/react/dist/csr/X";
 import { type Dashboard, type Page, type Resource, type Station, type Trip, formatDate, formatPrice } from "@/lib/models";
-import { Button, EmptyState, Modal, SectionHeading, TextButton } from "./ui";
+import { Button, EmptyState, Modal, SectionHeading, SelectField, TextButton } from "./ui";
 
 const StationMap = dynamic(() => import("./station-map"), {
   ssr: false,
@@ -142,17 +142,18 @@ export function TripsPage({ data }: { data: Dashboard }) {
   return (
     <div className="page-content">
       <div className="filter-line">
-        <div className="segmented" aria-label="Filtrer les trajets">
-          {[{ value: "all", label: "Tous" }, { value: "mechanical", label: "Mécaniques" }, { value: "electrical", label: "Électriques" }].map((item) => (
-            <button key={item.value} aria-pressed={filter === item.value} className={filter === item.value ? "selected" : ""} onClick={() => { setFilter(item.value); setLimit(10); }}>{item.label}</button>
-          ))}
-        </div>
+        <SelectField label="Type de vélo" value={filter} onChange={(value) => { setFilter(value); setLimit(10); }}
+          options={[{ value: "all", label: "Tous" }, { value: "mechanical", label: "Mécaniques" }, { value: "electrical", label: "Électriques" }]}/>
         <span className="result-count">{trips.length} trajet{trips.length > 1 ? "s" : ""}</span>
       </div>
       <TripsTable trips={trips.slice(0, limit)}/>
       {trips.length > limit ? <div className="load-more"><Button variant="secondary" onClick={() => setLimit(limit + 10)}>Voir plus</Button></div> : null}
     </div>
   );
+}
+
+function rewardLabel(label: string) {
+  return label === "Vélo évalué" ? "Évaluation" : label;
 }
 
 export function PointsPage({ data }: { data: Dashboard }) {
@@ -164,18 +165,21 @@ export function PointsPage({ data }: { data: Dashboard }) {
         <div><span className="metric-label">Solde</span><strong className="points-balance">{data.rewards.balance}<span>points</span></strong></div>
         <div><span className="metric-label">Total gagné</span><strong className="points-total">{data.rewards.total.toLocaleString("fr-FR")}</strong></div>
       </div>
-      <div className="setting-row"><span>Utilisation automatique</span><div><span>{data.rewards.autoSpend ? "Activée" : "Désactivée"}</span><a href="https://velov.grandlyon.com/" target="_blank" rel="noreferrer" className="text-link" aria-label="Modifier l’utilisation des points sur Vélo’v">Modifier<ArrowUpRightIcon size={15} weight="light"/></a></div></div>
+      <div className="setting-row">
+        <div><span className="metric-label">Utilisation automatique</span><strong className="setting-value">{data.rewards.autoSpend ? "Activée" : "Désactivée"}</strong></div>
+        <a className="button button-secondary" href="https://velov.grandlyon.com/" target="_blank" rel="noreferrer" aria-label="Modifier l’utilisation des points sur Vélo’v">Modifier<ArrowUpRightIcon size={16} weight="light"/></a>
+      </div>
       {rules.length ? (
         <section className="earn-section">
           <SectionHeading title="Gagner des points"/>
-          <div className="earn-grid">{rules.map((rule) => <div className="earn-rule" key={rule.name}><span>{rule.label}</span><strong>+{rule.points}</strong></div>)}</div>
+          <div className="earn-grid">{rules.map((rule) => <div className="earn-rule" key={rule.name}><span>{rewardLabel(rule.label)}</span><strong>+{rule.points}</strong></div>)}</div>
         </section>
       ) : null}
       <section className="points-history">
         <SectionHeading title="Historique"/>
         {data.rewards.movements.slice(0, limit).map((movement) => (
           <div className="movement" key={movement.id}>
-            <span className="movement-description"><strong>{movement.label}</strong><small>{formatDate(movement.date, { day: "numeric", month: "long", year: "numeric" })}</small></span>
+            <span className="movement-description"><strong>{rewardLabel(movement.label)}</strong><small>{formatDate(movement.date, { day: "numeric", month: "long", year: "numeric" })}</small></span>
             <span className={`movement-amount ${movement.amount > 0 ? "is-credit" : ""}`}>{movement.amount > 0 ? "+" : ""}{movement.amount}</span>
           </div>
         ))}
@@ -196,7 +200,7 @@ function distanceTo(station: Station, position: GeolocationCoordinates) {
 
 export function StationsPage({ resource, reload }: { resource: Resource<StationData>; reload: () => void }) {
   const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState<"all" | "available" | "electrical">("all");
+  const [filter, setFilter] = useState<"all" | "available" | "electrical" | "stands">("all");
   const [selected, setSelected] = useState<string | null>(null);
   const [position, setPosition] = useState<GeolocationCoordinates | null>(null);
   const [locating, setLocating] = useState(false);
@@ -207,7 +211,8 @@ export function StationsPage({ resource, reload }: { resource: Resource<StationD
     const normalize = (value: string) => value.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
     return stations.filter((station) => normalize(`${station.name} ${station.address} ${station.number}`).includes(normalize(query))
       && (filter !== "available" || station.mechanical + station.electrical > 0)
-      && (filter !== "electrical" || station.electrical > 0))
+      && (filter !== "electrical" || station.electrical > 0)
+      && (filter !== "stands" || station.stands > 0))
       .sort((left, right) => Number(right.open) - Number(left.open) || (position ? distanceTo(left, position) - distanceTo(right, position) : left.name.localeCompare(right.name, "fr")));
   }, [stations, query, filter, position]);
   const chosen = filtered.find((station) => station.id === selected) ?? filtered.find((station) => station.number === 2002) ?? filtered[0];
@@ -235,14 +240,8 @@ export function StationsPage({ resource, reload }: { resource: Resource<StationD
       </div>
       {locationError ? <p className="inline-notice" role="status">{locationError}</p> : null}
       <div className="filter-line">
-        <div className="segmented" aria-label="Filtrer les stations">
-          {[{ value: "all", label: "Toutes" }, { value: "available", label: "Disponibles" }, { value: "electrical", label: "Électriques" }].map((item) => (
-            <button key={item.value} className={filter === item.value ? "selected" : ""} aria-pressed={filter === item.value} onClick={() => {
-              if (item.value === "all" || item.value === "available" || item.value === "electrical") setFilter(item.value);
-              setLimit(30);
-            }}>{item.label}</button>
-          ))}
-        </div>
+        <SelectField label="Afficher" value={filter} onChange={(value) => { setFilter(value); setLimit(30); }}
+          options={[{ value: "all", label: "Toutes les stations" }, { value: "available", label: "Vélos disponibles" }, { value: "electrical", label: "Vélos électriques" }, { value: "stands", label: "Places libres" }]}/>
         <span className="result-count">{filtered.length} stations</span>
       </div>
       {resource.kind === "error" ? <div className="notice-error" role="status">{resource.message}<Button variant="secondary" onClick={reload}>Réessayer</Button></div> : null}

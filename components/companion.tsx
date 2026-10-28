@@ -13,7 +13,7 @@ import { WarningCircleIcon } from "@phosphor-icons/react/dist/csr/WarningCircle"
 import { XIcon } from "@phosphor-icons/react/dist/csr/X";
 import { dashboardSchema, stationsSchema, type Dashboard, type Page, type Resource, formatDate } from "@/lib/models";
 import { AccountPage, Overview, PointsPage, StationsPage, TripsPage } from "./dashboard";
-import { Brand, Button, Modal } from "./ui";
+import { Button, Modal } from "./ui";
 import { Login } from "./login";
 
 const navigation = [
@@ -133,7 +133,6 @@ export function Companion({ initialSession }: { initialSession: boolean }) {
     <div className="app-layout">
       <a className="skip-link" href="#main-content">Aller au contenu</a>
       <aside className="sidebar">
-        <Brand/>
         <nav className="main-navigation" aria-label="Navigation principale">
           {navigation.map((item) => {
             const Icon = item.icon;

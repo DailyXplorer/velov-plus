@@ -1,11 +1,8 @@
 "use client";
 
-import { useEffect, useRef, type ButtonHTMLAttributes, type ReactNode } from "react";
+import { useEffect, useId, useRef, type ButtonHTMLAttributes, type ReactNode } from "react";
+import { CaretDownIcon } from "@phosphor-icons/react/dist/csr/CaretDown";
 import { SpinnerGapIcon } from "@phosphor-icons/react/dist/csr/SpinnerGap";
-
-export function Brand() {
-  return <a className="brand" href="#overview" aria-label="Vélo’v, accueil">Vélo’v</a>;
-}
 
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: "primary" | "secondary" | "ghost";
@@ -23,6 +20,24 @@ export function Button({ variant = "primary", pending = false, className = "", c
 
 export function TextButton({ children, onClick }: { children: ReactNode; onClick: () => void }) {
   return <button className="text-button" onClick={onClick}>{children}</button>;
+}
+
+export function SelectField<T extends string>({ label, value, options, onChange }: { label: string; value: T; options: { value: T; label: string }[]; onChange: (value: T) => void }) {
+  const id = useId();
+  return (
+    <div className="select-field">
+      <label htmlFor={id}>{label}</label>
+      <div className="select-control">
+        <select id={id} value={value} onChange={(event) => {
+          const next = options.find((option) => option.value === event.target.value);
+          if (next) onChange(next.value);
+        }}>
+          {options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+        </select>
+        <CaretDownIcon size={14} weight="light" aria-hidden="true"/>
+      </div>
+    </div>
+  );
 }
 
 export function EmptyState({ children }: { children: ReactNode }) {
