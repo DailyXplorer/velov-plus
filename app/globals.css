@@ -372,3 +372,10 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
 .account-logout { display: none; }
 @media (max-width: 900px) { .account-logout { display: block; } }
 .circle-arrow.is-outline { color: var(--red); background: transparent; box-shadow: inset 0 0 0 1px var(--red); }
+/* Stations: map only, pins are the list; search shows a short results dropdown over the map. */
+.stations-explorer { position: relative; display: block; height: 620px; }
+.stations-explorer .explorer-map { height: 100%; }
+.stations-explorer .stations-list { position: absolute; z-index: 5; top: 12px; left: 12px; width: min(340px, calc(100% - 24px)); max-height: calc(100% - 24px); overflow-y: auto; padding: 6px; border-radius: var(--radius); background: var(--white); box-shadow: var(--shadow-ring); }
+@media (max-width: 900px) {
+  .stations-explorer { height: 520px; }
+}

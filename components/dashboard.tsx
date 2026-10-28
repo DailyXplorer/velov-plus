@@ -208,7 +208,6 @@ export function StationsPage({ resource, reload }: { resource: Resource<StationD
   const [position, setPosition] = useState<GeolocationCoordinates | null>(null);
   const [locating, setLocating] = useState(false);
   const [locationError, setLocationError] = useState("");
-  const [limit, setLimit] = useState(30);
   const stations = resource.kind === "ready" ? resource.data.stations : [];
   const filtered = useMemo(() => {
     const normalize = (value: string) => value.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
@@ -236,30 +235,30 @@ export function StationsPage({ resource, reload }: { resource: Resource<StationD
     <div className="page-content stations-page">
       <div className="stations-toolbar">
         <label className="search-field"><MagnifyingGlassIcon size={19} weight="light" aria-hidden="true"/>
-          <input aria-label="Rechercher une station" placeholder="Rechercher une station" value={query} onChange={(event) => { setQuery(event.target.value); setLimit(30); }}/>
+          <input aria-label="Rechercher une station" placeholder="Rechercher une station" value={query} onChange={(event) => { setQuery(event.target.value); }}/>
           {query ? <button className="icon-button" aria-label="Effacer la recherche" onClick={() => setQuery("")}><XIcon size={16} weight="light"/></button> : null}
         </label>
         <Button variant="secondary" pending={locating} onClick={locate} aria-label="Stations autour de moi" title="Autour de moi"><NavigationArrowIcon size={18} weight="light"/><span className="location-label">Autour de moi</span></Button>
       </div>
       {locationError ? <p className="inline-notice" role="status">{locationError}</p> : null}
       <div className="filter-line">
-        <SelectField label="Afficher" value={filter} onChange={(value) => { setFilter(value); setLimit(30); }}
+        <SelectField label="Afficher" value={filter} onChange={(value) => { setFilter(value); }}
           options={[{ value: "all", label: "Toutes les stations" }, { value: "available", label: "Vélos disponibles" }, { value: "electrical", label: "Vélos électriques" }, { value: "stands", label: "Places libres" }]}/>
         <span className="result-count">{filtered.length} stations</span>
       </div>
       {resource.kind === "error" ? <div className="notice-error" role="status">{resource.message}<Button variant="secondary" onClick={reload}>Réessayer</Button></div> : null}
       <div className="stations-explorer">
-        <div className="stations-list">
-          {resource.kind === "loading" ? <p className="empty-state">Chargement…</p> : filtered.slice(0, limit).map((station) => (
-            <button className={`station-item ${chosen?.id === station.id ? "selected" : ""}`} key={station.id} onClick={() => setSelected(station.id)}>
-              <div className="station-item-title"><strong>{station.name}</strong><CaretRightIcon size={16} weight="light"/></div>
-              <small className="station-meta">{position ? `${Math.round(distanceTo(station, position) / 10) * 10} m · ` : ""}n° {station.number}{!station.open ? " · Fermée" : ""}</small>
-              <StationNumbers station={station} compact/>
-            </button>
-          ))}
-          {resource.kind === "ready" && !filtered.length ? <EmptyState>Aucune station trouvée.</EmptyState> : null}
-          {filtered.length > limit ? <div className="load-more"><TextButton onClick={() => setLimit(limit + 30)}>Voir plus</TextButton></div> : null}
-        </div>
+        {query && resource.kind === "ready" ? (
+          <div className="stations-list" role="list" aria-label="Résultats de recherche">
+            {filtered.slice(0, 6).map((station) => (
+              <button className={`station-item ${chosen?.id === station.id ? "selected" : ""}`} key={station.id} onClick={() => { setSelected(station.id); setQuery(""); }}>
+                <div className="station-item-title"><strong>{station.name}</strong><CaretRightIcon size={16} weight="light"/></div>
+                <small className="station-meta">{position ? `${Math.round(distanceTo(station, position) / 10) * 10} m · ` : ""}n° {station.number}{!station.open ? " · Fermée" : ""}</small>
+              </button>
+            ))}
+            {!filtered.length ? <EmptyState>Aucune station trouvée.</EmptyState> : null}
+          </div>
+        ) : null}
         <div className="explorer-map">
           <StationMap stations={filtered} selected={chosen?.id ?? null} onSelect={setSelected}/>
           {chosen ? (
