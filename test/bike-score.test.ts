@@ -21,7 +21,7 @@ const only = (value: Bike) => assessBikes([value], now)[0];
 test("each doubtful condition is enough to avoid a bike, with its reason", () => {
   const cases: [Partial<Bike>, string][] = [
     [{ rating: { value: 56, count: 5, lastAt: null } }, "Note basse (2,8/5)"],
-    [{ nextCheckAt: hoursAgo(1) }, "Contrôle en retard"],
+    [{ nextCheckAt: hoursAgo(31 * 24) }, "Contrôle en retard"],
     [{ type: "electrical", batteryPercent: 12 }, "Batterie faible (12 %)"],
     [{ lastTripAt: hoursAgo(4 * 24 + 3) }, "Pas utilisé depuis 4 j"],
     [{ status: "RENTED", statusLabel: "En location" }, "Indisponible (En location)"],
@@ -35,7 +35,7 @@ test("each doubtful condition is enough to avoid a bike, with its reason", () =>
 });
 
 test("missing data and thresholds just inside the limits do not count against a bike", () => {
-  for (const overrides of [{ rating: { value: 50, count: 4, lastAt: null } }, { lastTripAt: null }, { lastTripAt: hoursAgo(71) }, { nextCheckAt: new Date(now + 3_600_000).toISOString() }, { type: "electrical", batteryPercent: 20 }, { type: "electrical", batteryPercent: null }] satisfies Partial<Bike>[]) {
+  for (const overrides of [{ rating: { value: 50, count: 4, lastAt: null } }, { lastTripAt: null }, { lastTripAt: hoursAgo(71) }, { nextCheckAt: hoursAgo(5 * 24) }, { type: "electrical", batteryPercent: 20 }, { type: "electrical", batteryPercent: null }] satisfies Partial<Bike>[]) {
     assert.notEqual(only(bike(1, overrides)).verdict, "avoid", JSON.stringify(overrides));
   }
 });

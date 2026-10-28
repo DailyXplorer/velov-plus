@@ -8,8 +8,10 @@ const rank: Record<Verdict, number> = { recommended: 0, neutral: 1, avoid: 2 };
 const outOfFive = (value: number) => (value / 20).toLocaleString("fr-FR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 const hoursSince = (value: string | null, now: number) => value ? (now - new Date(value).getTime()) / HOUR : null;
 
+/** nextCheck is a routine 5-day mark after each control, so only a long overrun means anything. */
+const OVERDUE_GRACE = 30 * 24 * HOUR;
 export function isCheckOverdue(bike: Bike, now = Date.now()) {
-  return bike.nextCheckAt != null && new Date(bike.nextCheckAt).getTime() < now;
+  return bike.nextCheckAt != null && now - new Date(bike.nextCheckAt).getTime() > OVERDUE_GRACE;
 }
 
 function avoidReasons(bike: Bike, now: number) {
@@ -49,8 +51,8 @@ export function assessBikes(bikes: Bike[], now = Date.now()): AssessedBike[] {
     return { bike, verdict: reasons.length ? "avoid" : "neutral", score: scoreBike(bike, now), reasons };
   });
   for (const type of ["mechanical", "electrical"] as const) {
-    const best = assessed.filter((item) => item.bike.type === type && item.verdict !== "avoid").reduce<AssessedBike | null>((top, item) => !top || item.score > top.score ? item : top, null);
-    if (!best?.bike.rating || best.bike.rating.count < 3 || best.bike.rating.value < 75) continue;
+    const best = assessed.filter((item) => item.bike.type === type && item.verdict !== "avoid" && item.bike.rating && item.bike.rating.count >= 3 && item.bike.rating.value >= 75).reduce<AssessedBike | null>((top, item) => !top || item.score > top.score ? item : top, null);
+    if (!best) continue;
     best.verdict = "recommended";
     best.reasons = strengths(best.bike, now);
   }
