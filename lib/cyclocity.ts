@@ -22,22 +22,26 @@ export const rawTrip = z.object({
   litigious: lenient(z.boolean()), isRated: lenient(z.boolean()), token: lenient(z.string()), origin: lenient(z.number())
 });
 
-/** Cyclocity dates are UTC without a zone designator. */
+/** Cyclocity date-times are UTC without a zone designator; a date alone ("2026-03-02") stays a calendar date. */
 export function utcDate(value: string | null | undefined) {
   if (!value) return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    const day = new Date(`${value}T00:00:00Z`);
+    return Number.isFinite(day.getTime()) && day.toISOString().startsWith(value) ? value : null;
+  }
   const date = new Date(/(Z|[+-]\d{2}:?\d{2})$/.test(value) ? value : `${value}Z`);
   return Number.isFinite(date.getTime()) ? date.toISOString() : null;
 }
 
 function stationNumber(value: string | number | null | undefined) {
   const number = Number(value);
-  return value != null && value !== "" && Number.isSafeInteger(number) ? number : null;
+  return value != null && String(value).trim() !== "" && Number.isSafeInteger(number) ? number : null;
 }
 
 export function normalizeTrip(value: z.infer<typeof rawTrip>, stations: Map<number, Station>): Trip {
   const start = stationNumber(value.startStation);
   const end = stationNumber(value.endStation);
-  const station = (name: string | null | undefined, number: number | null, raw: unknown) => name ? stationTitle(name) : number != null ? stations.get(number)?.name ?? `Station ${number}` : raw != null ? `Station ${raw}` : null;
+  const station = (name: string | null | undefined, number: number | null, raw: unknown) => name?.trim() ? stationTitle(name) : number != null ? stations.get(number)?.name ?? `Station ${number}` : raw != null && String(raw).trim() ? `Station ${String(raw).trim()}` : null;
   const from = start != null ? stations.get(start) : undefined;
   const to = end != null ? stations.get(end) : undefined;
   return {
@@ -46,7 +50,7 @@ export function normalizeTrip(value: z.infer<typeof rawTrip>, stations: Map<numb
     startStationNumber: start, endStationNumber: end, startStand: value.startStand ?? null, endStand: value.endStand ?? null,
     distance: from && to && start !== end ? Math.round(haversine(from, to)) : null,
     bikeNumber: value.bikeNumber ?? null, bikeType: value.bikeType === 1 ? "electrical" : value.bikeType === 0 ? "mechanical" : "unknown",
-    duration: value.duration ?? 0, price: value.reducedPrice ?? (value.price != null ? value.price - (value.discount ?? 0) : 0),
+    duration: value.duration ?? null, price: value.reducedPrice ?? (value.price != null ? value.price - (value.discount ?? 0) : null),
     fullPrice: value.price ?? null, discount: value.discount ?? 0,
     pointsEarned: value.rewardsEarned ?? 0, pointsSpent: value.rewardsSpent ?? 0,
     litigious: value.litigious === true, isRated: value.isRated ?? null, token: value.token ?? null, origin: value.origin ?? null
@@ -62,7 +66,7 @@ export async function postRating({ accountId, tripId, body, token, identity }: {
     cache: "no-store", signal: AbortSignal.timeout(15_000)
   });
   if (response.status === 401) throw new VelovError("expired", "Votre session doit être renouvelée. Reconnectez-vous pour continuer.");
-  if (response.status !== 200) throw new VelovError("unavailable", "Vélo’v n’a pas enregistré la note. Réessayez dans un instant.");
+  if (!response.ok) throw new VelovError("unavailable", "Vélo’v n’a pas enregistré la note. Réessayez dans un instant.");
 }
 
 /** Release refusals the official app translates (§ 5.6), plus the booking clash it shows with its generic message. */

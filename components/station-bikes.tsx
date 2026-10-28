@@ -23,8 +23,8 @@ import { type AssessedBike, assessBikes, isCheckOverdue } from "@/lib/bike-score
 import { type Bike, type Resource, type Station, bikeSchema, formatDate } from "@/lib/models";
 import { Button, EmptyState, Eyebrow, Modal } from "./ui";
 import { BikeActions, BookingsContext } from "./bike-actions";
+import { getJson } from "./get-json";
 
-const errorSchema = z.object({ error: z.string() });
 const unavailable = "Les vélos de cette station sont momentanément indisponibles.";
 const missing = "Ce vélo est momentanément indisponible.";
 const types: Record<Bike["type"], { label: string; icon: Icon }> = {
@@ -35,16 +35,28 @@ const types: Record<Bike["type"], { label: string; icon: Icon }> = {
 const relative = new Intl.RelativeTimeFormat("fr-FR", { style: "short" });
 const steps: [Intl.RelativeTimeFormatUnit, number][] = [["minute", 60], ["hour", 24], ["day", 30], ["month", 12], ["year", Infinity]];
 
-async function fetchParsed<T>(url: string, schema: z.ZodType<T>, unavailable: string): Promise<T> {
-  const response = await fetch(url, { cache: "no-store" });
-  const raw: unknown = await response.json().catch(() => null);
-  if (!response.ok) {
-    const error = errorSchema.safeParse(raw);
-    throw new Error(error.success ? error.data.error : unavailable);
-  }
-  const parsed = schema.safeParse(raw);
-  if (!parsed.success) throw new Error(unavailable);
-  return parsed.data;
+type Settled<T> = { ok: true; value: T } | { ok: false; error: unknown };
+
+/** Keeps only the newest load: a new one or unmounting aborts the one before, whose answer is then dropped. */
+function useLatestLoad<T>(load: (signal: AbortSignal) => Promise<T>, done: (result: Settled<T>) => void) {
+  const [refreshing, setRefreshing] = useState(false);
+  const current = useRef<AbortController | null>(null);
+  const run = useCallback(async () => {
+    current.current?.abort();
+    const controller = new AbortController();
+    current.current = controller;
+    setRefreshing(true);
+    try {
+      const value = await load(controller.signal);
+      if (!controller.signal.aborted) done({ ok: true, value });
+    } catch (error) {
+      if (!controller.signal.aborted) done({ ok: false, error });
+    } finally {
+      if (current.current === controller) { current.current = null; setRefreshing(false); }
+    }
+  }, [load, done]);
+  useEffect(() => () => current.current?.abort(), []);
+  return { run, refreshing };
 }
 
 function score(bike: Bike) {
@@ -150,7 +162,7 @@ function BikeSheet({ item, station }: { item: AssessedBike; station?: Station })
       {station ? <StationActions bike={bike} station={station}/> : null}
       <dl className="account-details bike-details">
         <div><dt>Note</dt><dd>{bike.rating && rating != null ? (
-          <><span className="bike-rating"><Stars value={rating}/>{formatScore(rating)}<span className="bike-out-of">/5</span></span><small>{bike.rating.count} avis{bike.rating.lastAt ? ` · le dernier ${fromNow(bike.rating.lastAt) ?? ""}` : ""}</small></>
+          <><span className="bike-rating"><Stars value={rating}/>{formatScore(rating)}<span className="bike-out-of">/5</span></span><small>{bike.rating.count} avis{fromNow(bike.rating.lastAt) ? ` · le dernier ${fromNow(bike.rating.lastAt)}` : ""}</small></>
         ) : "Pas encore d’avis"}</dd></div>
         {bike.type === "electrical" ? <div><dt>Batterie</dt><dd>{bike.batteryPercent != null ? <BatteryLevel percent={bike.batteryPercent}/> : "Non renseigné"}</dd></div> : null}
         <DateFact label="Dernier trajet" value={bike.lastTripAt} withAgo/>
@@ -174,21 +186,15 @@ function BikeSheet({ item, station }: { item: AssessedBike; station?: Station })
 
 export function StationBikes({ station, onClose }: { station: Station; onClose: () => void }) {
   const [bikes, setBikes] = useState<Resource<AssessedBike[]>>({ kind: "loading" });
-  const [refreshing, setRefreshing] = useState(false);
   const [selected, setSelected] = useState<number | null>(null);
   const returnTo = useRef<number | null>(null);
   const list = useRef<HTMLUListElement>(null);
 
-  const load = useCallback(async () => {
-    setRefreshing(true);
-    try {
-      setBikes({ kind: "ready", data: assessBikes(await fetchParsed(`/api/stations/${station.number}/bikes`, z.array(bikeSchema), unavailable)) });
-    } catch (error) {
-      setBikes({ kind: "error", message: error instanceof Error && error.message ? error.message : unavailable });
-    } finally {
-      setRefreshing(false);
-    }
-  }, [station.number]);
+  const { run: load, refreshing } = useLatestLoad(
+    useCallback((signal: AbortSignal) => getJson(`/api/stations/${station.number}/bikes`, z.array(bikeSchema), unavailable, signal), [station.number]),
+    useCallback((result: Settled<Bike[]>) => setBikes(result.ok ? { kind: "ready", data: assessBikes(result.value) }
+      : { kind: "error", message: result.error instanceof Error && result.error.message ? result.error.message : unavailable }), [])
+  );
 
   useEffect(() => { void load(); }, [load]);
 
@@ -244,20 +250,16 @@ export function StationBikes({ station, onClose }: { station: Station; onClose: 
 /** One bike's live sheet, opened on its own (from a trip). */
 export function BikeDrawer({ number, onClose }: { number: number; onClose: () => void }) {
   const [bike, setBike] = useState<Resource<AssessedBike>>({ kind: "loading" });
-  const [refreshing, setRefreshing] = useState(false);
 
-  const load = useCallback(async () => {
-    setRefreshing(true);
-    try {
-      const item = assessBikes([await fetchParsed(`/api/bikes/${number}`, bikeSchema, missing)])[0];
+  const { run: load, refreshing } = useLatestLoad(
+    useCallback((signal: AbortSignal) => getJson(`/api/bikes/${number}`, bikeSchema, missing, signal), [number]),
+    useCallback((result: Settled<Bike>) => {
+      if (!result.ok) { setBike({ kind: "error", message: result.error instanceof Error && result.error.message ? result.error.message : missing }); return; }
+      const item = assessBikes([result.value])[0];
       // Alone, a bike is no station's best pick: keep only the warnings.
       setBike({ kind: "ready", data: item.verdict === "recommended" ? { ...item, verdict: "neutral", reasons: [] } : item });
-    } catch (error) {
-      setBike({ kind: "error", message: error instanceof Error && error.message ? error.message : missing });
-    } finally {
-      setRefreshing(false);
-    }
-  }, [number]);
+    }, [])
+  );
 
   useEffect(() => { void load(); }, [load]);
 

@@ -8,7 +8,7 @@ import { LockOpenIcon } from "@phosphor-icons/react/dist/csr/LockOpen";
 import { WarningIcon } from "@phosphor-icons/react/dist/csr/Warning";
 import { XIcon } from "@phosphor-icons/react/dist/csr/X";
 import { BOOKING_MINUTES, BOOKING_POINTS, RELEASE_DISTANCE, type BookResult, type Booking, type Outcome, type UnlockResult, bookResultSchema, formatDate, unlockResultSchema } from "@/lib/models";
-import { haversine } from "@/lib/geo";
+import { formatDistance, haversine } from "@/lib/geo";
 import { Button, Eyebrow, Modal } from "./ui";
 
 /** Present only while signed in: the bookings and a way to reload them (and the account) after a booking or a release. */
@@ -71,7 +71,7 @@ function Confirm({ action, place, onCancel, onConfirm, sending }: { action: Acti
         <div><dt>Borne</dt><dd>{place.standNumber}</dd></div>
         <div><dt>Vélo</dt><dd>{place.bikeNumber}</dd></div>
         {action === "book" ? <div><dt>Coût</dt><dd>{BOOKING_POINTS} points · {BOOKING_MINUTES} min</dd></div> : null}
-        {action === "unlock" && distance != null ? <div><dt>Distance</dt><dd>≈ {Math.max(10, Math.round(distance / 10) * 10).toLocaleString("fr-FR")} m</dd></div> : null}
+        {action === "unlock" && distance != null ? <div><dt>Distance</dt><dd>≈ {formatDistance(distance)}</dd></div> : null}
       </dl>
       {action === "book" ? <p className="bike-action-note">Le vélo vous attend {BOOKING_MINUTES} min, puis la réservation expire. Elle ne s’annule pas.</p>
         : <p className="bike-action-note bike-action-warning">Ensuite, appuyez sur le bouton de la borne dans les 60 secondes, puis retirez le vélo. Passé ce délai, la borne le reverrouille.</p>}

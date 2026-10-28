@@ -12,6 +12,7 @@ import { ThumbsDownIcon } from "@phosphor-icons/react/dist/csr/ThumbsDown";
 import { ThumbsUpIcon } from "@phosphor-icons/react/dist/csr/ThumbsUp";
 import { XIcon } from "@phosphor-icons/react/dist/csr/X";
 import { type Trip, canRate, formatDate, formatPrice } from "@/lib/models";
+import { formatDistance } from "@/lib/geo";
 import { Button, Eyebrow, Modal } from "./ui";
 import { BikeDrawer } from "./station-bikes";
 
@@ -35,10 +36,6 @@ function tripTimes(trip: Trip) {
   if (!trip.startedAt) return "Date indisponible";
   const time = (value: string) => formatDate(value, { hour: "2-digit", minute: "2-digit" });
   return `${formatDate(trip.startedAt, { day: "numeric", month: "long", year: "numeric" })} · ${time(trip.startedAt)}${trip.endedAt ? ` → ${time(trip.endedAt)}` : ""}`;
-}
-
-function formatDistance(meters: number) {
-  return meters >= 1000 ? `≈ ${(meters / 1000).toLocaleString("fr-FR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} km` : `≈ ${Math.max(10, Math.round(meters / 10) * 10)} m`;
 }
 
 function pointsLine({ pointsEarned: earned, pointsSpent: spent }: Trip) {
@@ -134,9 +131,9 @@ export function TripSheet({ trip, onClose }: { trip: Trip; onClose: () => void }
           <Stop label="Arrivée" station={trip.endStation} stand={trip.endStand}/>
         </div>
         <div className="trip-detail-facts">
-          <span><small>Durée</small><strong>{trip.duration} min</strong></span>
-          <span><small>Distance</small><strong>{trip.distance != null && !sameStation ? formatDistance(trip.distance) : "—"}</strong></span>
-          <span><small>Payé</small><strong>{formatPrice(trip.price)}</strong>{trip.discount > 0 && trip.fullPrice != null ? <span className="trip-fact-note">Prix {formatPrice(trip.fullPrice)} · remise {formatPrice(trip.discount)}</span> : null}</span>
+          <span><small>Durée</small><strong>{trip.duration != null ? `${trip.duration} min` : "—"}</strong></span>
+          <span><small>Distance</small><strong>{trip.distance != null && !sameStation ? `≈ ${formatDistance(trip.distance)}` : "—"}</strong></span>
+          <span><small>Payé</small><strong>{trip.price != null ? formatPrice(trip.price) : "—"}</strong>{trip.discount > 0 && trip.fullPrice != null ? <span className="trip-fact-note">Prix {formatPrice(trip.fullPrice)} · remise {formatPrice(trip.discount)}</span> : null}</span>
         </div>
         {points ? <p className="trip-points">{points}</p> : null}
         {trip.litigious ? (

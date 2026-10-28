@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { normalizeTrip, postRating, rawTrip } from "../lib/cyclocity.ts";
+import { normalizeTrip, postRating, rawTrip, utcDate } from "../lib/cyclocity.ts";
 import { haversine } from "../lib/geo.ts";
-import { type Station, canRate, rateBodySchema } from "../lib/models.ts";
+import { type Station, canRate, rateBodySchema, stationTitle } from "../lib/models.ts";
 import { VelovError } from "../lib/auth-protocol.ts";
 
 const station = (number: number, name: string, lat: number, lon: number): Station => ({ id: String(number), number, name, address: "", lat, lon, mechanical: 0, electrical: 0, stands: 0, open: true });
@@ -50,6 +50,35 @@ test("an anonymised trip and malformed new fields degrade to empty values", () =
   const value = trip({ id: "x", status: "FINISHED", startDateTime: "2026-03-02T09:32:14", duration: 3, price: 0, litigious: "yes", isRated: "no", token: 12, startStand: "1" });
   assert.deepEqual([value.startStation, value.endStation, value.startStationNumber, value.startStand, value.endStand, value.distance, value.bikeNumber], [null, null, null, null, null, null, null]);
   assert.deepEqual([value.litigious, value.isRated, value.token, value.origin, value.fullPrice, value.discount, value.endedAt], [false, null, null, null, 0, 0, null]);
+});
+
+test("a trip without a price or a duration keeps them unknown, not zero", () => {
+  const value = trip({ id: "x", status: "FINISHED" });
+  assert.deepEqual([value.duration, value.price, value.fullPrice], [null, null, null]);
+  assert.equal(trip({ ...finished, duration: 0, reducedPrice: 0 }).price, 0);
+  assert.equal(trip({ ...finished, duration: 0 }).duration, 0);
+});
+
+test("an empty station name or number is no station at all", () => {
+  const value = trip({ ...finished, startStation: "", startStationName: "", endStation: " ", endStationName: "  " });
+  assert.deepEqual([value.startStation, value.endStation, value.startStationNumber, value.endStationNumber], [null, null, null, null]);
+  assert.equal(trip({ ...finished, startStationName: "" }).startStation, "Bellecour / St Exupéry");
+  assert.equal(trip({ ...finished, startStation: "X12", startStationName: null }).startStation, "Station X12");
+});
+
+test("station names are capitalised after spaces, hyphens and apostrophes, with inner d’ and l’ kept low", () => {
+  for (const [raw, title] of [
+    ["2002 - SAINT-EXUPÉRY", "Saint-Exupéry"], ["GARE D’OULLINS", "Gare d’Oullins"], ["gare d'oullins", "Gare d'Oullins"],
+    ["L’ARBRESLE", "L’Arbresle"], ["PART-DIEU / VILLETTE", "Part-Dieu / Villette"], ["Place Jean-Jaurès (Lyon 7e)", "Place Jean-Jaurès (Lyon 7e)"]
+  ]) assert.equal(stationTitle(raw), title);
+});
+
+test("Cyclocity date-times are read as UTC; a date alone stays that calendar date", () => {
+  assert.equal(utcDate("2026-03-02T09:32:14"), "2026-03-02T09:32:14.000Z");
+  assert.equal(utcDate("2026-03-02T09:32:14+01:00"), "2026-03-02T08:32:14.000Z");
+  assert.equal(utcDate("2026-03-02T09:32:14Z"), "2026-03-02T09:32:14.000Z");
+  assert.equal(utcDate("2026-03-02"), "2026-03-02");
+  for (const value of ["2026-02-30", "not a date", "", null, undefined]) assert.equal(utcDate(value), null, String(value));
 });
 
 test("a rating is a recommendation without a rating, or a warning rated 30 or 60", () => {
@@ -101,8 +130,16 @@ test("a recommendation sends an explicit null rating", async () => {
   assert.equal(String(calls[0].init.body), '{"bikeId":20449,"recommended":true,"contract":"lyon","rating":null}');
 });
 
+test("any 2xx answer records the rating", async () => {
+  for (const status of [200, 201, 202]) {
+    const { calls, send } = recorder(status);
+    await postRating({ ...rating, body: { bikeNumber: 20449, recommended: true, rating: null } }, send);
+    assert.equal(calls.length, 1);
+  }
+});
+
 test("a refused rating fails without retrying", async () => {
-  for (const [status, code] of [[401, "expired"], [404, "unavailable"], [201, "unavailable"], [500, "unavailable"]] as const) {
+  for (const [status, code] of [[401, "expired"], [404, "unavailable"], [500, "unavailable"], [502, "unavailable"]] as const) {
     const { calls, send } = recorder(status);
     await assert.rejects(postRating({ ...rating, body: { bikeNumber: 20449, recommended: true, rating: null } }, send), (error) => error instanceof VelovError && error.code === code);
     assert.equal(calls.length, 1);

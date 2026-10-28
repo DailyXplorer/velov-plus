@@ -14,7 +14,7 @@ import { TicketIcon } from "@phosphor-icons/react/dist/csr/Ticket";
 import { TrendUpIcon } from "@phosphor-icons/react/dist/csr/TrendUp";
 import { XIcon } from "@phosphor-icons/react/dist/csr/X";
 import { type Dashboard, type Page, type Resource, type Station, type Trip, formatDate, formatPrice } from "@/lib/models";
-import { haversine, type Point } from "@/lib/geo";
+import { formatDistance, haversine, type Point } from "@/lib/geo";
 import { Button, CardTag, CircleArrow, EmptyState, Eyebrow, SectionHeading, SelectField, TextButton } from "./ui";
 import { StationBikes } from "./station-bikes";
 import { TripSheet } from "./trip-sheet";
@@ -26,6 +26,10 @@ const StationMap = dynamic(() => import("./station-map"), {
 });
 type StationData = { stations: Station[]; updatedAt: string };
 type Navigation = (page: Page) => void;
+type Reload = { reload: () => void; reloading: boolean };
+// One reference while stations load, so the map does not rebuild its pins on every render.
+const NO_STATIONS: Station[] = [];
+const MISSING = "Indisponible pour le moment";
 
 const phoneQuery = "(max-width: 620px)";
 function subscribePhone(changed: () => void) {
@@ -57,8 +61,8 @@ export function TripsTable({ trips }: { trips: Trip[] }) {
               </span>
             </span>
             <span className="trip-date">{formatDate(trip.startedAt)}<small>{formatDate(trip.startedAt, { hour: "2-digit", minute: "2-digit" })}</small></span>
-            <span className="trip-duration">{trip.duration} min</span>
-            <span className="trip-price">{formatPrice(trip.price)}</span>
+            <span className="trip-duration">{trip.duration != null ? `${trip.duration} min` : "—"}</span>
+            <span className="trip-price">{trip.price != null ? formatPrice(trip.price) : "—"}</span>
             <CaretRightIcon className="trip-arrow" size={16} weight="light"/>
           </button>
         ))}
@@ -79,40 +83,41 @@ function StationNumbers({ station, compact = false }: { station: Station; compac
   );
 }
 
-export function Overview({ data, stations, navigate }: { data: Dashboard; stations: Resource<StationData>; navigate: Navigation }) {
+export function Overview({ data, stations, navigate, reload, reloading }: { data: Dashboard; stations: Resource<StationData>; navigate: Navigation } & Reload) {
   const [selectedStation, setSelectedStation] = useState<string | null>(null);
   const [bikesOpen, setBikesOpen] = useState(false);
   const phone = useIsPhone();
-  const nearby = stations.kind === "ready" ? stations.data.stations : [];
+  const nearby = stations.kind === "ready" ? stations.data.stations : NO_STATIONS;
   const chosen = nearby.find((station) => station.id === selectedStation) ?? (phone ? undefined : nearby.find((station) => station.number === 2002) ?? nearby[0]);
-  const minutes = data.trips.reduce((total, trip) => total + trip.duration, 0);
+  const minutes = data.trips?.reduce((total, trip) => total + (trip.duration ?? 0), 0) ?? 0;
+  const subscription = data.subscription === "unavailable" ? null : data.subscription;
   return (
     <div className="page-content">
-      {data.ongoing.length ? (
-        <div className="ongoing-banner"><Eyebrow icon={BicycleIcon}>Trajet en cours</Eyebrow><span>{data.ongoing[0].startStation}</span></div>
+      {data.ongoing?.length ? (
+        <div className="ongoing-banner"><Eyebrow icon={BicycleIcon}>Trajet en cours</Eyebrow><span>{data.ongoing[0].startStation ?? "Trajet Vélo’v"}</span></div>
       ) : null}
       <div className="summary-grid">
         <button className="summary-card" onClick={() => navigate("points")}>
           <CardTag icon={StarFourIcon}>Points</CardTag>
-          <strong className="metric-value accent">{data.rewards.balance}</strong>
-          <span className="metric-detail">{data.rewards.total.toLocaleString("fr-FR")} gagnés au total<CircleArrow outline/></span>
+          <strong className="metric-value accent">{data.rewards.balance ?? "—"}</strong>
+          <span className="metric-detail">{data.rewards.total != null ? `${data.rewards.total.toLocaleString("fr-FR")} gagnés au total` : MISSING}<CircleArrow outline/></span>
         </button>
         <button className="summary-card" onClick={() => navigate("trips")}>
           <CardTag icon={BicycleIcon}>Trajets</CardTag>
-          <strong className="metric-value">{data.trips.length}</strong>
-          <span className="metric-detail">{minutes >= 60 ? `${Math.floor(minutes / 60)} h ${minutes % 60} min` : `${minutes} min`}<CircleArrow outline/></span>
+          <strong className="metric-value">{data.trips?.length ?? "—"}</strong>
+          <span className="metric-detail">{!data.trips ? MISSING : minutes >= 60 ? `${Math.floor(minutes / 60)} h ${minutes % 60} min` : `${minutes} min`}<CircleArrow outline/></span>
         </button>
         <button className="summary-card" onClick={() => navigate("account")}>
           <CardTag icon={TicketIcon}>Abonnement</CardTag>
-          <strong className="metric-subscription" title={data.subscription?.title}>{shortPlan(data.subscription?.title)}</strong>
-          <span className="metric-detail">{data.subscription?.validUntil ? `Jusqu’au ${formatDate(data.subscription.validUntil, { day: "numeric", month: "short", year: "numeric" })}` : "Voir les formules"}<CircleArrow outline/></span>
+          <strong className="metric-subscription" title={subscription?.title}>{data.subscription === "unavailable" ? "—" : shortPlan(subscription?.title)}</strong>
+          <span className="metric-detail">{data.subscription === "unavailable" ? MISSING : subscription?.validUntil ? `Jusqu’au ${formatDate(subscription.validUntil, { day: "numeric", month: "short", year: "numeric" })}` : "Voir les formules"}<CircleArrow outline/></span>
         </button>
       </div>
       <section className="map-section">
         <SectionHeading title="Stations"><TextButton onClick={() => navigate("stations")}>Tout voir</TextButton></SectionHeading>
         <div className="overview-map">
           <StationMap stations={nearby} selected={chosen?.id ?? null} onSelect={setSelectedStation}/>
-          {stations.kind === "error" ? <p className="map-error" role="status">{stations.message}</p> : null}
+          {stations.kind === "error" ? <div className="map-error" role="status">{stations.message}<Button variant="secondary" pending={reloading} onClick={reload}>Réessayer</Button></div> : null}
           {phone ? <button className="map-explore" onClick={() => navigate("stations")}><span>Toucher pour explorer</span></button> : null}
           {chosen ? (
             <div className="map-station-card">
@@ -126,7 +131,7 @@ export function Overview({ data, stations, navigate }: { data: Dashboard; statio
       </section>
       <section className="recent-trips">
         <SectionHeading title="Derniers trajets"><TextButton onClick={() => navigate("trips")}>Tout voir</TextButton></SectionHeading>
-        <TripsTable trips={data.trips.slice(0, 4)}/>
+        {data.trips ? <TripsTable trips={data.trips.slice(0, 4)}/> : <EmptyState>{MISSING}.</EmptyState>}
       </section>
     </div>
   );
@@ -135,6 +140,7 @@ export function Overview({ data, stations, navigate }: { data: Dashboard; statio
 export function TripsPage({ data }: { data: Dashboard }) {
   const [filter, setFilter] = useState("all");
   const [limit, setLimit] = useState(10);
+  if (!data.trips) return <div className="page-content"><EmptyState>{MISSING}.</EmptyState></div>;
   const trips = data.trips.filter((trip) => filter === "all" || trip.bikeType === filter);
   return (
     <div className="page-content">
@@ -159,11 +165,11 @@ export function PointsPage({ data }: { data: Dashboard }) {
   return (
     <div className="page-content">
       <div className="points-summary">
-        <div><Eyebrow icon={StarFourIcon}>Solde</Eyebrow><strong className="points-balance">{data.rewards.balance}<span>points</span></strong></div>
-        <div><Eyebrow icon={TrendUpIcon}>Total gagné</Eyebrow><strong className="points-total">{data.rewards.total.toLocaleString("fr-FR")}<span>points</span></strong></div>
+        <div><Eyebrow icon={StarFourIcon}>Solde</Eyebrow><strong className="points-balance">{data.rewards.balance ?? "—"}<span>points</span></strong></div>
+        <div><Eyebrow icon={TrendUpIcon}>Total gagné</Eyebrow><strong className="points-total">{data.rewards.total?.toLocaleString("fr-FR") ?? "—"}<span>points</span></strong></div>
       </div>
       <div className="setting-row">
-        <div><span className="metric-label">Utilisation automatique</span><strong className="setting-value">{data.rewards.autoSpend ? "Activée" : "Désactivée"}</strong></div>
+        <div><span className="metric-label">Utilisation automatique</span><strong className="setting-value">{data.rewards.autoSpend == null ? MISSING : data.rewards.autoSpend ? "Activée" : "Désactivée"}</strong></div>
         <a className="button button-secondary" href="https://velov.grandlyon.com/" target="_blank" rel="noreferrer" aria-label="Modifier l’utilisation des points sur Vélo’v">Modifier<CircleArrow external/></a>
       </div>
       {rules.length ? (
@@ -199,19 +205,13 @@ function distanceTo(station: Station, position: Point) {
   return haversine(position, station);
 }
 
-/** "350 m", "1,2 km", "14 km". */
-function formatDistance(metres: number) {
-  if (metres < 1000) return `${Math.max(10, Math.round(metres / 10) * 10)} m`;
-  return `${(metres / 1000).toLocaleString("fr-FR", { maximumFractionDigits: metres < 10_000 ? 1 : 0 })} km`;
-}
-
 function locationErrorMessage(error: GeolocationPositionError) {
   if (error.code === error.PERMISSION_DENIED) return "Localisation refusée. Autorisez-la pour ce site : Réglages > Safari > Position (iPhone) ou l’icône à gauche de l’adresse (ordinateur).";
   if (error.code === error.TIMEOUT) return "La localisation a pris trop de temps. Réessayez.";
   return "Position introuvable pour le moment.";
 }
 
-export function StationsPage({ resource, reload }: { resource: Resource<StationData>; reload: () => void }) {
+export function StationsPage({ resource, reload, reloading }: { resource: Resource<StationData> } & Reload) {
   const phone = useIsPhone();
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<StationFilter>("all");
@@ -221,7 +221,7 @@ export function StationsPage({ resource, reload }: { resource: Resource<StationD
   const [fit, setFit] = useState<Point[] | null>(null);
   const [locating, setLocating] = useState(false);
   const [locationError, setLocationError] = useState("");
-  const stations = resource.kind === "ready" ? resource.data.stations : [];
+  const stations = resource.kind === "ready" ? resource.data.stations : NO_STATIONS;
   const filtered = useMemo(() => {
     const normalize = (value: string) => value.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
     return stations.filter((station) => normalize(`${station.name} ${station.address} ${station.number}`).includes(normalize(query)) && matchesFilter(station, filter))
@@ -268,7 +268,7 @@ export function StationsPage({ resource, reload }: { resource: Resource<StationD
           options={[{ value: "all", label: "Toutes les stations" }, { value: "available", label: "Vélos disponibles" }, { value: "electrical", label: "Vélos électriques" }, { value: "stands", label: "Places libres" }]}/>
         <span className="result-count">{filtered.length} stations</span>
       </div>
-      {resource.kind === "error" ? <div className="notice-error" role="status">{resource.message}<Button variant="secondary" onClick={reload}>Réessayer</Button></div> : null}
+      {resource.kind === "error" ? <div className="notice-error" role="status">{resource.message}<Button variant="secondary" pending={reloading} onClick={reload}>Réessayer</Button></div> : null}
       <div className="stations-explorer">
         {query && resource.kind === "ready" ? (
           <div className="stations-list" role="list" aria-label="Résultats de recherche">
@@ -322,6 +322,7 @@ function shortPlan(title?: string) {
 }
 
 export function AccountPage({ data, onLogout }: { data: Dashboard; onLogout: () => void }) {
+  const subscription = data.subscription === "unavailable" ? null : data.subscription;
   return (
     <div className="page-content">
       <div className="account-grid">
@@ -332,14 +333,14 @@ export function AccountPage({ data, onLogout }: { data: Dashboard; onLogout: () 
           <dl className="account-details">
             <div><dt>Compte</dt><dd>{data.profile.locked ? "À vérifier" : "Actif"}</dd></div>
             <div><dt>Profil</dt><dd>{data.profile.complete ? "Complet" : "À compléter"}</dd></div>
-            <div><dt>Paiement</dt><dd>{data.paymentValid ? "Valide" : "À vérifier"}</dd></div>
+            <div><dt>Paiement</dt><dd>{data.paymentValid == null ? MISSING : data.paymentValid ? "Valide" : "À vérifier"}</dd></div>
           </dl>
           <a className="text-link" href="https://velov.grandlyon.com/" target="_blank" rel="noreferrer">Gérer sur Vélo’v<CircleArrow external outline/></a>
         </section>
         <section className="account-section">
           <h2>Abonnement</h2>
-          <p className="subscription-name">{data.subscription?.title ?? "Aucun abonnement"}</p>
-          {data.subscription ? <p className="subscription-validity">{data.subscription.validUntil ? `Jusqu’au ${formatDate(data.subscription.validUntil, { day: "numeric", month: "long", year: "numeric" })}` : data.subscription.active ? "Actif" : "Inactif"}</p> : null}
+          <p className="subscription-name">{data.subscription === "unavailable" ? MISSING : subscription?.title ?? "Aucun abonnement"}</p>
+          {subscription ? <p className="subscription-validity">{subscription.validUntil ? `Jusqu’au ${formatDate(subscription.validUntil, { day: "numeric", month: "long", year: "numeric" })}` : subscription.active ? "Actif" : "Inactif"}</p> : null}
           <a className="text-link" href="https://velov.grandlyon.com/" target="_blank" rel="noreferrer">Gérer sur Vélo’v<CircleArrow external outline/></a>
         </section>
       </div>

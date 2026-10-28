@@ -10,7 +10,7 @@ export const tripSchema = z.object({
   startStationNumber: z.number().nullable(), endStationNumber: z.number().nullable(),
   startStand: z.number().nullable(), endStand: z.number().nullable(), distance: z.number().nullable(),
   bikeNumber: z.number().nullable(), bikeType: z.enum(["mechanical", "electrical", "unknown"]),
-  duration: z.number(), price: z.number(), fullPrice: z.number().nullable(), discount: z.number(),
+  duration: z.number().nullable(), price: z.number().nullable(), fullPrice: z.number().nullable(), discount: z.number(),
   pointsEarned: z.number(), pointsSpent: z.number(),
   litigious: z.boolean(), isRated: z.boolean().nullable(), token: z.string().nullable(), origin: z.number().nullable()
 });
@@ -22,9 +22,10 @@ export const subscriptionSchema = z.object({
 });
 export const dashboardSchema = z.object({
   profile: profileSchema,
-  rewards: z.object({ balance: z.number(), total: z.number(), autoSpend: z.boolean(), movements: z.array(rewardMovementSchema), rules: z.array(z.object({ name: z.string(), label: z.string(), points: z.number(), kind: z.enum(["earn", "spend"]) })) }),
-  subscription: subscriptionSchema.nullable(), paymentValid: z.boolean(),
-  trips: z.array(tripSchema), ongoing: z.array(tripSchema), bookings: z.number().nullable(),
+  // null: Vélo’v did not answer that read, the page says so instead of showing a default.
+  rewards: z.object({ balance: z.number().nullable(), total: z.number().nullable(), autoSpend: z.boolean().nullable(), movements: z.array(rewardMovementSchema), rules: z.array(z.object({ name: z.string(), label: z.string(), points: z.number(), kind: z.enum(["earn", "spend"]) })) }),
+  subscription: z.union([subscriptionSchema, z.literal("unavailable")]).nullable(), paymentValid: z.boolean().nullable(),
+  trips: z.array(tripSchema).nullable(), ongoing: z.array(tripSchema).nullable(), bookings: z.number().nullable(),
   updatedAt: z.string(), warnings: z.array(z.string())
 });
 export const stationSchema = z.object({
@@ -65,8 +66,11 @@ export function canRate(trip: Trip, now = Date.now()) {
 
 export const loginSchema = z.object({ email: z.email().max(254), code: z.string().regex(/^\d{6}$/) });
 
+/** "2002 - SAINT-EXUPÉRY / GARE D’OULLINS" -> "Saint-Exupéry / Gare d’Oullins": each word, hyphen part and elided word capitalised, inner d’ and l’ kept low. */
 export function stationTitle(name: string) {
-  return name.replace(/^\d+\s*[-–/]\s*/, "").toLocaleLowerCase("fr-FR").replace(/(^|[\s/])-?\p{L}/gu, (letter) => letter.toLocaleUpperCase("fr-FR"));
+  return name.replace(/^\d+\s*[-–/]\s*/, "").toLocaleLowerCase("fr-FR")
+    .replace(/(^|[\s/(\-’'])(\p{L})/gu, (_, before: string, letter: string) => before + letter.toLocaleUpperCase("fr-FR"))
+    .replace(/(\s)([DL])(['’])(?=\p{L})/gu, (_, space: string, letter: string, apostrophe: string) => space + letter.toLowerCase() + apostrophe);
 }
 
 export function formatDate(value: string | null, options: Intl.DateTimeFormatOptions = { day: "numeric", month: "short" }) {

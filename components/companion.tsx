@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
 import { HouseIcon } from "@phosphor-icons/react/dist/csr/House";
 import { PersonSimpleBikeIcon as BicycleIcon } from "@phosphor-icons/react/dist/csr/PersonSimpleBike";
@@ -16,6 +16,7 @@ import { AccountPage, Overview, PointsPage, StationsPage, TripsPage } from "./da
 import { Button, Modal } from "./ui";
 import { Login } from "./login";
 import { BookingBanner, BookingsContext, UnlockModal } from "./bike-actions";
+import { ApiError, getJson } from "./get-json";
 
 const navigation = [
   { id: "overview", label: "Vue d’ensemble", mobile: "Accueil", icon: HouseIcon },
@@ -24,7 +25,8 @@ const navigation = [
   { id: "stations", label: "Stations", mobile: "Stations", icon: MapPinIcon },
   { id: "account", label: "Compte", mobile: "Compte", icon: UserCircleIcon }
 ] satisfies { id: Page; label: string; mobile: string; icon: typeof HouseIcon }[];
-const errorSchema = z.object({ error: z.string(), code: z.string().optional() });
+const logoutSchema = z.object({ remoteLogout: z.boolean().optional() });
+const remoteLogoutUnconfirmed = "Déconnecté ici, mais Vélo’v n’a pas confirmé la fin de session.";
 type State = { kind: "guest"; message: string | null } | { kind: "loading" } | { kind: "ready"; data: Dashboard } | { kind: "error"; message: string };
 type StationData = z.infer<typeof stationsSchema>;
 
@@ -36,7 +38,11 @@ export function Companion({ initialSession }: { initialSession: boolean }) {
   const [state, setState] = useState<State>(initialSession ? { kind: "loading" } : { kind: "guest", message: null });
   const [page, setPage] = useState<Page>("overview");
   const [stations, setStations] = useState<Resource<StationData>>({ kind: "loading" });
+  const [stationsPending, setStationsPending] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  // One load of each at a time: a second click or a retry joins nothing and sends nothing.
+  const dashboardInFlight = useRef(false);
+  const stationsInFlight = useRef(false);
   const [logoutOpen, setLogoutOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [logoutError, setLogoutError] = useState<string | null>(null);
@@ -45,49 +51,36 @@ export function Companion({ initialSession }: { initialSession: boolean }) {
 
   // Read-only and best effort: without it the app only misses the booking banner.
   const loadBookings = useCallback(async () => {
-    try {
-      const response = await fetch("/api/bookings", { cache: "no-store" });
-      const parsed = z.array(bookingSchema).safeParse(await response.json().catch(() => null));
-      if (response.ok && parsed.success) setBookings(parsed.data);
-    } catch { /* Keep the last known bookings. */ }
+    try { setBookings(await getJson("/api/bookings", z.array(bookingSchema), "")); }
+    catch { /* Keep the last known bookings. */ }
   }, []);
   const account = useMemo(() => ({ bookings, changed: () => void loadBookings() }), [bookings, loadBookings]);
 
   const loadStations = useCallback(async () => {
+    if (stationsInFlight.current) return;
+    stationsInFlight.current = true;
+    setStationsPending(true);
     try {
-      const response = await fetch("/api/stations", { cache: "no-store" });
-      const raw: unknown = await response.json();
-      if (!response.ok) {
-        const error = errorSchema.safeParse(raw);
-        throw new Error(error.success ? error.data.error : "Stations indisponibles.");
-      }
-      const parsed = stationsSchema.safeParse(raw);
-      if (!parsed.success) throw new Error("Stations indisponibles.");
-      setStations({ kind: "ready", data: parsed.data });
+      setStations({ kind: "ready", data: await getJson("/api/stations", stationsSchema, "Stations indisponibles.") });
     } catch (error) {
-      setStations({ kind: "error", message: error instanceof Error ? error.message : "Stations indisponibles." });
+      setStations({ kind: "error", message: error instanceof ApiError ? error.message : "Stations indisponibles." });
+    } finally {
+      stationsInFlight.current = false;
+      setStationsPending(false);
     }
   }, []);
 
   const loadDashboard = useCallback(async () => {
+    if (dashboardInFlight.current) return;
+    dashboardInFlight.current = true;
     setRefreshing(true);
     try {
-      const response = await fetch("/api/dashboard", { cache: "no-store" });
-      const raw: unknown = await response.json();
-      if (response.status === 401) {
-        setState({ kind: "guest", message: "Session expirée. Reconnectez-vous." });
-        return;
-      }
-      if (!response.ok) {
-        const error = errorSchema.safeParse(raw);
-        throw new Error(error.success ? error.data.error : "Compte indisponible.");
-      }
-      const parsed = dashboardSchema.safeParse(raw);
-      if (!parsed.success) throw new Error("Compte indisponible.");
-      setState({ kind: "ready", data: parsed.data });
+      setState({ kind: "ready", data: await getJson("/api/dashboard", dashboardSchema, "Compte indisponible.") });
     } catch (error) {
-      setState({ kind: "error", message: error instanceof Error ? error.message : "Compte indisponible." });
+      if (error instanceof ApiError && error.status === 401) setState({ kind: "guest", message: "Session expirée. Reconnectez-vous." });
+      else setState({ kind: "error", message: error instanceof ApiError ? error.message : "Compte indisponible." });
     } finally {
+      dashboardInFlight.current = false;
       setRefreshing(false);
     }
   }, []);
@@ -119,11 +112,12 @@ export function Companion({ initialSession }: { initialSession: boolean }) {
     setLoggingOut(true);
     setLogoutError(null);
     try {
-      const response = await fetch("/api/auth/logout", { method: "POST" });
+      const response = await fetch("/api/auth/logout", { method: "POST", signal: AbortSignal.timeout(25_000) });
       if (!response.ok) throw new Error("Déconnexion impossible.");
+      const answer = logoutSchema.safeParse(await response.json().catch(() => null));
       setLogoutOpen(false);
       setBookings([]);
-      setState({ kind: "guest", message: null });
+      setState({ kind: "guest", message: answer.success && answer.data.remoteLogout === false ? remoteLogoutUnconfirmed : null });
       window.location.hash = "";
     } catch {
       setLogoutError("Déconnexion impossible. Réessayez.");
@@ -184,7 +178,7 @@ export function Companion({ initialSession }: { initialSession: boolean }) {
             {state.kind === "loading" ? <DashboardSkeleton/> : state.kind === "error" ? (
               <div className="dashboard-error">
                 <p role="alert">{state.message}</p>
-                <Button variant="secondary" onClick={() => void loadDashboard()}>Réessayer</Button>
+                <Button variant="secondary" pending={refreshing} onClick={() => void loadDashboard()}>Réessayer</Button>
               </div>
             ) : (
               <>
@@ -194,10 +188,10 @@ export function Companion({ initialSession }: { initialSession: boolean }) {
                     <ul>{state.data.warnings.map((warning) => <li key={warning}>{warning}</li>)}</ul>
                   </details>
                 ) : null}
-                {page === "overview" ? <Overview data={state.data} stations={stations} navigate={navigate}/>
+                {page === "overview" ? <Overview data={state.data} stations={stations} navigate={navigate} reload={() => void loadStations()} reloading={stationsPending}/>
                   : page === "trips" ? <TripsPage data={state.data}/>
                     : page === "points" ? <PointsPage data={state.data}/>
-                      : page === "stations" ? <StationsPage resource={stations} reload={() => void loadStations()}/>
+                      : page === "stations" ? <StationsPage resource={stations} reload={() => void loadStations()} reloading={stationsPending}/>
                         : <AccountPage data={state.data} onLogout={openLogout}/>}
               </>
             )}
