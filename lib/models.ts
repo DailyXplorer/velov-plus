@@ -79,3 +79,27 @@ export function formatDate(value: string | null, options: Intl.DateTimeFormatOpt
 export function formatPrice(cents: number) {
   return new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(cents / 100);
 }
+
+/** A booking holds a bike for 15 minutes and costs 10 points (§ 5.9); the server never checks where the user stands, the app keeps 200 m. */
+export const BOOKING_MINUTES = 15;
+export const BOOKING_POINTS = 10;
+export const RELEASE_DISTANCE = 200;
+const positive = z.number().int().positive();
+export const bookBodySchema = z.object({ stationNumber: positive, bikeNumber: positive }).strict();
+export const unlockBodySchema = z.object({ stationNumber: positive, standNumber: positive, bikeNumber: positive }).strict();
+export type BookBody = z.infer<typeof bookBodySchema>;
+export type UnlockBody = z.infer<typeof unlockBodySchema>;
+export const bookingSchema = z.object({
+  id: z.string(), stationNumber: z.number(), stationName: z.string(), standNumber: z.number().nullable(), bikeNumber: z.number().nullable(),
+  endsAt: z.string().nullable(), lat: z.number().nullable(), lon: z.number().nullable()
+});
+export type Booking = z.infer<typeof bookingSchema>;
+/** What Vélo’v answered to a state-changing call, raw fields kept for debugging. httpStatus 0: no answer at all. */
+export const outcomeSchema = z.object({
+  ok: z.boolean(), httpStatus: z.number(), transactionState: z.string().nullable(), code: z.string().nullable(), message: z.string().nullable(), detail: z.string().nullable()
+});
+export type Outcome = z.infer<typeof outcomeSchema>;
+export const bookResultSchema = outcomeSchema.extend({ booking: bookingSchema.nullable() });
+export const unlockResultSchema = outcomeSchema.extend({ ongoing: z.array(tripSchema).nullable() });
+export type BookResult = z.infer<typeof bookResultSchema>;
+export type UnlockResult = z.infer<typeof unlockResultSchema>;

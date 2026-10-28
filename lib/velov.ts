@@ -1,7 +1,7 @@
 import "server-only";
 import { z } from "zod";
-import { type Bike, type Dashboard, type RateBody, type Station, dashboardSchema, stationTitle } from "./models";
-import { API, BASE, BROWSER_AGENT, lenient, normalizeTrip, postRating, rawTrip, utcDate } from "./cyclocity";
+import { type BookBody, type BookResult, type Bike, type Booking, type Dashboard, type RateBody, type Station, type UnlockBody, type UnlockResult, dashboardSchema, stationTitle } from "./models";
+import { API, BASE, BROWSER_AGENT, lenient, normalizeTrip, postBooking, postRating, postRelease, rawBooking, rawTrip, refusal, utcDate } from "./cyclocity";
 import { VelovError } from "./auth-protocol";
 import type { Session } from "./session";
 
@@ -9,13 +9,13 @@ const date = z.string().nullish();
 const rawProfile = z.object({ firstName: z.string().nullish(), lastName: z.string().nullish(), email: z.string(), isLocked: z.boolean().optional(), completion: z.number().optional() });
 const rawRewards = z.object({ balance: z.number(), total: z.number().optional(), autoSpend: z.boolean().optional() });
 const rawMovement = z.object({ id: z.string(), createdAt: date, direction: z.string().optional(), amount: z.number(), reason: z.string().optional() });
-const rawSubscription = z.object({ type: z.string(), isLocked: z.boolean().optional(), periods: z.array(z.object({ offerId: z.number().optional(), validityEnd: date })).optional() });
+const rawSubscription = z.object({ id: z.string().optional(), type: z.string(), isLocked: z.boolean().optional(), periods: z.array(z.object({ offerId: z.number().optional(), validityEnd: date })).optional() });
 const offerSchema = z.object({ id: z.number(), title: z.string() });
 const ruleSchema = z.object({ name: z.string(), enable: z.boolean(), reward: z.number(), type: z.string() });
 const localizedName = z.union([z.string(), z.array(z.object({ text: z.string(), language: z.string() }))]);
 const infoSchema = z.object({ data: z.object({ stations: z.array(z.object({ station_id: z.string(), name: localizedName, lat: z.number(), lon: z.number(), address: z.string().optional() })) }) });
 const statusSchema = z.object({ last_updated: z.union([z.string(), z.number()]), data: z.object({ stations: z.array(z.object({ station_id: z.string(), num_vehicles_available: z.number().optional(), num_bikes_available: z.number().optional(), num_docks_available: z.number(), is_renting: z.union([z.boolean(), z.number()]), vehicle_types_available: z.array(z.object({ vehicle_type_id: z.string(), count: z.number() })).optional() })) }) });
-const rawBike = z.object({ number: z.number(), type: lenient(z.string()), frameId: lenient(z.string()), standNumber: lenient(z.number()), status: lenient(z.string()), statusLabel: lenient(z.string()), isReserved: lenient(z.boolean()), rating: lenient(z.object({ value: lenient(z.number()), count: lenient(z.number()), lastRatingDateTime: lenient(z.string()) })), battery: lenient(z.object({ percentage: lenient(z.number()) })), createdAt: lenient(z.string()), lastRevisionDateTime: lenient(z.string()), lastTripDateTime: lenient(z.string()), lastControlDateTime: lenient(z.string()), nextCheck: lenient(z.string()), nextReview: lenient(z.string()), lastDataFrameDate: lenient(z.string()) });
+const rawBike = z.object({ id: lenient(z.string()), number: z.number(), type: lenient(z.string()), frameId: lenient(z.string()), standNumber: lenient(z.number()), status: lenient(z.string()), statusLabel: lenient(z.string()), isReserved: lenient(z.boolean()), rating: lenient(z.object({ value: lenient(z.number()), count: lenient(z.number()), lastRatingDateTime: lenient(z.string()) })), battery: lenient(z.object({ percentage: lenient(z.number()) })), createdAt: lenient(z.string()), lastRevisionDateTime: lenient(z.string()), lastTripDateTime: lenient(z.string()), lastControlDateTime: lenient(z.string()), nextCheck: lenient(z.string()), nextReview: lenient(z.string()), lastDataFrameDate: lenient(z.string()) });
 let publicToken: { token: string; expiresAt: number } | null = null;
 let stationCache: { stations: Station[]; updatedAt: string; expiresAt: number } | null = null;
 
@@ -65,14 +65,18 @@ function normalizeBike(value: z.infer<typeof rawBike>): Bike {
   return { number: value.number, type, standNumber: value.standNumber ?? null, status: value.status ?? null, statusLabel: value.statusLabel ?? null, isReserved: value.isReserved ?? false, rating, batteryPercent: type === "electrical" && percent != null ? Math.min(100, Math.max(0, Math.round(percent))) : null, frameId: value.frameId && value.frameId !== "0" ? value.frameId : null, lastTripAt: utcDate(value.lastTripDateTime), lastRevisionAt: utcDate(value.lastRevisionDateTime), lastControlAt: utcDate(value.lastControlDateTime), nextCheckAt: utcDate(value.nextCheck), lastSignalAt: utcDate(value.lastDataFrameDate), nextReviewAt: utcDate(value.nextReview), createdAt: utcDate(value.createdAt) };
 }
 
-async function getBikes(query: string, unavailable: string, retry = true): Promise<Bike[]> {
+async function getRawBikes(query: string, unavailable: string, retry = true): Promise<z.infer<typeof rawBike>[]> {
   const token = await clientToken();
   const response = await fetchTransient(`${BASE}/bikes?${query}`, () => ({ headers: { Authorization: `Taknv1 ${token}`, Accept: "application/vnd.bikes.v4+json", "User-Agent": BROWSER_AGENT }, cache: "no-store", signal: AbortSignal.timeout(15_000) }));
-  if (response.status === 401 && retry) { publicToken = null; return getBikes(query, unavailable, false); }
+  if (response.status === 401 && retry) { publicToken = null; return getRawBikes(query, unavailable, false); }
   if (!response.ok) throw new VelovError("unavailable", unavailable);
   const value: unknown = await response.json();
   // One malformed bike should not hide the others.
-  return z.array(z.unknown()).parse(value).flatMap((item) => { const bike = rawBike.safeParse(item); return bike.success ? [normalizeBike(bike.data)] : []; });
+  return z.array(z.unknown()).parse(value).flatMap((item) => { const bike = rawBike.safeParse(item); return bike.success ? [bike.data] : []; });
+}
+
+async function getBikes(query: string, unavailable: string): Promise<Bike[]> {
+  return (await getRawBikes(query, unavailable)).map(normalizeBike);
 }
 
 export async function getStationBikes(station: number): Promise<Bike[]> {
@@ -113,6 +117,74 @@ export async function getStations() {
 
 function accountIdOf(session: Session, token: string) {
   return read(`/accounts/${encodeURIComponent(session.email)}/id`, z.string().uuid(), token, session);
+}
+
+async function currentSubscriptionId(account: string, token: string, session: Session) {
+  const subscriptions = await read(`${account}/subscriptions?periods=CURRENT&typeList=ST&typeList=LT&isLocked=false`, z.array(rawSubscription), token, session, "application/vnd.subscription.v6+json");
+  return subscriptions.find((subscription) => subscription.id && !subscription.isLocked && (subscription.periods?.length ?? 0) > 0)?.id ?? null;
+}
+
+const noSubscription = () => refusal("local.no.subscription", "Aucun abonnement valide : achetez un ticket ou un abonnement dans l’app Vélo’v.");
+
+async function stationsByNumber() {
+  try { return new Map((await getStations()).stations.map((station) => [station.number, station])); }
+  catch { return new Map<number, Station>(); }
+}
+
+function toBooking(value: z.infer<typeof rawBooking>, stations: Map<number, Station>, bikeNumbers: Map<string, number>): Booking {
+  const station = stations.get(value.stationNumber);
+  return {
+    id: value.id, stationNumber: value.stationNumber, stationName: station?.name ?? `Station ${value.stationNumber}`, standNumber: value.standNumber ?? null,
+    bikeNumber: value.bikeId ? bikeNumbers.get(value.bikeId) ?? null : null, endsAt: utcDate(value.endTime), lat: station?.lat ?? null, lon: station?.lon ?? null
+  };
+}
+
+/** The account's bookings, with each bike's number found back from its id at the booking's station. */
+export async function getBookings(session: Session): Promise<Booking[]> {
+  const token = await clientToken();
+  const accountId = await accountIdOf(session, token);
+  const value = await read(`/accounts/${accountId}/bookings`, z.array(z.unknown()).nullable(), token, session, "*/*");
+  const bookings = (value ?? []).flatMap((item) => { const booking = rawBooking.safeParse(item); return booking.success ? [booking.data] : []; });
+  if (!bookings.length) return [];
+  const numbers = [...new Set(bookings.map((booking) => booking.stationNumber))];
+  const [stations, ...bikes] = await Promise.all([stationsByNumber(), ...numbers.map((number) => getRawBikes(`stationNumber=${number}`, "").catch(() => []))]);
+  const bikeNumbers = new Map(bikes.flat().flatMap((bike) => bike.id ? [[bike.id, bike.number] as const] : []));
+  return bookings.map((booking) => toBooking(booking, stations, bikeNumbers));
+}
+
+/** The booking body wants the station's and the bike's ids, not their numbers (§ 5.9): both are read just before the one POST. */
+export async function bookBike(session: Session, body: BookBody): Promise<BookResult> {
+  const token = await clientToken();
+  const accountId = await accountIdOf(session, token);
+  const [subscriptionId, station, bikes] = await Promise.all([
+    currentSubscriptionId(`/accounts/${accountId}`, token, session),
+    fetchTransient(`${BASE}/stations/${body.stationNumber}`, () => ({ headers: { Authorization: `Taknv1 ${token}`, Accept: "application/vnd.station.v4+json", "User-Agent": BROWSER_AGENT }, cache: "no-store", signal: AbortSignal.timeout(15_000) }))
+      .then(async (response) => response.ok ? z.object({ id: z.string() }).safeParse(await response.json()).data?.id ?? null : null),
+    getRawBikes(`stationNumber=${body.stationNumber}`, "Les vélos de cette station sont momentanément indisponibles.")
+  ]);
+  const stop = (outcome: ReturnType<typeof refusal>): BookResult => ({ ...outcome, booking: null });
+  const bike = bikes.find((item) => item.number === body.bikeNumber);
+  if (!subscriptionId) return stop(noSubscription());
+  if (!bike || bike.status !== "AVAILABLE") return stop(refusal("local.bike.gone", "Ce vélo n’est plus disponible à cette station."));
+  if (bike.isReserved) return stop(refusal("local.bike.reserved", "Ce vélo est déjà réservé."));
+  if (bike.standNumber == null) return stop(refusal("local.bike.no.stand", "Ce vélo n’est pas accroché à une borne : il ne peut pas être réservé."));
+  if (!bike.id || !station) return stop(refusal("local.missing.id", "Vélo’v n’a pas donné l’identifiant de la station ou du vélo. Réessayez dans un instant."));
+  const { outcome, booking } = await postBooking({ accountId, token, identity: session.accessToken, body: { stationId: station, stationNumber: body.stationNumber, standNumber: bike.standNumber, subscriptionId, bikeId: bike.id } });
+  return { ...outcome, booking: booking ? toBooking(booking, await stationsByNumber(), new Map([[bike.id, bike.number]])) : null };
+}
+
+/** One release, then one look at the ongoing trip: it usually appears ~10 s after the bike leaves the borne. */
+export async function unlockBike(session: Session, body: UnlockBody): Promise<UnlockResult> {
+  const token = await clientToken();
+  const accountId = await accountIdOf(session, token);
+  const account = `/accounts/${accountId}`;
+  const subscriptionId = await currentSubscriptionId(account, token, session);
+  if (!subscriptionId) return { ...noSubscription(), ongoing: null };
+  const outcome = await postRelease({ accountId, subscriptionId, body, token, identity: session.accessToken });
+  if (outcome.httpStatus === 0) return { ...outcome, ongoing: null };
+  await new Promise((resolve) => setTimeout(resolve, 2_000));
+  const [ongoing, stations] = await Promise.all([read(`${account}/trips/ongoing`, z.array(rawTrip), token, session, "application/vnd.trip.v6+json").catch(() => null), stationsByNumber()]);
+  return { ...outcome, ongoing: ongoing?.map((trip) => normalizeTrip(trip, stations)) ?? null };
 }
 
 export async function rateTrip(session: Session, tripId: string, body: RateBody) {

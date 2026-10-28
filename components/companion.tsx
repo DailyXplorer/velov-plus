@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { z } from "zod";
 import { HouseIcon } from "@phosphor-icons/react/dist/csr/House";
 import { PersonSimpleBikeIcon as BicycleIcon } from "@phosphor-icons/react/dist/csr/PersonSimpleBike";
@@ -11,10 +11,11 @@ import { SignOutIcon } from "@phosphor-icons/react/dist/csr/SignOut";
 import { ArrowClockwiseIcon } from "@phosphor-icons/react/dist/csr/ArrowClockwise";
 import { WarningCircleIcon } from "@phosphor-icons/react/dist/csr/WarningCircle";
 import { XIcon } from "@phosphor-icons/react/dist/csr/X";
-import { dashboardSchema, stationsSchema, type Dashboard, type Page, type Resource, formatDate } from "@/lib/models";
+import { bookingSchema, dashboardSchema, stationsSchema, type Booking, type Dashboard, type Page, type Resource, formatDate } from "@/lib/models";
 import { AccountPage, Overview, PointsPage, StationsPage, TripsPage } from "./dashboard";
 import { Button, Modal } from "./ui";
 import { Login } from "./login";
+import { BookingBanner, BookingsContext, UnlockModal } from "./bike-actions";
 
 const navigation = [
   { id: "overview", label: "Vue d’ensemble", mobile: "Accueil", icon: HouseIcon },
@@ -39,6 +40,18 @@ export function Companion({ initialSession }: { initialSession: boolean }) {
   const [logoutOpen, setLogoutOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [logoutError, setLogoutError] = useState<string | null>(null);
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [unlocking, setUnlocking] = useState<Booking | null>(null);
+
+  // Read-only and best effort: without it the app only misses the booking banner.
+  const loadBookings = useCallback(async () => {
+    try {
+      const response = await fetch("/api/bookings", { cache: "no-store" });
+      const parsed = z.array(bookingSchema).safeParse(await response.json().catch(() => null));
+      if (response.ok && parsed.success) setBookings(parsed.data);
+    } catch { /* Keep the last known bookings. */ }
+  }, []);
+  const account = useMemo(() => ({ bookings, changed: () => void loadBookings() }), [bookings, loadBookings]);
 
   const loadStations = useCallback(async () => {
     try {
@@ -83,9 +96,9 @@ export function Companion({ initialSession }: { initialSession: boolean }) {
     setPage(pageFromHash());
     const changed = () => setPage(pageFromHash());
     window.addEventListener("hashchange", changed);
-    if (initialSession) { void loadDashboard(); void loadStations(); }
+    if (initialSession) { void loadDashboard(); void loadStations(); void loadBookings(); }
     return () => window.removeEventListener("hashchange", changed);
-  }, [initialSession, loadDashboard, loadStations]);
+  }, [initialSession, loadDashboard, loadStations, loadBookings]);
 
   function navigate(next: Page) {
     setPage(next);
@@ -97,6 +110,7 @@ export function Companion({ initialSession }: { initialSession: boolean }) {
     setState({ kind: "loading" });
     void loadDashboard();
     void loadStations();
+    void loadBookings();
   }
 
   function openLogout() { setLogoutError(null); setLogoutOpen(true); }
@@ -108,6 +122,7 @@ export function Companion({ initialSession }: { initialSession: boolean }) {
       const response = await fetch("/api/auth/logout", { method: "POST" });
       if (!response.ok) throw new Error("Déconnexion impossible.");
       setLogoutOpen(false);
+      setBookings([]);
       setState({ kind: "guest", message: null });
       window.location.hash = "";
     } catch {
@@ -129,88 +144,92 @@ export function Companion({ initialSession }: { initialSession: boolean }) {
   const label = navigation.find((item) => item.id === page)?.label ?? "Vue d’ensemble";
 
   return (
-    <div className="app-layout">
-      <a className="skip-link" href="#main-content">Aller au contenu</a>
-      <aside className="sidebar">
-        <nav className="main-navigation" aria-label="Navigation principale">
+    <BookingsContext.Provider value={account}>
+      <div className="app-layout">
+        <a className="skip-link" href="#main-content">Aller au contenu</a>
+        <aside className="sidebar">
+          <nav className="main-navigation" aria-label="Navigation principale">
+            {navigation.map((item) => {
+              const Icon = item.icon;
+              return (
+                <button key={item.id} className={`nav-link ${page === item.id ? "active" : ""}`}
+                  aria-current={page === item.id ? "page" : undefined} onClick={() => navigate(item.id)}>
+                  <Icon size={21} weight="light" aria-hidden="true"/>{item.label}
+                </button>
+              );
+            })}
+          </nav>
+          <div className="sidebar-bottom">
+            <button className="sidebar-user" aria-label="Compte" onClick={() => navigate("account")}>
+              <UserCircleIcon size={22} weight="light" aria-hidden="true"/>
+            </button>
+            <button className="icon-button" aria-label="Se déconnecter" onClick={openLogout}>
+              <SignOutIcon size={20} weight="light"/>
+            </button>
+          </div>
+        </aside>
+        <div className="app-main">
+          <header className="app-header">
+            <h1>{label}</h1>
+            <div className="header-actions">
+              <button className="icon-button" title={data ? `Actualisé à ${formatDate(data.updatedAt, { hour: "2-digit", minute: "2-digit" })}` : "Actualiser"}
+                aria-label="Actualiser mon compte" onClick={() => { void loadDashboard(); void loadStations(); void loadBookings(); }} disabled={refreshing}>
+                <ArrowClockwiseIcon className={refreshing ? "spin" : ""} size={20} weight="light"/>
+              </button>
+              <button className="user-avatar" onClick={() => navigate("account")} aria-label="Mon compte">{initial ?? <UserCircleIcon size={22} weight="light" aria-hidden="true"/>}</button>
+            </div>
+          </header>
+          <main id="main-content" className="main-content">
+            {bookings.map((booking) => <BookingBanner key={booking.id} booking={booking} onUnlock={() => setUnlocking(booking)}/>)}
+            {state.kind === "loading" ? <DashboardSkeleton/> : state.kind === "error" ? (
+              <div className="dashboard-error">
+                <p role="alert">{state.message}</p>
+                <Button variant="secondary" onClick={() => void loadDashboard()}>Réessayer</Button>
+              </div>
+            ) : (
+              <>
+                {state.data.warnings.length ? (
+                  <details className="data-notice">
+                    <summary><WarningCircleIcon size={17} weight="light"/>Informations indisponibles</summary>
+                    <ul>{state.data.warnings.map((warning) => <li key={warning}>{warning}</li>)}</ul>
+                  </details>
+                ) : null}
+                {page === "overview" ? <Overview data={state.data} stations={stations} navigate={navigate}/>
+                  : page === "trips" ? <TripsPage data={state.data}/>
+                    : page === "points" ? <PointsPage data={state.data}/>
+                      : page === "stations" ? <StationsPage resource={stations} reload={() => void loadStations()}/>
+                        : <AccountPage data={state.data} onLogout={openLogout}/>}
+              </>
+            )}
+          </main>
+        </div>
+        <nav className="mobile-navigation" aria-label="Navigation mobile">
           {navigation.map((item) => {
             const Icon = item.icon;
             return (
-              <button key={item.id} className={`nav-link ${page === item.id ? "active" : ""}`}
+              <button key={item.id} className={page === item.id ? "active" : ""}
                 aria-current={page === item.id ? "page" : undefined} onClick={() => navigate(item.id)}>
-                <Icon size={21} weight="light" aria-hidden="true"/>{item.label}
+                <Icon size={22} weight="light" aria-hidden="true"/><span>{item.mobile}</span>
               </button>
             );
           })}
         </nav>
-        <div className="sidebar-bottom">
-          <button className="sidebar-user" aria-label="Compte" onClick={() => navigate("account")}>
-            <UserCircleIcon size={22} weight="light" aria-hidden="true"/>
-          </button>
-          <button className="icon-button" aria-label="Se déconnecter" onClick={openLogout}>
-            <SignOutIcon size={20} weight="light"/>
-          </button>
-        </div>
-      </aside>
-      <div className="app-main">
-        <header className="app-header">
-          <h1>{label}</h1>
-          <div className="header-actions">
-            <button className="icon-button" title={data ? `Actualisé à ${formatDate(data.updatedAt, { hour: "2-digit", minute: "2-digit" })}` : "Actualiser"}
-              aria-label="Actualiser mon compte" onClick={() => { void loadDashboard(); void loadStations(); }} disabled={refreshing}>
-              <ArrowClockwiseIcon className={refreshing ? "spin" : ""} size={20} weight="light"/>
-            </button>
-            <button className="user-avatar" onClick={() => navigate("account")} aria-label="Mon compte">{initial ?? <UserCircleIcon size={22} weight="light" aria-hidden="true"/>}</button>
-          </div>
-        </header>
-        <main id="main-content" className="main-content">
-          {state.kind === "loading" ? <DashboardSkeleton/> : state.kind === "error" ? (
-            <div className="dashboard-error">
-              <p role="alert">{state.message}</p>
-              <Button variant="secondary" onClick={() => void loadDashboard()}>Réessayer</Button>
+        {logoutOpen ? (
+          <Modal titleId="logout-title" onClose={() => setLogoutOpen(false)}>
+            <div className="modal-heading">
+              <h2 id="logout-title">Se déconnecter ?</h2>
+              <button className="icon-button" aria-label="Fermer" onClick={() => setLogoutOpen(false)}><XIcon size={20} weight="light"/></button>
             </div>
-          ) : (
-            <>
-              {state.data.warnings.length ? (
-                <details className="data-notice">
-                  <summary><WarningCircleIcon size={17} weight="light"/>Informations indisponibles</summary>
-                  <ul>{state.data.warnings.map((warning) => <li key={warning}>{warning}</li>)}</ul>
-                </details>
-              ) : null}
-              {page === "overview" ? <Overview data={state.data} stations={stations} navigate={navigate}/>
-                : page === "trips" ? <TripsPage data={state.data}/>
-                  : page === "points" ? <PointsPage data={state.data}/>
-                    : page === "stations" ? <StationsPage resource={stations} reload={() => void loadStations()}/>
-                      : <AccountPage data={state.data} onLogout={openLogout}/>}
-            </>
-          )}
-        </main>
+            {logoutError ? <p className="form-error" role="alert">{logoutError}</p> : null}
+            <div className="modal-actions">
+              <Button variant="secondary" onClick={() => setLogoutOpen(false)}>Annuler</Button>
+              <Button pending={loggingOut} onClick={() => void logout()}>Se déconnecter</Button>
+            </div>
+          </Modal>
+        ) : null}
+        {unlocking ? <UnlockModal booking={unlocking} onClose={() => setUnlocking(null)}/> : null}
       </div>
-      <nav className="mobile-navigation" aria-label="Navigation mobile">
-        {navigation.map((item) => {
-          const Icon = item.icon;
-          return (
-            <button key={item.id} className={page === item.id ? "active" : ""}
-              aria-current={page === item.id ? "page" : undefined} onClick={() => navigate(item.id)}>
-              <Icon size={22} weight="light" aria-hidden="true"/><span>{item.mobile}</span>
-            </button>
-          );
-        })}
-      </nav>
-      {logoutOpen ? (
-        <Modal titleId="logout-title" onClose={() => setLogoutOpen(false)}>
-          <div className="modal-heading">
-            <h2 id="logout-title">Se déconnecter ?</h2>
-            <button className="icon-button" aria-label="Fermer" onClick={() => setLogoutOpen(false)}><XIcon size={20} weight="light"/></button>
-          </div>
-          {logoutError ? <p className="form-error" role="alert">{logoutError}</p> : null}
-          <div className="modal-actions">
-            <Button variant="secondary" onClick={() => setLogoutOpen(false)}>Annuler</Button>
-            <Button pending={loggingOut} onClick={() => void logout()}>Se déconnecter</Button>
-          </div>
-        </Modal>
-      ) : null}
-    </div>
+    </BookingsContext.Provider>
   );
 }
 

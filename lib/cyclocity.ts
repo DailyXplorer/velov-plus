@@ -1,6 +1,6 @@
 // The parts of the Cyclocity client that need no server secret, kept free of "server-only" so tests can import them.
 import { z } from "zod";
-import { type RateBody, type Station, type Trip, stationTitle } from "./models.ts";
+import { type Outcome, type RateBody, type Station, type Trip, type UnlockBody, stationTitle } from "./models.ts";
 import { haversine } from "./geo.ts";
 import { VelovError } from "./auth-protocol.ts";
 
@@ -63,4 +63,97 @@ export async function postRating({ accountId, tripId, body, token, identity }: {
   });
   if (response.status === 401) throw new VelovError("expired", "Votre session doit être renouvelée. Reconnectez-vous pour continuer.");
   if (response.status !== 200) throw new VelovError("unavailable", "Vélo’v n’a pas enregistré la note. Réessayez dans un instant.");
+}
+
+/** Release refusals the official app translates (§ 5.6), plus the booking clash it shows with its generic message. */
+const releaseCodes: Record<string, string> = {
+  "trips.exception.bookings.already.reserved": "Vélo réservé par un autre usager. Vélo’v renvoie parfois ce refus pour un vélo que vous avez vous-même réservé : essayez un autre vélo.",
+  "trips.exception.invalid.customer.maxBikesRented": "Impossible de libérer le vélo, un autre trajet est en cours.",
+  "kiwi.exception.customer.rent.time.limit": "Délai entre deux courses non écoulé.",
+  "kiwi.exception.customer.insuffisant.right": "Abonnement hors validité.",
+  "kiwi.exception.customer.paymentmode.not.valid": "Veuillez mettre à jour votre mode de paiement.",
+  "kiwi.exception.no.release.bike": "Problème technique lors de la libération du vélo.",
+  "trips.exception.invalid.customer.credit": "Crédit du compte insuffisant pour libérer un vélo."
+};
+const releaseStates: Record<string, string> = {
+  ABORT: "La libération du vélo a été annulée.",
+  NOK: "La libération du vélo a échoué.",
+  TIME_OUT: "La borne n’a pas répondu à temps pour libérer le vélo.",
+  NOT_CONNECTED: "Aucun vélo n’est connecté à la borne : borne non connectée."
+};
+const bookingCodes: Record<string, string> = {
+  "booking.exception.bike.already.reserved": "Ce vélo est déjà réservé par un autre usager.",
+  "bookings.exception.not.authorized": "Réservation refusée : un compte n’a qu’une réservation à la fois, et il faut 10 points."
+};
+const releaseFailed = "La libération du vélo a échoué pour une raison inconnue.";
+const bookingFailed = "La réservation de votre vélo n’a pas fonctionné.";
+const sessionRefused = "Vélo’v n’a pas reconnu votre session. Reconnectez-vous puis réessayez.";
+const errorBody = z.object({ code: lenient(z.string()), message: lenient(z.string()), transactionState: lenient(z.string()) }).catch({ code: null, message: null, transactionState: null });
+
+export const rawBooking = z.object({ id: z.string(), stationNumber: z.number(), standNumber: lenient(z.number()), bikeId: lenient(z.string()), endTime: lenient(z.string()) });
+
+export function refusal(code: string, message: string): Outcome {
+  return { ok: false, httpStatus: 0, transactionState: null, code, message, detail: null };
+}
+
+async function answer(response: Response) {
+  const text = await response.text().catch(() => "");
+  let value: unknown = null;
+  try { value = JSON.parse(text); } catch { /* A gateway error page is not JSON. */ }
+  const body = errorBody.parse(value);
+  return { value, code: body.code ?? response.headers.get("Bloot-Error-Code"), detail: body.message ?? (value === null && text ? text.slice(0, 160) : null), transactionState: body.transactionState ?? null };
+}
+
+/** Success is transactionState OK, never the HTTP status alone. */
+export function releaseOutcome(httpStatus: number, reply: { code: string | null; detail: string | null; transactionState: string | null }): Outcome {
+  const { code, detail, transactionState } = reply;
+  const ok = httpStatus === 200 && transactionState === "OK";
+  const message = ok ? null : code && releaseCodes[code] ? releaseCodes[code] : transactionState && releaseStates[transactionState] ? releaseStates[transactionState] : httpStatus === 403 ? sessionRefused : releaseFailed;
+  return { ok, httpStatus, transactionState, code, message, detail };
+}
+
+export function bookingOutcome(httpStatus: number, reply: { code: string | null; detail: string | null }): Outcome {
+  const ok = httpStatus >= 200 && httpStatus < 300;
+  const message = ok ? null : reply.code && bookingCodes[reply.code] ? bookingCodes[reply.code] : httpStatus === 403 ? sessionRefused : bookingFailed;
+  return { ok, httpStatus, transactionState: null, code: reply.code, message, detail: reply.detail };
+}
+
+/** Releases a bike, exactly once: the borne may already have opened, so a lost answer must never be retried. */
+export async function postRelease({ accountId, subscriptionId, body, token, identity }: { accountId: string; subscriptionId: string; body: UnlockBody; token: string; identity: string }, send: typeof fetch = fetch): Promise<Outcome> {
+  let response: Response;
+  try {
+    response = await send(`${BASE}/accounts/${encodeURIComponent(accountId)}/subscriptions/${encodeURIComponent(subscriptionId)}/trips`, {
+      method: "POST",
+      headers: { Authorization: `Taknv1 ${token}`, Identity: identity, "Content-Type": "application/vnd.trip.v6+json", Accept: "application/vnd.trip.v6+json", "Accept-Language": "fr", "User-Agent": BROWSER_AGENT },
+      body: JSON.stringify({ stationNumber: body.stationNumber, standNumber: body.standNumber, bikeNumber: body.bikeNumber, typeFrom: "SMARTPHONE" }),
+      cache: "no-store", signal: AbortSignal.timeout(30_000)
+    });
+  } catch (error) {
+    return { ...refusal("network", "Vélo’v n’a pas répondu. Le vélo a peut-être été libéré : regardez la borne avant de réessayer."), detail: error instanceof Error ? error.name : null };
+  }
+  if (response.status === 401) throw new VelovError("expired", "Votre session doit être renouvelée. Reconnectez-vous pour continuer.");
+  return releaseOutcome(response.status, await answer(response));
+}
+
+export type CreateBooking = { stationId: string; stationNumber: number; standNumber: number; subscriptionId: string; bikeId: string };
+
+/** Books a bike, exactly once: it costs points, and a lost answer may hide a booking that went through. */
+export async function postBooking({ accountId, body, token, identity }: { accountId: string; body: CreateBooking; token: string; identity: string }, send: typeof fetch = fetch): Promise<{ outcome: Outcome; booking: z.infer<typeof rawBooking> | null }> {
+  let response: Response;
+  try {
+    response = await send(`${BASE}/accounts/${encodeURIComponent(accountId)}/bookings`, {
+      method: "POST",
+      headers: { Authorization: `Taknv1 ${token}`, Identity: identity, "Content-Type": "application/json; charset=UTF-8", "User-Agent": BROWSER_AGENT },
+      // Field order of the app's CreateBooking constructor.
+      body: JSON.stringify({ stationId: body.stationId, stationNumber: body.stationNumber, standNumber: body.standNumber, subscriptionId: body.subscriptionId, bikeId: body.bikeId }),
+      cache: "no-store", signal: AbortSignal.timeout(30_000)
+    });
+  } catch (error) {
+    return { outcome: { ...refusal("network", "Vélo’v n’a pas répondu. La réservation est peut-être passée : actualisez avant de réessayer."), detail: error instanceof Error ? error.name : null }, booking: null };
+  }
+  if (response.status === 401) throw new VelovError("expired", "Votre session doit être renouvelée. Reconnectez-vous pour continuer.");
+  const reply = await answer(response);
+  const outcome = bookingOutcome(response.status, reply);
+  const booking = rawBooking.safeParse(reply.value);
+  return { outcome, booking: outcome.ok && booking.success ? booking.data : null };
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
+import { type ReactNode, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { z } from "zod";
 import type { Icon } from "@phosphor-icons/react";
 import { PersonSimpleBikeIcon as BicycleIcon } from "@phosphor-icons/react/dist/csr/PersonSimpleBike";
@@ -22,6 +22,7 @@ import { XIcon } from "@phosphor-icons/react/dist/csr/X";
 import { type AssessedBike, assessBikes, isCheckOverdue } from "@/lib/bike-score";
 import { type Bike, type Resource, type Station, bikeSchema, formatDate } from "@/lib/models";
 import { Button, EmptyState, Eyebrow, Modal } from "./ui";
+import { BikeActions, BookingsContext } from "./bike-actions";
 
 const errorSchema = z.object({ error: z.string() });
 const unavailable = "Les vélos de cette station sont momentanément indisponibles.";
@@ -128,7 +129,16 @@ function VerdictBanner({ verdict, reasons }: AssessedBike) {
   );
 }
 
-function BikeSheet({ item }: { item: AssessedBike }) {
+/** Offered on a bike hooked to a borne and free, or booked by this account (a reserved bike stays AVAILABLE, § 5.2). */
+function StationActions({ bike, station }: { bike: Bike; station: Station }) {
+  const account = useContext(BookingsContext);
+  if (!account) return <p className="bike-action-signin">Connectez-vous pour réserver ou déverrouiller</p>;
+  const booking = account.bookings.find((item) => item.bikeNumber === bike.number && item.stationNumber === station.number) ?? null;
+  if (bike.status !== "AVAILABLE" || bike.standNumber == null || (bike.isReserved && !booking)) return null;
+  return <BikeActions place={{ stationNumber: station.number, stationName: station.name, standNumber: bike.standNumber, bikeNumber: bike.number, lat: station.lat, lon: station.lon }} booking={booking}/>;
+}
+
+function BikeSheet({ item, station }: { item: AssessedBike; station?: Station }) {
   const { bike } = item;
   const type = types[bike.type];
   const rating = score(bike);
@@ -137,6 +147,7 @@ function BikeSheet({ item }: { item: AssessedBike }) {
       <VerdictBanner {...item}/>
       <div className="detail-type"><Eyebrow icon={type.icon}>{type.label}</Eyebrow>{bike.isReserved ? <span className="bike-reserved">Réservé</span> : null}</div>
       <p className="bike-sheet-status">{bike.statusLabel ?? "Statut inconnu"}</p>
+      {station ? <StationActions bike={bike} station={station}/> : null}
       <dl className="account-details bike-details">
         <div><dt>Note</dt><dd>{bike.rating && rating != null ? (
           <><span className="bike-rating"><Stars value={rating}/>{formatScore(rating)}<span className="bike-out-of">/5</span></span><small>{bike.rating.count} avis{bike.rating.lastAt ? ` · le dernier ${fromNow(bike.rating.lastAt) ?? ""}` : ""}</small></>
@@ -212,7 +223,7 @@ export function StationBikes({ station, onClose }: { station: Station; onClose: 
           <button className="icon-button" onClick={onClose} aria-label="Fermer"><XIcon size={20} weight="light"/></button>
         </div>
       </div>
-      {opened ? <BikeSheet item={opened}/> : (
+      {opened ? <BikeSheet item={opened} station={station}/> : (
         <>
           <p className="result-count bikes-count" role="status">{count === null ? "Chargement des vélos…" : `${count} vélo${count > 1 ? "s" : ""} à la station`}</p>
           {bikes.kind === "loading" ? (
