@@ -443,12 +443,6 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
 .bike-sheet-number { font-size: 40px; line-height: 1; }
 .bike-sheet .detail-type { margin-top: 4px; }
 .bike-sheet-status { margin-top: 14px; color: var(--ink-soft); font-size: 14px; }
-.bike-banner { display: flex; align-items: flex-start; gap: 12px; margin-top: 4px; padding: 14px 16px; border-radius: var(--radius); box-shadow: inset 0 0 0 1px var(--red); }
-.bike-banner-pick { background: var(--red-tint); box-shadow: none; }
-.bike-banner .card-tag-icon { width: 30px; height: 30px; }
-.bike-banner strong { display: block; font-size: 20px; line-height: 1.3; }
-.bike-banner ul { margin: 2px 0 0; padding: 0; list-style: none; color: var(--ink-soft); font-size: 13px; }
-.bike-banner + .detail-type { margin-top: 22px; }
 .bike-rating { display: inline-flex; align-items: center; gap: 8px; }
 .bike-out-of { color: var(--ink-soft); }
 .bike-stars { display: inline-flex; gap: 2px; }

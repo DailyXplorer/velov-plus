@@ -16,7 +16,6 @@ import { CaretDownIcon } from "@phosphor-icons/react/dist/csr/CaretDown";
 import { CaretRightIcon } from "@phosphor-icons/react/dist/csr/CaretRight";
 import { StarIcon } from "@phosphor-icons/react/dist/csr/Star";
 import { StarHalfIcon } from "@phosphor-icons/react/dist/csr/StarHalf";
-import { ThumbsDownIcon } from "@phosphor-icons/react/dist/csr/ThumbsDown";
 import { ThumbsUpIcon } from "@phosphor-icons/react/dist/csr/ThumbsUp";
 import { XIcon } from "@phosphor-icons/react/dist/csr/X";
 import { type AssessedBike, assessBikes, isCheckOverdue } from "@/lib/bike-score";
@@ -136,19 +135,11 @@ function DateFact({ label, value, withAgo = false, children }: { label: string; 
   return <div><dt>{label}</dt><dd>{children}{value ? since ? <>{since}<small>{exact}</small></> : exact : "Non renseigné"}</dd></div>;
 }
 
-function VerdictBanner({ verdict, reasons }: AssessedBike) {
+/** Verdict as a pill next to the bike type: the reasons are already the facts listed below. */
+function VerdictPill({ verdict }: AssessedBike) {
   if (verdict === "neutral") return null;
-  const recommended = verdict === "recommended";
-  const VerdictIcon = recommended ? ThumbsUpIcon : ThumbsDownIcon;
-  return (
-    <section className={recommended ? "bike-banner bike-banner-pick" : "bike-banner"} aria-label={recommended ? "Vélo recommandé" : "Vélo à éviter"}>
-      <span className="card-tag-icon"><VerdictIcon size={15} weight="bold" aria-hidden="true"/></span>
-      <div>
-        <strong>{recommended ? "Recommandé" : "À éviter"}</strong>
-        <ul>{reasons.map((reason) => <li key={reason}>{reason}</li>)}</ul>
-      </div>
-    </section>
-  );
+  if (verdict === "recommended") return <span className="card-tag bike-pick"><span className="card-tag-icon"><ThumbsUpIcon size={11} weight="bold" aria-hidden="true"/></span>Recommandé</span>;
+  return <span className="bike-reserved">À éviter</span>;
 }
 
 /** Offered on a bike hooked to a borne and free, or booked by this account (a reserved bike stays AVAILABLE, § 5.2). */
@@ -168,8 +159,7 @@ function BikeSheet({ item, station }: { item: AssessedBike; station?: Station })
   const mine = useOwnBikes().has(bike.number);
   return (
     <div className="bike-sheet">
-      {mine ? null : <VerdictBanner {...item}/>}
-      <div className="detail-type"><Eyebrow icon={type.icon}>{type.label}</Eyebrow>{bike.isReserved && !mine ? <span className="bike-reserved">Réservé</span> : null}</div>
+      <div className="detail-type"><Eyebrow icon={type.icon}>{type.label}</Eyebrow>{bike.isReserved && !mine ? <span className="bike-reserved">Réservé</span> : mine ? null : <VerdictPill {...item}/>}</div>
       {bike.status !== "AVAILABLE" ? <p className="bike-sheet-status">{bike.statusLabel ?? "Statut inconnu"}</p> : null}
       {station ? <StationActions bike={bike} station={station}/> : null}
       <dl className="account-details bike-details">
