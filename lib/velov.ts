@@ -19,18 +19,35 @@ const rawBike = z.object({ number: z.number(), type: lenient(z.string()), frameI
 let publicToken: { token: string; expiresAt: number } | null = null;
 let stationCache: { stations: Station[]; updatedAt: string; expiresAt: number } | null = null;
 
+let pendingToken: Promise<string> | null = null;
+
+/** Cyclocity's gateway answers a bare nginx 502 to roughly one request in five (measured, no 429 or rate-limit headers): retry those, never other errors. */
+export async function fetchTransient(url: string, init: () => RequestInit, attempts = 3): Promise<Response> {
+  for (let attempt = 1; ; attempt++) {
+    const response = await fetch(url, init()).catch((error: unknown) => { if (attempt >= attempts) throw error; return null; });
+    if (response && (![502, 503, 504].includes(response.status) || attempt >= attempts)) return response;
+    await new Promise((resolve) => setTimeout(resolve, attempt * 400));
+  }
+}
+
 async function clientToken() {
   if (publicToken && publicToken.expiresAt > Date.now()) return publicToken.token;
-  const response = await fetch(`${API}/auth/environments/PRD/client_tokens`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code: "vls.web.lyon:PRD", key: "c3d9f5c22a9157a7cc7fe0e38269573bdd2f13ec48f867360ecdcbd35b196f87" }), cache: "no-store", signal: AbortSignal.timeout(15_000) });
-  if (!response.ok) throw new VelovError("unavailable", "Vélo’v ne répond pas pour le moment.");
-  const value: unknown = await response.json();
-  const result = z.object({ accessToken: z.string() }).parse(value);
-  publicToken = { token: result.accessToken, expiresAt: Date.now() + 100 * 60_000 };
-  return result.accessToken;
+  // Concurrent requests share one token call instead of each asking for its own.
+  pendingToken ??= (async () => {
+    try {
+      const response = await fetchTransient(`${API}/auth/environments/PRD/client_tokens`, () => ({ method: "POST", headers: { "Content-Type": "application/json", "User-Agent": BROWSER_AGENT }, body: JSON.stringify({ code: "vls.web.lyon:PRD", key: "c3d9f5c22a9157a7cc7fe0e38269573bdd2f13ec48f867360ecdcbd35b196f87" }), cache: "no-store", signal: AbortSignal.timeout(15_000) }));
+      if (!response.ok) throw new VelovError("unavailable", "Vélo’v ne répond pas pour le moment.");
+      const value: unknown = await response.json();
+      const result = z.object({ accessToken: z.string() }).parse(value);
+      publicToken = { token: result.accessToken, expiresAt: Date.now() + 100 * 60_000 };
+      return result.accessToken;
+    } finally { pendingToken = null; }
+  })();
+  return pendingToken;
 }
 
 async function read<T>(path: string, schema: z.ZodType<T>, token: string, session: Session, accept = "application/json"): Promise<T> {
-  const response = await fetch(`${BASE}${path}`, { headers: { Authorization: `Taknv1 ${token}`, Identity: session.accessToken, Accept: accept }, cache: "no-store", signal: AbortSignal.timeout(15_000) });
+  const response = await fetchTransient(`${BASE}${path}`, () => ({ headers: { Authorization: `Taknv1 ${token}`, Identity: session.accessToken, Accept: accept, "User-Agent": BROWSER_AGENT }, cache: "no-store", signal: AbortSignal.timeout(15_000) }));
   if (response.status === 401) throw new VelovError("expired", "Votre session doit être renouvelée. Reconnectez-vous pour continuer.");
   if (!response.ok) throw new VelovError("unavailable", "Certaines informations Vélo’v ne sont pas disponibles pour le moment.");
   const value: unknown = await response.json();
@@ -49,7 +66,8 @@ function normalizeBike(value: z.infer<typeof rawBike>): Bike {
 }
 
 async function getBikes(query: string, unavailable: string, retry = true): Promise<Bike[]> {
-  const response = await fetch(`${BASE}/bikes?${query}`, { headers: { Authorization: `Taknv1 ${await clientToken()}`, Accept: "application/vnd.bikes.v4+json", "User-Agent": BROWSER_AGENT }, cache: "no-store", signal: AbortSignal.timeout(15_000) });
+  const token = await clientToken();
+  const response = await fetchTransient(`${BASE}/bikes?${query}`, () => ({ headers: { Authorization: `Taknv1 ${token}`, Accept: "application/vnd.bikes.v4+json", "User-Agent": BROWSER_AGENT }, cache: "no-store", signal: AbortSignal.timeout(15_000) }));
   if (response.status === 401 && retry) { publicToken = null; return getBikes(query, unavailable, false); }
   if (!response.ok) throw new VelovError("unavailable", unavailable);
   const value: unknown = await response.json();
