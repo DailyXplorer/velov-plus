@@ -9,11 +9,15 @@ function writeCookie(response: NextResponse, name: string, value: string, maxAge
   response.cookies.set(name, value, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", path: "/", maxAge });
 }
 
+export function setDeviceCookie(response: NextResponse, deviceId: string) {
+  writeCookie(response, COOKIE.device, deviceId, 365 * 86_400);
+}
+
 export function setSessionCookies(response: NextResponse, tokens: Tokens, deviceId?: string) {
   writeCookie(response, COOKIE.access, tokens.access_token, tokens.expires_in);
   writeCookie(response, COOKIE.refresh, tokens.refresh_token, tokens.refresh_expires_in);
   writeCookie(response, COOKIE.identity, tokens.id_token, tokens.refresh_expires_in);
-  if (deviceId) writeCookie(response, COOKIE.device, deviceId, 365 * 86_400);
+  if (deviceId) setDeviceCookie(response, deviceId);
 }
 
 export function clearSessionCookies(response: NextResponse) {

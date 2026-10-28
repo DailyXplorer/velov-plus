@@ -7,7 +7,7 @@ export const IAM = "https://iam.cyclocity.fr";
 export const REALM = `${IAM}/realms/vls-default`;
 export const OIDC = `${REALM}/protocol/openid-connect`;
 export const CALLBACK = "https://velov.grandlyon.com/openid_connect_login";
-export const CLIENT_ID = "vls-ios-lyon";
+export const CLIENT_ID = "vls-web-lyon";
 const jwks = createRemoteJWKSet(new URL(`${OIDC}/certs`));
 
 export const tokenSchema = z.object({

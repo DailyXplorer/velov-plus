@@ -10,6 +10,7 @@ test("a login starts with a unique state, nonce and S256 proof", () => {
   assert.notEqual(first.nonce, second.nonce);
   assert.notEqual(first.verifier, second.verifier);
   assert.equal(first.url.origin, IAM);
+  assert.equal(first.url.searchParams.get("client_id"), "vls-web-lyon");
   assert.equal(first.url.searchParams.get("redirect_uri"), CALLBACK);
   assert.equal(first.url.searchParams.get("code_challenge_method"), "S256");
   assert.equal(first.url.searchParams.get("code_challenge"), createHash("sha256").update(first.verifier).digest("base64url"));
