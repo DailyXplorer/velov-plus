@@ -43,7 +43,6 @@ svg { flex-shrink: 0; vertical-align: middle; }
 
 h1, h2, h3, .metric-value, .metric-subscription, .points-balance, .points-total, .setting-value, .earn-rule strong, .profile-name, .subscription-name, .station-card-heading > strong, .trip-detail-facts strong, .user-avatar { font-family: var(--font-title); font-weight: 400; letter-spacing: -.03em; font-variant-numeric: proportional-nums; }
 .button, .text-button, .text-link, .eyebrow, .card-tag, .skip-link, .metric-label, .table-head, .select-field > label, .result-count, .points-balance > span, .station-numbers small, .station-pin, .closed-station, .trip-detail-route small, .trip-detail-facts small, .detail-type, .account-details dt, .data-notice summary { font-family: var(--font-label); font-weight: 500; text-transform: uppercase; letter-spacing: -.01em; }
-.highlight { padding: 0 .1em .04em; color: var(--ink); background: var(--red-tint); -webkit-box-decoration-break: clone; box-decoration-break: clone; }
 .eyebrow { display: inline-flex; align-items: center; gap: 10px; margin-bottom: 24px; padding: 4px 14px 4px 4px; border-radius: 999px; background: var(--mist); font-size: 12px; line-height: 1; }
 .eyebrow-icon, .card-tag-icon { display: grid; flex: none; place-items: center; border-radius: 50%; color: var(--white); background: var(--red); }
 .eyebrow-icon { width: 26px; height: 26px; }

@@ -30,9 +30,6 @@ export function CircleArrow({ external = false, outline = false }: { external?: 
   return <span className={`circle-arrow${outline ? " is-outline" : ""}`}><Arrow size={13} weight="bold" aria-hidden="true"/></span>;
 }
 
-export function Highlight({ children }: { children: ReactNode }) {
-  return <mark className="highlight">{children}</mark>;
-}
 
 export function Eyebrow({ icon: TagIcon, children }: { icon: Icon; children: ReactNode }) {
   return <span className="eyebrow"><span className="eyebrow-icon"><TagIcon size={13} weight="bold" aria-hidden="true"/></span>{children}</span>;

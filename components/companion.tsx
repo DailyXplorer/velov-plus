@@ -13,7 +13,7 @@ import { WarningCircleIcon } from "@phosphor-icons/react/dist/csr/WarningCircle"
 import { XIcon } from "@phosphor-icons/react/dist/csr/X";
 import { dashboardSchema, stationsSchema, type Dashboard, type Page, type Resource, formatDate } from "@/lib/models";
 import { AccountPage, Overview, PointsPage, StationsPage, TripsPage } from "./dashboard";
-import { Button, Highlight, Modal } from "./ui";
+import { Button, Modal } from "./ui";
 import { Login } from "./login";
 
 const navigation = [
@@ -155,7 +155,7 @@ export function Companion({ initialSession }: { initialSession: boolean }) {
       </aside>
       <div className="app-main">
         <header className="app-header">
-          <h1><Highlight>{label}</Highlight></h1>
+          <h1>{label}</h1>
           <div className="header-actions">
             <button className="icon-button" title={data ? `Actualisé à ${formatDate(data.updatedAt, { hour: "2-digit", minute: "2-digit" })}` : "Actualiser"}
               aria-label="Actualiser mon compte" onClick={() => { void loadDashboard(); void loadStations(); }} disabled={refreshing}>
