@@ -7,8 +7,12 @@ export const profileSchema = z.object({
 export const tripSchema = z.object({
   id: z.string(), status: z.string(), startedAt: z.string().nullable(), endedAt: z.string().nullable(),
   startStation: z.string().nullable(), endStation: z.string().nullable(),
+  startStationNumber: z.number().nullable(), endStationNumber: z.number().nullable(),
+  startStand: z.number().nullable(), endStand: z.number().nullable(), distance: z.number().nullable(),
   bikeNumber: z.number().nullable(), bikeType: z.enum(["mechanical", "electrical", "unknown"]),
-  duration: z.number(), price: z.number(), pointsEarned: z.number(), pointsSpent: z.number()
+  duration: z.number(), price: z.number(), fullPrice: z.number().nullable(), discount: z.number(),
+  pointsEarned: z.number(), pointsSpent: z.number(),
+  litigious: z.boolean(), isRated: z.boolean().nullable(), token: z.string().nullable(), origin: z.number().nullable()
 });
 export const rewardMovementSchema = z.object({
   id: z.string(), date: z.string().nullable(), label: z.string(), amount: z.number()
@@ -44,6 +48,20 @@ export type Station = z.infer<typeof stationSchema>;
 export type Bike = z.infer<typeof bikeSchema>;
 export type Page = "overview" | "trips" | "points" | "stations" | "account";
 export type Resource<T> = { kind: "loading" } | { kind: "ready"; data: T } | { kind: "error"; message: string };
+
+/** "Je déconseille" carries the rating of the chosen defect: 30 for a serious one, 60 otherwise. */
+export const rateBodySchema = z.discriminatedUnion("recommended", [
+  z.object({ bikeNumber: z.number().int().positive(), recommended: z.literal(true), rating: z.null() }).strict(),
+  z.object({ bikeNumber: z.number().int().positive(), recommended: z.literal(false), rating: z.union([z.literal(30), z.literal(60)]) }).strict()
+]);
+export type RateBody = z.infer<typeof rateBodySchema>;
+
+/** The official app offers the rating for 3 hours after the trip ends. */
+const RATING_WINDOW = 3 * 3_600_000;
+export function canRate(trip: Trip, now = Date.now()) {
+  const ended = trip.endedAt ? new Date(trip.endedAt).getTime() : NaN;
+  return trip.status === "FINISHED" && trip.bikeNumber != null && trip.isRated === false && now - ended < RATING_WINDOW;
+}
 
 export const loginSchema = z.object({ email: z.email().max(254), code: z.string().regex(/^\d{6}$/) });
 

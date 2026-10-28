@@ -25,6 +25,7 @@ import { Button, EmptyState, Eyebrow, Modal } from "./ui";
 
 const errorSchema = z.object({ error: z.string() });
 const unavailable = "Les vélos de cette station sont momentanément indisponibles.";
+const missing = "Ce vélo est momentanément indisponible.";
 const types: Record<Bike["type"], { label: string; icon: Icon }> = {
   mechanical: { label: "Mécanique", icon: BicycleIcon },
   electrical: { label: "Électrique", icon: LightningIcon },
@@ -32,6 +33,18 @@ const types: Record<Bike["type"], { label: string; icon: Icon }> = {
 };
 const relative = new Intl.RelativeTimeFormat("fr-FR", { style: "short" });
 const steps: [Intl.RelativeTimeFormatUnit, number][] = [["minute", 60], ["hour", 24], ["day", 30], ["month", 12], ["year", Infinity]];
+
+async function fetchParsed<T>(url: string, schema: z.ZodType<T>, unavailable: string): Promise<T> {
+  const response = await fetch(url, { cache: "no-store" });
+  const raw: unknown = await response.json().catch(() => null);
+  if (!response.ok) {
+    const error = errorSchema.safeParse(raw);
+    throw new Error(error.success ? error.data.error : unavailable);
+  }
+  const parsed = schema.safeParse(raw);
+  if (!parsed.success) throw new Error(unavailable);
+  return parsed.data;
+}
 
 function score(bike: Bike) {
   return bike.rating ? bike.rating.value / 20 : null;
@@ -160,15 +173,7 @@ export function StationBikes({ station, onClose }: { station: Station; onClose: 
   const load = useCallback(async () => {
     setRefreshing(true);
     try {
-      const response = await fetch(`/api/stations/${station.number}/bikes`, { cache: "no-store" });
-      const raw: unknown = await response.json();
-      if (!response.ok) {
-        const error = errorSchema.safeParse(raw);
-        throw new Error(error.success ? error.data.error : unavailable);
-      }
-      const parsed = z.array(bikeSchema).safeParse(raw);
-      if (!parsed.success) throw new Error(unavailable);
-      setBikes({ kind: "ready", data: assessBikes(parsed.data) });
+      setBikes({ kind: "ready", data: assessBikes(await fetchParsed(`/api/stations/${station.number}/bikes`, z.array(bikeSchema), unavailable)) });
     } catch (error) {
       setBikes({ kind: "error", message: error instanceof Error && error.message ? error.message : unavailable });
     } finally {
@@ -223,6 +228,41 @@ export function StationBikes({ station, onClose }: { station: Station; onClose: 
           ) : <EmptyState>Aucun vélo à cette station.</EmptyState>}
         </>
       )}
+    </Modal>
+  );
+}
+
+/** One bike's live sheet, opened on its own (from a trip). */
+export function BikeDrawer({ number, onClose }: { number: number; onClose: () => void }) {
+  const [bike, setBike] = useState<Resource<AssessedBike>>({ kind: "loading" });
+  const [refreshing, setRefreshing] = useState(false);
+
+  const load = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      const item = assessBikes([await fetchParsed(`/api/bikes/${number}`, bikeSchema, missing)])[0];
+      // Alone, a bike is no station's best pick: keep only the warnings.
+      setBike({ kind: "ready", data: item.verdict === "recommended" ? { ...item, verdict: "neutral", reasons: [] } : item });
+    } catch (error) {
+      setBike({ kind: "error", message: error instanceof Error && error.message ? error.message : missing });
+    } finally {
+      setRefreshing(false);
+    }
+  }, [number]);
+
+  useEffect(() => { void load(); }, [load]);
+
+  return (
+    <Modal titleId="bike-drawer-title" onClose={onClose} className="bikes-drawer">
+      <div className="bikes-header">
+        <button className="icon-button" onClick={onClose} aria-label="Retour au trajet" autoFocus><ArrowLeftIcon size={20} weight="light"/></button>
+        <h2 id="bike-drawer-title" className="bikes-title"><span className="sr-only">Vélo </span><span className="bike-sheet-number">{number}</span></h2>
+      </div>
+      {bike.kind === "loading" ? (
+        <div className="bikes-skeleton" aria-busy="true" aria-label="Chargement du vélo">{[0, 1, 2].map((item) => <div className="skeleton" key={item}/>)}</div>
+      ) : bike.kind === "error" ? (
+        <div className="notice-error" role="alert">{bike.message}<Button variant="secondary" onClick={() => void load()} pending={refreshing}>Réessayer</Button></div>
+      ) : <BikeSheet item={bike.data}/>}
     </Modal>
   );
 }

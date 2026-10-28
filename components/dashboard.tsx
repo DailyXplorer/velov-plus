@@ -14,8 +14,10 @@ import { TicketIcon } from "@phosphor-icons/react/dist/csr/Ticket";
 import { TrendUpIcon } from "@phosphor-icons/react/dist/csr/TrendUp";
 import { XIcon } from "@phosphor-icons/react/dist/csr/X";
 import { type Dashboard, type Page, type Resource, type Station, type Trip, formatDate, formatPrice } from "@/lib/models";
-import { Button, CardTag, CircleArrow, EmptyState, Eyebrow, Modal, SectionHeading, SelectField, TextButton } from "./ui";
+import { haversine } from "@/lib/geo";
+import { Button, CardTag, CircleArrow, EmptyState, Eyebrow, SectionHeading, SelectField, TextButton } from "./ui";
 import { StationBikes } from "./station-bikes";
+import { TripSheet } from "./trip-sheet";
 
 const StationMap = dynamic(() => import("./station-map"), {
   ssr: false,
@@ -23,14 +25,6 @@ const StationMap = dynamic(() => import("./station-map"), {
 });
 type StationData = { stations: Station[]; updatedAt: string };
 type Navigation = (page: Page) => void;
-
-function BikeType({ type }: { type: Trip["bikeType"] }) {
-  return (
-    <Eyebrow icon={type === "electrical" ? LightningIcon : BicycleIcon}>
-      {type === "electrical" ? "Électrique" : type === "mechanical" ? "Mécanique" : "Vélo’v"}
-    </Eyebrow>
-  );
-}
 
 export function TripsTable({ trips }: { trips: Trip[] }) {
   const [selected, setSelected] = useState<Trip | null>(null);
@@ -58,25 +52,7 @@ export function TripsTable({ trips }: { trips: Trip[] }) {
         ))}
         {!trips.length ? <EmptyState>Aucun trajet.</EmptyState> : null}
       </div>
-      {selected ? (
-        <Modal titleId="trip-detail-title" onClose={() => setSelected(null)}>
-          <div className="modal-heading">
-            <h2 id="trip-detail-title">Trajet</h2>
-            <button className="icon-button" aria-label="Fermer les détails" onClick={() => setSelected(null)}><XIcon size={20} weight="light"/></button>
-          </div>
-          <p className="detail-date">{formatDate(selected.startedAt, { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })}</p>
-          <div className="trip-detail-route">
-            <div><small>Départ</small><span>{selected.startStation ?? "Non renseigné"}</span></div>
-            <div><small>Arrivée</small><span>{selected.endStation ?? "Non renseignée"}</span></div>
-          </div>
-          <div className="trip-detail-facts">
-            <span><small>Durée</small><strong>{selected.duration} min</strong></span>
-            <span><small>Montant</small><strong>{formatPrice(selected.price)}</strong></span>
-            <span><small>Points gagnés</small><strong>+{selected.pointsEarned}</strong></span>
-          </div>
-          <div className="detail-type"><BikeType type={selected.bikeType}/>{selected.bikeNumber ? <span>Vélo n° {selected.bikeNumber}</span> : null}</div>
-        </Modal>
-      ) : null}
+      {selected ? <TripSheet trip={selected} onClose={() => setSelected(null)}/> : null}
     </>
   );
 }
@@ -198,11 +174,7 @@ export function PointsPage({ data }: { data: Dashboard }) {
 }
 
 function distanceTo(station: Station, position: GeolocationCoordinates) {
-  const radians = Math.PI / 180;
-  const latitude = (station.lat - position.latitude) * radians;
-  const longitude = (station.lon - position.longitude) * radians;
-  const arc = Math.sin(latitude / 2) ** 2 + Math.cos(position.latitude * radians) * Math.cos(station.lat * radians) * Math.sin(longitude / 2) ** 2;
-  return 6_371_000 * 2 * Math.atan2(Math.sqrt(arc), Math.sqrt(1 - arc));
+  return haversine({ lat: position.latitude, lon: position.longitude }, station);
 }
 
 export function StationsPage({ resource, reload }: { resource: Resource<StationData>; reload: () => void }) {

@@ -1,14 +1,11 @@
 import "server-only";
 import { z } from "zod";
-import { type Bike, type Dashboard, type Station, type Trip, dashboardSchema, stationTitle } from "./models";
+import { type Bike, type Dashboard, type RateBody, type Station, dashboardSchema, stationTitle } from "./models";
+import { API, BASE, BROWSER_AGENT, lenient, normalizeTrip, postRating, rawTrip, utcDate } from "./cyclocity";
 import { VelovError } from "./auth-protocol";
 import type { Session } from "./session";
 
-const API = "https://api.cyclocity.fr";
-const BASE = `${API}/contracts/lyon`;
-const scalar = z.union([z.number(), z.string()]).nullish();
 const date = z.string().nullish();
-const rawTrip = z.object({ id: z.string(), status: z.string().optional(), startDateTime: date, endDateTime: date, startStation: scalar, endStation: scalar, startStationName: date, endStationName: date, bikeNumber: z.number().nullish(), bikeType: z.number().nullish(), duration: z.number().nullish(), price: z.number().nullish(), reducedPrice: z.number().nullish(), rewardsEarned: z.number().nullish(), rewardsSpent: z.number().nullish() });
 const rawProfile = z.object({ firstName: z.string().nullish(), lastName: z.string().nullish(), email: z.string(), isLocked: z.boolean().optional(), completion: z.number().optional() });
 const rawRewards = z.object({ balance: z.number(), total: z.number().optional(), autoSpend: z.boolean().optional() });
 const rawMovement = z.object({ id: z.string(), createdAt: date, direction: z.string().optional(), amount: z.number(), reason: z.string().optional() });
@@ -18,9 +15,6 @@ const ruleSchema = z.object({ name: z.string(), enable: z.boolean(), reward: z.n
 const localizedName = z.union([z.string(), z.array(z.object({ text: z.string(), language: z.string() }))]);
 const infoSchema = z.object({ data: z.object({ stations: z.array(z.object({ station_id: z.string(), name: localizedName, lat: z.number(), lon: z.number(), address: z.string().optional() })) }) });
 const statusSchema = z.object({ last_updated: z.union([z.string(), z.number()]), data: z.object({ stations: z.array(z.object({ station_id: z.string(), num_vehicles_available: z.number().optional(), num_bikes_available: z.number().optional(), num_docks_available: z.number(), is_renting: z.union([z.boolean(), z.number()]), vehicle_types_available: z.array(z.object({ vehicle_type_id: z.string(), count: z.number() })).optional() })) }) });
-// The bikes endpoint sits behind a WAF that answers non-browser user agents with an HTML 403.
-const BROWSER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130 Safari/537.36";
-const lenient = <T extends z.ZodType>(schema: T) => schema.nullish().catch(null);
 const rawBike = z.object({ number: z.number(), type: lenient(z.string()), frameId: lenient(z.string()), standNumber: lenient(z.number()), status: lenient(z.string()), statusLabel: lenient(z.string()), isReserved: lenient(z.boolean()), rating: lenient(z.object({ value: lenient(z.number()), count: lenient(z.number()), lastRatingDateTime: lenient(z.string()) })), battery: lenient(z.object({ percentage: lenient(z.number()) })), createdAt: lenient(z.string()), lastRevisionDateTime: lenient(z.string()), lastTripDateTime: lenient(z.string()), lastControlDateTime: lenient(z.string()), nextCheck: lenient(z.string()), nextReview: lenient(z.string()), lastDataFrameDate: lenient(z.string()) });
 let publicToken: { token: string; expiresAt: number } | null = null;
 let stationCache: { stations: Station[]; updatedAt: string; expiresAt: number } | null = null;
@@ -45,17 +39,7 @@ async function read<T>(path: string, schema: z.ZodType<T>, token: string, sessio
 
 const reasons: Record<string, string> = { RATE_BIKE: "Vélo évalué", START_STATION_FULL: "Départ d’une station pleine", END_STATION_EMPTY: "Arrivée dans une station vide", TRIP_BONUS: "Bonus de trajet", START_TRIP_OVERFLOW: "Départ en station virtuelle", REDUCTION: "Réduction sur un trajet", BIKE_BOOKING: "Réservation d’un vélo", PROMOCODE: "Invitation d’un proche" };
 
-function normalizeTrip(value: z.infer<typeof rawTrip>, stations: Map<string, string>): Trip {
-  const station = (name: string | null | undefined, number: string | number | null | undefined) => name ? stationTitle(name) : number != null ? stations.get(String(number)) ?? `Station ${number}` : null;
-  return { id: value.id, status: value.status ?? "FINISHED", startedAt: value.startDateTime ?? null, endedAt: value.endDateTime ?? null, startStation: station(value.startStationName, value.startStation), endStation: station(value.endStationName, value.endStation), bikeNumber: value.bikeNumber ?? null, bikeType: value.bikeType === 1 ? "electrical" : value.bikeType === 0 ? "mechanical" : "unknown", duration: value.duration ?? 0, price: value.reducedPrice ?? value.price ?? 0, pointsEarned: value.rewardsEarned ?? 0, pointsSpent: value.rewardsSpent ?? 0 };
-}
 
-/** Bike dates are UTC without a zone designator. */
-function utcDate(value: string | null | undefined) {
-  if (!value) return null;
-  const date = new Date(/(Z|[+-]\d{2}:?\d{2})$/.test(value) ? value : `${value}Z`);
-  return Number.isFinite(date.getTime()) ? date.toISOString() : null;
-}
 
 function normalizeBike(value: z.infer<typeof rawBike>): Bike {
   const type = value.type === "ELECTRICAL" ? "electrical" : value.type === "MECHANICAL" ? "mechanical" : "other";
@@ -64,14 +48,22 @@ function normalizeBike(value: z.infer<typeof rawBike>): Bike {
   return { number: value.number, type, standNumber: value.standNumber ?? null, status: value.status ?? null, statusLabel: value.statusLabel ?? null, isReserved: value.isReserved ?? false, rating, batteryPercent: type === "electrical" && percent != null ? Math.min(100, Math.max(0, Math.round(percent))) : null, frameId: value.frameId && value.frameId !== "0" ? value.frameId : null, lastTripAt: utcDate(value.lastTripDateTime), lastRevisionAt: utcDate(value.lastRevisionDateTime), lastControlAt: utcDate(value.lastControlDateTime), nextCheckAt: utcDate(value.nextCheck), lastSignalAt: utcDate(value.lastDataFrameDate), nextReviewAt: utcDate(value.nextReview), createdAt: utcDate(value.createdAt) };
 }
 
-export async function getStationBikes(station: number, retry = true): Promise<Bike[]> {
-  const response = await fetch(`${BASE}/bikes?stationNumber=${station}`, { headers: { Authorization: `Taknv1 ${await clientToken()}`, Accept: "application/vnd.bikes.v4+json", "User-Agent": BROWSER_AGENT }, cache: "no-store", signal: AbortSignal.timeout(15_000) });
-  if (response.status === 401 && retry) { publicToken = null; return getStationBikes(station, false); }
-  if (!response.ok) throw new VelovError("unavailable", "Les vélos de cette station sont momentanément indisponibles.");
+async function getBikes(query: string, unavailable: string, retry = true): Promise<Bike[]> {
+  const response = await fetch(`${BASE}/bikes?${query}`, { headers: { Authorization: `Taknv1 ${await clientToken()}`, Accept: "application/vnd.bikes.v4+json", "User-Agent": BROWSER_AGENT }, cache: "no-store", signal: AbortSignal.timeout(15_000) });
+  if (response.status === 401 && retry) { publicToken = null; return getBikes(query, unavailable, false); }
+  if (!response.ok) throw new VelovError("unavailable", unavailable);
   const value: unknown = await response.json();
   // One malformed bike should not hide the others.
-  return z.array(z.unknown()).parse(value).flatMap((item) => { const bike = rawBike.safeParse(item); return bike.success ? [normalizeBike(bike.data)] : []; })
+  return z.array(z.unknown()).parse(value).flatMap((item) => { const bike = rawBike.safeParse(item); return bike.success ? [normalizeBike(bike.data)] : []; });
+}
+
+export async function getStationBikes(station: number): Promise<Bike[]> {
+  return (await getBikes(`stationNumber=${station}`, "Les vélos de cette station sont momentanément indisponibles."))
     .sort((left, right) => (left.standNumber ?? Infinity) - (right.standNumber ?? Infinity) || left.number - right.number);
+}
+
+export async function getBike(number: number): Promise<Bike | null> {
+  return (await getBikes(`number=${number}`, "Ce vélo est momentanément indisponible.")).find((bike) => bike.number === number) ?? null;
 }
 
 export async function getStations() {
@@ -101,9 +93,18 @@ export async function getStations() {
   return { stations, updatedAt };
 }
 
+function accountIdOf(session: Session, token: string) {
+  return read(`/accounts/${encodeURIComponent(session.email)}/id`, z.string().uuid(), token, session);
+}
+
+export async function rateTrip(session: Session, tripId: string, body: RateBody) {
+  const token = await clientToken();
+  await postRating({ accountId: await accountIdOf(session, token), tripId, body, token, identity: session.accessToken });
+}
+
 export async function getDashboard(session: Session): Promise<Dashboard> {
   const token = await clientToken();
-  const accountId = await read(`/accounts/${encodeURIComponent(session.email)}/id`, z.string().uuid(), token, session);
+  const accountId = await accountIdOf(session, token);
   const account = `/accounts/${accountId}`;
   const warnings: string[] = [];
   const optional = async <T>(promise: Promise<T>, fallback: T, warning: string): Promise<T> => {
@@ -122,13 +123,13 @@ export async function getDashboard(session: Session): Promise<Dashboard> {
     optional(getStations(), { stations: [], updatedAt: new Date().toISOString() }, "Les noms des stations sont momentanément indisponibles."),
     optional(read(`${account}/bookings`, z.array(z.unknown()).nullable(), token, session), null, "Les réservations en cours n’ont pas pu être actualisées.")
   ]);
-  const stationNames = new Map(stationData.stations.map((station) => [String(station.number), station.name]));
+  const stationsByNumber = new Map(stationData.stations.map((station) => [station.number, station]));
   const currentSubscription = subscriptions.find((subscription) => !subscription.isLocked && (subscription.periods?.length ?? 0) > 0);
   const period = currentSubscription?.periods?.at(-1);
   return dashboardSchema.parse({
     profile: { firstName: profile.firstName ?? "", lastName: profile.lastName ?? "", email: profile.email, locked: profile.isLocked ?? false, complete: (profile.completion ?? 0) >= 1 },
     rewards: { balance: rewards.balance, total: rewards.total ?? rewards.balance, autoSpend: rewards.autoSpend ?? false, movements: movements.content.map((movement) => ({ id: movement.id, date: movement.createdAt ?? null, label: reasons[movement.reason ?? ""] ?? "Mouvement de points", amount: movement.amount * (movement.direction === "DEBIT" ? -1 : 1) })), rules: rules.filter((rule) => rule.enable && reasons[rule.name]).map((rule) => ({ name: rule.name, label: reasons[rule.name], points: rule.reward, kind: rule.type === "RULE" ? "earn" : "spend" })) },
     subscription: currentSubscription ? { title: offers.find((offer) => offer.id === period?.offerId)?.title ?? (currentSubscription.type === "LT" ? "Abonnement longue durée" : "Ticket Vélo’v"), type: currentSubscription.type, validUntil: period?.validityEnd ?? null, active: !currentSubscription.isLocked } : null,
-    paymentValid: payment.paymentValid, trips: history.map((trip) => normalizeTrip(trip, stationNames)), ongoing: ongoing.map((trip) => normalizeTrip(trip, stationNames)), bookings: bookings?.length ?? null, updatedAt: new Date().toISOString(), warnings
+    paymentValid: payment.paymentValid, trips: history.map((trip) => normalizeTrip(trip, stationsByNumber)), ongoing: ongoing.map((trip) => normalizeTrip(trip, stationsByNumber)), bookings: bookings?.length ?? null, updatedAt: new Date().toISOString(), warnings
   });
 }
