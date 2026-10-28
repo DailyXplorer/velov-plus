@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import dynamic from "next/dynamic";
-import { BicycleIcon } from "@phosphor-icons/react/dist/csr/Bicycle";
+import { PersonSimpleBikeIcon as BicycleIcon } from "@phosphor-icons/react/dist/csr/PersonSimpleBike";
 import { LightningIcon } from "@phosphor-icons/react/dist/csr/Lightning";
 import { SquareIcon } from "@phosphor-icons/react/dist/csr/Square";
 import { CaretRightIcon } from "@phosphor-icons/react/dist/csr/CaretRight";

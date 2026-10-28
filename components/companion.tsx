@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { z } from "zod";
 import { HouseIcon } from "@phosphor-icons/react/dist/csr/House";
-import { BicycleIcon } from "@phosphor-icons/react/dist/csr/Bicycle";
+import { PersonSimpleBikeIcon as BicycleIcon } from "@phosphor-icons/react/dist/csr/PersonSimpleBike";
 import { StarFourIcon } from "@phosphor-icons/react/dist/csr/StarFour";
 import { MapPinIcon } from "@phosphor-icons/react/dist/csr/MapPin";
 import { UserCircleIcon } from "@phosphor-icons/react/dist/csr/UserCircle";
