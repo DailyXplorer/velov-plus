@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { PersonSimpleBikeIcon as BicycleIcon } from "@phosphor-icons/react/dist/csr/PersonSimpleBike";
 import { LightningIcon } from "@phosphor-icons/react/dist/csr/Lightning";
-import { SquareIcon } from "@phosphor-icons/react/dist/csr/Square";
+import { LetterCirclePIcon } from "@phosphor-icons/react/dist/csr/LetterCircleP";
 import { CaretRightIcon } from "@phosphor-icons/react/dist/csr/CaretRight";
 import { MagnifyingGlassIcon } from "@phosphor-icons/react/dist/csr/MagnifyingGlass";
 import { NavigationArrowIcon } from "@phosphor-icons/react/dist/csr/NavigationArrow";
@@ -85,7 +85,7 @@ function StationNumbers({ station, compact = false }: { station: Station; compac
     <div className={`station-numbers ${compact ? "station-numbers-compact" : ""}`}>
       <span><BicycleIcon size={18} weight="light" aria-hidden="true"/><strong>{station.mechanical}</strong><small>Mécaniques</small></span>
       <span><LightningIcon size={17} weight="light" aria-hidden="true"/><strong>{station.electrical}</strong><small>Électriques</small></span>
-      <span><SquareIcon size={16} weight="light" aria-hidden="true"/><strong>{station.stands}</strong><small>Places libres</small></span>
+      <span><LetterCirclePIcon size={18} weight="light" aria-hidden="true"/><strong>{station.stands}</strong><small>Places libres</small></span>
     </div>
   );
 }
