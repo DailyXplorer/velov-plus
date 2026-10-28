@@ -371,3 +371,4 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
 /* Logout already sits in the sidebar on desktop; keep the account-tab button only where the sidebar is hidden. */
 .account-logout { display: none; }
 @media (max-width: 900px) { .account-logout { display: block; } }
+.circle-arrow.is-outline { color: var(--red); background: transparent; box-shadow: inset 0 0 0 1px var(--red); }
