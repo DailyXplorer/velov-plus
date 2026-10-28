@@ -368,3 +368,6 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
 .leaflet-bar a:focus:not(:hover) { background-color: #fff; }
 .leaflet-control-attribution a:focus:not(:hover) { text-decoration: none; }
 .button-primary .circle-arrow, .button-primary .circle-arrow.is-outline { color: var(--red); background: var(--white); box-shadow: none; }
+/* Logout already sits in the sidebar on desktop; keep the account-tab button only where the sidebar is hidden. */
+.account-logout { display: none; }
+@media (max-width: 900px) { .account-logout { display: block; } }
