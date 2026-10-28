@@ -166,7 +166,7 @@ export function PointsPage({ data }: { data: Dashboard }) {
     <div className="page-content">
       <div className="points-summary">
         <div><Eyebrow icon={StarFourIcon}>Solde</Eyebrow><strong className="points-balance">{data.rewards.balance}<span>points</span></strong></div>
-        <div><Eyebrow icon={TrendUpIcon}>Total gagné</Eyebrow><strong className="points-total">{data.rewards.total.toLocaleString("fr-FR")}</strong></div>
+        <div><Eyebrow icon={TrendUpIcon}>Total gagné</Eyebrow><strong className="points-total">{data.rewards.total.toLocaleString("fr-FR")}<span>points</span></strong></div>
       </div>
       <div className="setting-row">
         <div><span className="metric-label">Utilisation automatique</span><strong className="setting-value">{data.rewards.autoSpend ? "Activée" : "Désactivée"}</strong></div>
