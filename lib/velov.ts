@@ -1,5 +1,8 @@
 import { completeRenewalChange, renewalStateOf, type AutoRenewalBody } from "./renewal-models";
 import "server-only";
+import { postVia } from "./cyclocity";
+import { VIA_STATION_IDENTIFIER, VIA_MEDIA_TYPE } from "./guesses";
+import type { ViaBody } from "./via-models";
 import { z } from "zod";
 import { type AutoSpendResult, type BookBody, type BookResult, type Bike, type Booking, type Dashboard, type Outcome, type ProfileBody, type RateBody, type Receipt, type Station, type UnlockBody, type UnlockResult, dashboardSchema } from "./models";
 import { API, BASE, BROWSER_AGENT, lenient, normalizeTrip, patchAutoRenewal, patchAutoSpend, patchProfile, postBooking, postPeriodReport, postRating, postRelease, putStationBookmark, rawBooking, rawTrip, refusal, utcDate } from "./cyclocity";
@@ -228,4 +231,20 @@ export async function setAutoRenewal(session: Session, body: AutoRenewalBody) {
   const before = await readState();
   if (!before.autoRenewalAllowed || before.autoRenewal === null) return { ...refusal("local.renewal.not.allowed", "Le renouvellement automatique ne peut pas être modifié pour cet abonnement."), ...before, verified: true };
   return completeRenewalChange(() => patchAutoRenewal({ ...auth, ...body }), readState);
+}
+
+/** Find the subscription actually renting a bike, not simply the first valid ticket, and recheck the full station before writing. */
+export async function requestExtraTime(session: Session, body: ViaBody): Promise<Outcome> {
+  const auth = await writer(session);
+  const account = `/accounts/${auth.accountId}`;
+  const subscriptions = await read(`${account}/subscriptions?periods=CURRENT&typeList=ST&typeList=LT&isLocked=false`, z.array(rawSubscription), session, VIA_MEDIA_TYPE);
+  const renting = await Promise.all(subscriptions.filter((item) => item.id && !item.isLocked).map(async (item) => ({
+    id: item.id!, ongoing: await read(`${account}/subscriptions/${encodeURIComponent(item.id!)}/rentbike`, z.boolean(), session, VIA_MEDIA_TYPE)
+  })));
+  const active = renting.filter((item) => item.ongoing);
+  if (active.length !== 1) return refusal("local.via.trip", active.length ? "Plusieurs locations sont en cours : utilisez l’app Vélo’v pour choisir le trajet." : "Aucun trajet en cours : les minutes supplémentaires ne peuvent pas être demandées.");
+  // v4 gives the UUID too; GBFS station.id is only a station number and cannot be used as the UUID fallback.
+  const station = await read(`/stations/${body.stationNumber}`, z.object({ id: z.string(), number: z.number(), open: z.boolean(), availabilities: z.object({ main: z.object({ stands: z.number() }) }) }), session, "application/vnd.station.v4+json");
+  if (station.number !== body.stationNumber || !station.open || station.availabilities.main.stands !== 0) return refusal("local.via.not.full", "Cette station n’est plus pleine ou n’est pas ouverte. Choisissez une autre station.");
+  return postVia({ ...auth, subscriptionId: active[0].id, stationId: VIA_STATION_IDENTIFIER === "uuid" ? station.id : station.number });
 }

@@ -6,3 +6,13 @@ export const AUTO_RENEWAL_FIELD = "isAutoRenewal";
 export const AUTO_RENEWAL_FALLBACK_FIELDS = ["autoRenewal", "autoRenewalValue"] as const;
 // High confidence: community-README.md Android table L2418; VLSKit SubscriptionService.swift L129–136.
 export const SUBSCRIPTION_MEDIA_TYPE = "application/vnd.subscription.v6+json";
+
+/** Via: community-README §5.5 / Android ug/r.g; VLSKit SubscriptionService.swift (5fea3c6), lines 93–116. Confidence: high for media type and field. */
+export const VIA_MEDIA_TYPE = "application/vnd.subscription.v6+json";
+export const VIA_STATION_FIELD = "stationId";
+/** VLSKit Models/Subscription.swift lines 131–158 uses Int64 and explicitly assumes a station number (unverified). Confidence: medium. Change only this line to "uuid" after confirmation, never retry with another format. */
+export const VIA_STATION_IDENTIFIER: "number" | "uuid" = "number";
+
+/** VLSKit SubscriptionService.requestExtraTime returns the string TransactionState enum (Models/Trip.swift), confidence: medium; object envelope is a defensive compatibility assumption. */
+export const VIA_SUCCESS_STATE = "OK";
+export const VIA_STATE_FIELD = "transactionState";

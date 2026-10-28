@@ -10,7 +10,7 @@ import { MagnifyingGlassIcon } from "@phosphor-icons/react/dist/csr/MagnifyingGl
 import { NavigationArrowIcon } from "@phosphor-icons/react/dist/csr/NavigationArrow";
 import { SignOutIcon } from "@phosphor-icons/react/dist/csr/SignOut";
 import { StarFourIcon } from "@phosphor-icons/react/dist/csr/StarFour";
-import { TimerIcon } from "@phosphor-icons/react/dist/csr/Timer";
+import { ViaAction } from "./via-action";
 import { StarIcon } from "@phosphor-icons/react/dist/csr/Star";
 import { TicketIcon } from "@phosphor-icons/react/dist/csr/Ticket";
 import { TrendUpIcon } from "@phosphor-icons/react/dist/csr/TrendUp";
@@ -21,7 +21,7 @@ import { Button, CardTag, CircleArrow, EmptyState, Eyebrow, SectionHeading, Sele
 import { StationBikes } from "./station-bikes";
 import { TripSheet } from "./trip-sheet";
 import type { UserPosition } from "./station-map";
-import { AutoRenewal, AutoSpendSetting, ContactSupport, FavoriteButton, InviteFriend, ProfileCoordinates, Receipts, SOON } from "./account-actions";
+import { AutoRenewal, AutoSpendSetting, ContactSupport, FavoriteButton, InviteFriend, ProfileCoordinates, Receipts } from "./account-actions";
 
 const StationMap = dynamic(() => import("./station-map"), {
   ssr: false,
@@ -100,8 +100,7 @@ export function Overview({ data, stations, navigate, reload, reloading }: { data
       {data.ongoing?.length ? (
         <div className="ongoing-banner">
           <Eyebrow icon={BicycleIcon}>Trajet en cours</Eyebrow><span className="ongoing-station">{data.ongoing[0].startStation ?? "Trajet Vélo’v"}</span>
-          {/* POST .../via takes a stationId whose kind (UUID or number) the docs leave open: shown, not sent. */}
-          <span className="ongoing-extra"><Button variant="secondary" disabled data-soon><TimerIcon size={17} weight="light" aria-hidden="true"/>15 minutes de plus</Button><small className="soon-note">{SOON}</small></span>
+          <ViaAction stations={nearby}/>
         </div>
       ) : null}
       <div className="summary-grid">

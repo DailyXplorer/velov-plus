@@ -1,6 +1,7 @@
 import { AUTO_RENEWAL_FIELD, SUBSCRIPTION_MEDIA_TYPE } from "./guesses.ts";
 // The parts of the Cyclocity client that need no server secret, kept free of "server-only" so tests can import them.
 import { z } from "zod";
+import { VIA_MEDIA_TYPE, VIA_STATION_FIELD, VIA_SUCCESS_STATE, VIA_STATE_FIELD } from "./guesses.ts";
 import { type AutoSpendResult, type Outcome, type ProfileBody, type RateBody, type Station, type Trip, type UnlockBody, stationTitle } from "./models.ts";
 import { haversine } from "./geo.ts";
 import { VelovError } from "./auth-protocol.ts";
@@ -224,4 +225,17 @@ export async function patchAutoRenewal({ subscriptionId, autoRenewal, ...auth }:
     method: "PATCH", headers: { "Content-Type": SUBSCRIPTION_MEDIA_TYPE }, body: JSON.stringify({ [AUTO_RENEWAL_FIELD]: autoRenewal })
   }, auth, "Vélo’v n’a pas enregistré le renouvellement automatique.", send, true);
   return outcome;
+}
+
+/** Request a full-station extension once. A missing answer can hide a granted extension: no retry or alternate body. */
+export async function postVia({ subscriptionId, stationId, ...auth }: Auth & { subscriptionId: string; stationId: string | number }, send: typeof fetch = fetch): Promise<Outcome> {
+  const { outcome, value } = await accountCall(`${accountUrl(auth.accountId)}/subscriptions/${encodeURIComponent(subscriptionId)}/via`, {
+    method: "POST", headers: { "Content-Type": VIA_MEDIA_TYPE }, body: JSON.stringify({ [VIA_STATION_FIELD]: stationId })
+  }, auth, "Vélo’v n’a pas accordé les 15 minutes supplémentaires.", send, true);
+  if (!outcome.ok) return outcome;
+  // VLSKit SubscriptionService.requestExtraTime returns TransactionState, not an HTTP-only acknowledgement.
+  const parsed = z.union([z.string(), z.object({ [VIA_STATE_FIELD]: z.string() }).transform((reply) => reply[VIA_STATE_FIELD])]).safeParse(value);
+  const transactionState = parsed.success ? parsed.data : null;
+  const ok = transactionState === VIA_SUCCESS_STATE;
+  return { ...outcome, ok, transactionState, message: ok ? null : "Vélo’v n’a pas confirmé les minutes supplémentaires. Vérifiez votre trajet avant de réessayer." };
 }
