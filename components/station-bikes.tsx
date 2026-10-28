@@ -16,6 +16,7 @@ import { CaretDownIcon } from "@phosphor-icons/react/dist/csr/CaretDown";
 import { CaretRightIcon } from "@phosphor-icons/react/dist/csr/CaretRight";
 import { StarIcon } from "@phosphor-icons/react/dist/csr/Star";
 import { StarHalfIcon } from "@phosphor-icons/react/dist/csr/StarHalf";
+import { WarningIcon } from "@phosphor-icons/react/dist/csr/Warning";
 import { ThumbsUpIcon } from "@phosphor-icons/react/dist/csr/ThumbsUp";
 import { XIcon } from "@phosphor-icons/react/dist/csr/X";
 import { type AssessedBike, assessBikes, isCheckOverdue } from "@/lib/bike-score";
@@ -135,11 +136,13 @@ function DateFact({ label, value, withAgo = false, children }: { label: string; 
   return <div><dt>{label}</dt><dd>{children}{value ? since ? <>{since}<small>{exact}</small></> : exact : "Non renseigné"}</dd></div>;
 }
 
-/** Verdict as a pill next to the bike type: the reasons are already the facts listed below. */
-function VerdictPill({ verdict }: AssessedBike) {
+/** Verdict as a mark next to the bike number: it qualifies the bike, not its type. */
+function VerdictMark({ verdict }: { verdict: AssessedBike["verdict"] }) {
   if (verdict === "neutral") return null;
-  if (verdict === "recommended") return <span className="card-tag bike-pick"><span className="card-tag-icon"><ThumbsUpIcon size={11} weight="bold" aria-hidden="true"/></span>Recommandé</span>;
-  return <span className="bike-reserved">À éviter</span>;
+  const recommended = verdict === "recommended";
+  const MarkIcon = recommended ? ThumbsUpIcon : WarningIcon;
+  const label = recommended ? "Recommandé" : "À éviter";
+  return <span className={recommended ? "verdict-mark" : "verdict-mark verdict-mark-avoid"} role="img" aria-label={label} title={label}><MarkIcon size={18} weight="fill" aria-hidden="true"/></span>;
 }
 
 /** Offered on a bike hooked to a borne and free, or booked by this account (a reserved bike stays AVAILABLE, § 5.2). */
@@ -159,7 +162,7 @@ function BikeSheet({ item, station }: { item: AssessedBike; station?: Station })
   const mine = useOwnBikes().has(bike.number);
   return (
     <div className="bike-sheet">
-      <div className="detail-type"><Eyebrow icon={type.icon}>{type.label}</Eyebrow>{bike.isReserved && !mine ? <span className="bike-reserved">Réservé</span> : mine ? null : <VerdictPill {...item}/>}</div>
+      <div className="detail-type"><Eyebrow icon={type.icon}>{type.label}</Eyebrow>{bike.isReserved && !mine ? <span className="bike-reserved">Réservé</span> : null}</div>
       {bike.status !== "AVAILABLE" ? <p className="bike-sheet-status">{bike.statusLabel ?? "Statut inconnu"}</p> : null}
       {station ? <StationActions bike={bike} station={station}/> : null}
       <dl className="account-details bike-details">
@@ -221,7 +224,7 @@ export function StationBikes({ station, onClose }: { station: Station; onClose: 
         {opened ? (
           <>
             <button className="icon-button" onClick={back} aria-label="Retour à la liste des vélos" autoFocus><ArrowLeftIcon size={20} weight="light"/></button>
-            <h2 id="station-bikes-title" className="bikes-title"><span className="sr-only">Vélo </span><span className="bike-sheet-number">{opened.bike.number}</span></h2>
+            <h2 id="station-bikes-title" className="bikes-title"><span className="sr-only">Vélo </span><span className="bike-sheet-number">{opened.bike.number}</span>{own.has(opened.bike.number) ? null : <VerdictMark verdict={opened.verdict}/>}</h2>
           </>
         ) : (
           <h2 id="station-bikes-title" className="bikes-title">{station.name}</h2>
@@ -273,7 +276,7 @@ export function BikeDrawer({ number, onClose }: { number: number; onClose: () =>
     <Modal titleId="bike-drawer-title" onClose={onClose} className="bikes-drawer">
       <div className="bikes-header">
         <button className="icon-button" onClick={onClose} aria-label="Retour au trajet" autoFocus><ArrowLeftIcon size={20} weight="light"/></button>
-        <h2 id="bike-drawer-title" className="bikes-title"><span className="sr-only">Vélo </span><span className="bike-sheet-number">{number}</span></h2>
+        <h2 id="bike-drawer-title" className="bikes-title"><span className="sr-only">Vélo </span><span className="bike-sheet-number">{number}</span>{item && !own.has(number) ? <VerdictMark verdict={item.verdict}/> : null}</h2>
       </div>
       {bike.kind === "loading" ? (
         <div className="bikes-skeleton" aria-busy="true" aria-label="Chargement du vélo">{[0, 1, 2].map((item) => <div className="skeleton" key={item}/>)}</div>
