@@ -1,27 +1,30 @@
 import { NextRequest } from "next/server";
-import { requireSameOrigin } from "@/lib/auth-protocol";
+import { readJsonBody, requireSameOrigin } from "@/lib/auth-protocol";
 import { bookBodySchema } from "@/lib/models";
 import { bookBike, getBookings } from "@/lib/velov";
-import { errorResponse, getSession, jsonResponse } from "@/lib/session";
+import { errorResponse, getSession, jsonResponse, type Session } from "@/lib/session";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+// The booking POST alone may wait 30 s; a shorter limit would cut its answer, not the booking.
+export const maxDuration = 60;
 export async function GET(request: NextRequest) {
+  let session: Session | null = null;
   try {
-    const session = await getSession(request);
+    session = await getSession(request);
     if (!session) return jsonResponse({ error: "Connectez-vous pour retrouver votre compte.", code: "expired" }, null, 401);
     return jsonResponse(await getBookings(session), session);
-  } catch (error) { return errorResponse(error); }
+  } catch (error) { return errorResponse(error, session); }
 }
 
 export async function POST(request: NextRequest) {
+  let session: Session | null = null;
   try {
     requireSameOrigin(request);
-    if (!request.headers.get("content-type")?.startsWith("application/json") || Number(request.headers.get("content-length") ?? "0") > 1024) return jsonResponse({ error: "Cette réservation n’est pas valide.", code: "invalid" }, null, 400);
-    const body = bookBodySchema.safeParse(await request.json().catch(() => null));
+    const body = bookBodySchema.safeParse(await readJsonBody(request));
     if (!body.success) return jsonResponse({ error: "Cette réservation n’est pas valide.", code: "invalid" }, null, 400);
-    const session = await getSession(request);
+    session = await getSession(request);
     if (!session) return jsonResponse({ error: "Connectez-vous pour réserver ou déverrouiller.", code: "expired" }, null, 401);
     return jsonResponse(await bookBike(session, body.data), session);
-  } catch (error) { return errorResponse(error); }
+  } catch (error) { return errorResponse(error, session); }
 }

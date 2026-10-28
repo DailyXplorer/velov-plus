@@ -1,13 +1,15 @@
 import { NextRequest } from "next/server";
 import { getDashboard } from "@/lib/velov";
-import { errorResponse, getSession, jsonResponse } from "@/lib/session";
+import { errorResponse, getSession, jsonResponse, type Session } from "@/lib/session";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 30;
 export async function GET(request: NextRequest) {
+  let session: Session | null = null;
   try {
-    const session = await getSession(request);
+    session = await getSession(request);
     if (!session) return jsonResponse({ error: "Connectez-vous pour retrouver votre compte.", code: "expired" }, null, 401);
     return jsonResponse(await getDashboard(session), session);
-  } catch (error) { return errorResponse(error); }
+  } catch (error) { return errorResponse(error, session); }
 }
