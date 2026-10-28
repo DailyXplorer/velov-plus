@@ -83,7 +83,7 @@ function Stars({ value }: { value: number }) {
 }
 
 function BikeRow({ item, onOpen }: { item: AssessedBike; onOpen: () => void }) {
-  const { bike, verdict, reasons } = item;
+  const { bike, verdict } = item;
   const type = types[bike.type];
   const rating = score(bike);
   return (
@@ -94,10 +94,8 @@ function BikeRow({ item, onOpen }: { item: AssessedBike; onOpen: () => void }) {
           <strong className="bike-number"><span className="sr-only">Vélo {type.label.toLowerCase()} </span>{bike.number}</strong>
           <span className="bike-meta">{bike.standNumber != null ? `Borne ${bike.standNumber}` : "Borne inconnue"}{bike.isReserved ? <span className="bike-reserved">Réservé</span> : null}</span>
           {verdict === "recommended" ? (
-            <span className="bike-verdict"><span className="card-tag bike-pick"><span className="card-tag-icon"><ThumbsUpIcon size={11} weight="bold" aria-hidden="true"/></span>Recommandé</span>{reasons[0]}</span>
-          ) : verdict === "avoid" ? (
-            <span className="bike-verdict"><span className="bike-avoid">À éviter</span>{reasons[0]}</span>
-          ) : null}
+            <span className="bike-verdict"><span className="card-tag bike-pick"><span className="card-tag-icon"><ThumbsUpIcon size={11} weight="bold" aria-hidden="true"/></span>Recommandé</span></span>
+          ) : verdict === "avoid" ? <span className="sr-only">À éviter</span> : null}
         </span>
         <span className="bike-row-facts">
           {rating != null ? <span className="bike-score"><StarIcon size={15} weight="fill" aria-hidden="true"/><span className="sr-only">Note </span>{formatScore(rating)}<span className="sr-only"> sur 5</span></span> : null}
