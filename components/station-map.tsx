@@ -21,14 +21,29 @@ type StationMapProps = {
 
 const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+// A pin's look depends only on its count and selection: one icon per pair, shared by every marker.
+const icons = new Map<string, L.DivIcon>();
+function pinIcon(total: number, selected: boolean) {
+  const key = `${total}:${selected}`;
+  let icon = icons.get(key);
+  if (!icon) {
+    icon = L.divIcon({ className: "station-pin-wrap", html: `<span class="station-pin${total === 0 ? " station-pin-empty" : ""}${selected ? " station-pin-selected" : ""}">${total}</span>`, iconSize: [34, 34], iconAnchor: [17, 17] });
+    icons.set(key, icon);
+  }
+  return icon;
+}
+
 export default function StationMap({ stations, selected, onSelect, onClear, userPosition, fit }: StationMapProps) {
   const element = useRef<HTMLDivElement>(null);
   const map = useRef<L.Map | null>(null);
-  const markers = useRef<Map<string, L.Marker>>(new Map());
+  const markers = useRef<Map<string, { marker: L.Marker; total: number }>>(new Map());
   const select = useRef(onSelect);
   select.current = onSelect;
   const clear = useRef(onClear);
   clear.current = onClear;
+  const current = useRef({ stations, selected });
+  current.current = { stations, selected };
+  const shown = useRef<string | null>(null);
 
   useEffect(() => {
     if (!element.current) return;
@@ -37,25 +52,40 @@ export default function StationMap({ stations, selected, onSelect, onClear, user
     L.control.zoom({ position: "topright" }).addTo(instance);
     instance.on("click", () => clear.current?.());
     map.current = instance;
-    const observer = new ResizeObserver(() => instance.invalidateSize());
+    let frame = 0;
+    const observer = new ResizeObserver(() => {
+      if (frame) return;
+      frame = requestAnimationFrame(() => { frame = 0; instance.invalidateSize(); });
+    });
     observer.observe(element.current);
-    return () => { observer.disconnect(); instance.remove(); map.current = null; };
+    return () => { observer.disconnect(); cancelAnimationFrame(frame); instance.remove(); map.current = null; };
   }, []);
 
   useEffect(() => {
     const instance = map.current;
     if (!instance) return;
-    for (const marker of markers.current.values()) marker.remove();
+    for (const { marker } of markers.current.values()) marker.remove();
     markers.current.clear();
+    const chosen = current.current.selected;
     for (const station of stations) {
       if (!station.open) continue;
       const total = station.mechanical + station.electrical;
-      const icon = L.divIcon({ className: "station-pin-wrap", html: `<span class="station-pin${total === 0 ? " station-pin-empty" : ""}${selected === station.id ? " station-pin-selected" : ""}">${total}</span>`, iconSize: [34, 34], iconAnchor: [17, 17] });
-      const marker = L.marker([station.lat, station.lon], { icon, title: `${station.name}, ${total} vélos`, keyboard: true }).addTo(instance);
+      const marker = L.marker([station.lat, station.lon], { icon: pinIcon(total, chosen === station.id), title: `${station.name}, ${total} vélos`, keyboard: true }).addTo(instance);
       marker.on("click", () => select.current(station.id));
-      markers.current.set(station.id, marker);
+      markers.current.set(station.id, { marker, total });
     }
-  }, [stations, selected]);
+    shown.current = chosen;
+  }, [stations]);
+
+  // A new selection restyles two pins, not the whole map.
+  useEffect(() => {
+    if (shown.current === selected) return;
+    const previous = shown.current ? markers.current.get(shown.current) : undefined;
+    previous?.marker.setIcon(pinIcon(previous.total, false));
+    const next = selected ? markers.current.get(selected) : undefined;
+    next?.marker.setIcon(pinIcon(next.total, true));
+    shown.current = selected;
+  }, [selected]);
 
   useEffect(() => {
     const instance = map.current;
@@ -66,10 +96,11 @@ export default function StationMap({ stations, selected, onSelect, onClear, user
     return () => { accuracy.remove(); dot.remove(); };
   }, [userPosition]);
 
+  // Pans on a new selection only: a refreshed station list must not move the map.
   useEffect(() => {
-    const station = stations.find((station) => station.id === selected);
+    const station = current.current.stations.find((station) => station.id === selected);
     if (station && map.current) map.current.panTo([station.lat, station.lon], { animate: !reducedMotion(), duration: 0.5 });
-  }, [selected, stations]);
+  }, [selected]);
 
   // Declared after the pan effect so a refit triggered alongside a selection wins (setView stops the pan).
   useEffect(() => {
