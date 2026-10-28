@@ -112,7 +112,6 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
 .summary-card::before { position: absolute; inset: 0; z-index: -1; content: ""; background-image: radial-gradient(rgba(223, 37, 55, .22) 1.2px, transparent 1.7px); background-size: 10px 10px; mask-image: linear-gradient(to top, #000, transparent 75%); }
 .metric-label { display: block; color: var(--ink-soft); font-size: 12px; }
 .metric-value { margin-top: 26px; font-size: 56px; line-height: 1; letter-spacing: -.04em; }
-.metric-subscription { max-width: 290px; margin-top: 26px; font-size: 22px; line-height: 1.2; }
 .metric-detail { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; margin-top: auto; padding-top: 18px; color: var(--on-dark); font-size: 13px; }
 .ongoing-banner { display: flex; align-items: center; gap: 14px; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--line); }
 .ongoing-banner .eyebrow { margin-bottom: 0; }

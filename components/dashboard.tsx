@@ -113,7 +113,7 @@ export function Overview({ data, stations, navigate }: { data: Dashboard; statio
         </button>
         <button className="summary-card" onClick={() => navigate("account")}>
           <CardTag icon={TicketIcon}>Abonnement</CardTag>
-          <strong className="metric-subscription">{data.subscription?.title ?? "Aucun abonnement"}</strong>
+          <strong className="metric-value metric-subscription" title={data.subscription?.title}>{shortPlan(data.subscription?.title)}</strong>
           <span className="metric-detail">{data.subscription?.validUntil ? `Jusqu’au ${formatDate(data.subscription.validUntil, { day: "numeric", month: "short", year: "numeric" })}` : "Voir les formules"}<CircleArrow outline/></span>
         </button>
       </div>
@@ -272,6 +272,12 @@ export function StationsPage({ resource, reload }: { resource: Resource<StationD
       </div>
     </div>
   );
+}
+
+/** Card headline: plan name without the brand prefix and payment suffix ("Vélo’v Plus 1 an Jeunes – paiement comptant" -> "Plus 1 an Jeunes"). */
+function shortPlan(title?: string) {
+  if (!title) return "Aucun";
+  return title.split(/\s[–-]\s/)[0].replace(/^V[ée]lo[’']v\s+/i, "") || title;
 }
 
 export function AccountPage({ data, onLogout }: { data: Dashboard; onLogout: () => void }) {
