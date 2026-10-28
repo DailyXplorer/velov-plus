@@ -26,3 +26,14 @@ export const MAIL_COMPLAINT_TYPES = ["TRIP", "SUBSCRIPTION", "PAYMENT", "PARKING
 /** VLSKit SubscriptionService.requestExtraTime returns the string TransactionState enum (Models/Trip.swift), confidence: medium; object envelope is a defensive compatibility assumption. */
 export const VIA_SUCCESS_STATE = "OK";
 export const VIA_STATE_FIELD = "transactionState";
+
+
+/** High confidence: Android qi/j.b in community-README.md §5.8/§7 table;
+ * confirmed by Fyroeo/VLSKit@5fea3c62 RewardService.swift L38–44. */
+export const PROMOCODE_ACCEPT = "application/vnd.rewards.v5+json";
+/** High confidence: Android ConsumePromocode response, community-README.md §5.8. */
+export const PROMOCODE_CODE_FIELD = "promoCode";
+/** High confidence: rewards configuration name, community-README.md §5.8. */
+export const PROMOCODE_REWARD = "PROMOCODE";
+// No SHORT_TERM_SUBSCRIPTION_V2 is sent: invitation-specific browser parameters
+// and process/payment completion have not been exercised. Keep the redeemable code.

@@ -294,17 +294,4 @@ export function ProfileCoordinates({ profile, onSaved }: { profile: Profile; onS
 
 export { ContactSupport } from "./contact-support";
 
-/** POST /rewards/consume/promocode debits the points but does not create the ticket: a second, undocumented process does. */
-export function InviteFriend({ cost, balance }: { cost: number; balance: number | null }) {
-  return (
-    <div className="soon-row invite-row">
-      <div>
-        <span className="metric-label">Inviter un ami · {cost} points</span>
-        <p>Un ticket 1 trajet valable 24 h, pour libérer un second vélo{balance != null && balance < cost ? ` · il vous manque ${cost - balance} points` : ""}.</p>
-        <small className="soon-note">{SOON}</small>
-      </div>
-      <Button variant="secondary" disabled data-soon>Obtenir</Button>
-    </div>
-  );
-}
-
+export { InviteFriend } from "./invite-friend";

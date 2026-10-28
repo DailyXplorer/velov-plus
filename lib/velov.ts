@@ -5,6 +5,9 @@ import "server-only";
 import { postVia } from "./cyclocity";
 import { VIA_STATION_IDENTIFIER, VIA_MEDIA_TYPE } from "./guesses";
 import type { ViaBody } from "./via-models";
+
+import { postPromoCode } from "./promo";
+import { PROMOCODE_ACCEPT, PROMOCODE_REWARD } from "./guesses";
 import { z } from "zod";
 import { type AutoSpendResult, type BookBody, type BookResult, type Bike, type Booking, type Dashboard, type Outcome, type ProfileBody, type RateBody, type Receipt, type Station, type UnlockBody, type UnlockResult, dashboardSchema } from "./models";
 import { API, BASE, BROWSER_AGENT, lenient, normalizeTrip, patchAutoRenewal, patchAutoSpend, patchProfile, postBooking, postPeriodReport, postRating, postRelease, putStationBookmark, rawBooking, rawTrip, refusal, utcDate } from "./cyclocity";
@@ -254,4 +257,17 @@ export async function requestExtraTime(session: Session, body: ViaBody): Promise
 /** Sends one customer-service message after the browser confirmation. */
 export async function contactSupport(session: Session, body: import("./contact-models").ContactBody): Promise<Outcome> {
   return postContactMail({ ...(await writer(session)), body });
+}
+
+/** Check the displayed price against the current configuration before the one debit. */
+export async function consumePromoCode(session: Session, expectedCost: number) {
+  const auth = await writer(session);
+  const [config, rewards] = await Promise.all([
+    read("/rewards/configurations", z.array(ruleSchema), session, PROMOCODE_ACCEPT),
+    read(`/accounts/${auth.accountId}/rewards`, rawRewards, session, PROMOCODE_ACCEPT)
+  ]);
+  const rule = config.find((entry) => entry.name === PROMOCODE_REWARD && entry.enable);
+  if (!rule || rule.reward !== expectedCost) return { ...refusal("local.promo.price.changed", "L’offre ou son coût a changé. Actualisez les points avant de confirmer."), promoCode: null };
+  if (rewards.balance < rule.reward) return { ...refusal("local.promo.balance", "Votre solde ne permet plus cet échange. Actualisez les points."), promoCode: null };
+  return postPromoCode(auth);
 }

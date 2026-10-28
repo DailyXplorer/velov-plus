@@ -200,7 +200,7 @@ export function Companion({ initialSession }: { initialSession: boolean }) {
                 ) : null}
                 {page === "overview" ? <Overview data={state.data} stations={stations} navigate={navigate} reload={() => void loadStations()} reloading={stationsPending}/>
                   : page === "trips" ? <TripsPage data={state.data}/>
-                    : page === "points" ? <PointsPage data={state.data} onAutoSpend={setAutoSpend}/>
+                    : page === "points" ? <PointsPage data={state.data} onAutoSpend={setAutoSpend} onChanged={() => void loadDashboard()}/>
                       : page === "stations" ? <StationsPage resource={stations} reload={() => void loadStations()} reloading={stationsPending} favorites={state.data.profile.favorites} onFavorite={setFavorite}/>
                         : <AccountPage data={state.data} onLogout={openLogout} onSaved={() => void loadDashboard()}/>}
               </>
@@ -245,3 +245,4 @@ function DashboardSkeleton() {
     </div>
   );
 }
+

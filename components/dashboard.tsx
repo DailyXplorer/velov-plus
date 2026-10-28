@@ -166,7 +166,7 @@ function rewardLabel(label: string) {
   return label === "Vélo évalué" ? "Évaluation" : label;
 }
 
-export function PointsPage({ data, onAutoSpend }: { data: Dashboard; onAutoSpend: (value: boolean) => void }) {
+export function PointsPage({ data, onAutoSpend, onChanged }: { onChanged: () => void; data: Dashboard; onAutoSpend: (value: boolean) => void }) {
   const [limit, setLimit] = useState(8);
   const rules = data.rewards.rules.filter((rule) => rule.kind === "earn").slice(0, 3);
   const invite = data.rewards.rules.find((rule) => rule.name === "PROMOCODE");
@@ -177,7 +177,7 @@ export function PointsPage({ data, onAutoSpend }: { data: Dashboard; onAutoSpend
         <div><Eyebrow icon={TrendUpIcon}>Total gagné</Eyebrow><strong className="points-total">{data.rewards.total?.toLocaleString("fr-FR") ?? "—"}<span>points</span></strong></div>
       </div>
       <AutoSpendSetting value={data.rewards.autoSpend} onChanged={onAutoSpend}/>
-      {invite ? <InviteFriend cost={invite.points} balance={data.rewards.balance}/> : null}
+      <InviteFriend key={data.profile.email} account={data.profile.email} onChanged={onChanged} cost={invite?.points ?? null} balance={data.rewards.balance}/>
       {rules.length ? (
         <section className="earn-section">
           <SectionHeading title="Gagner des points"/>

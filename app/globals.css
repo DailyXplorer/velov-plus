@@ -589,3 +589,9 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
 .bikes-title { display: flex; align-items: center; gap: 12px; }
 .verdict-mark { display: inline-grid; flex: none; place-items: center; width: 34px; height: 34px; border-radius: 50%; color: var(--white); background: var(--red); }
 .verdict-mark-avoid { color: var(--ink-soft); background: var(--mist); }
+
+
+.experimental-tag { display: inline-block; margin-left: 8px; font-family: var(--font-mono), monospace; font-size: 10px; color: var(--red); }
+.promo-codes { display: grid; gap: 10px; margin: 16px 0; }
+.promo-code { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.promo-code code { font-family: var(--font-mono), monospace; overflow-wrap: anywhere; user-select: all; }
