@@ -43,12 +43,11 @@ export function AutoRenewal({ subscriptionId, value, allowed, onSaved }: { subsc
     if (once.current) onSaved();
   }
 
-  return <div className="setting-row">
-    <div><span className="metric-label">Renouvellement automatique</span><small className="bike-action-raw">Expérimental</small><strong className="setting-value">{actual === null ? "État à actualiser" : actual ? "Activé" : "Désactivé"}</strong></div>
+  return <div className="setting-row renewal-setting">
+    <div><span className="metric-label">Renouvellement automatique</span><strong className="setting-value">{actual === null ? "État à actualiser" : actual ? "Activé" : "Désactivé"}</strong></div>
     {canChange && subscriptionId && actual !== null ? <button type="button" role="switch" className="switch" disabled={result !== null} aria-checked={actual} aria-label="Renouvellement automatique" onClick={() => { once.current = false; setResult(null); setAsking(true); }}/> : null}
     {asking ? <Modal titleId={titleId} onClose={close}>
       <h2 id={titleId}>Renouvellement automatique</h2>
-      <small className="bike-action-raw">Expérimental</small>
       {!result ? <p>{next ? "Activer le renouvellement automatique de votre abonnement ? Il pourra être renouvelé et facturé à son échéance." : "Désactiver le renouvellement automatique de votre abonnement ?"}</p> : result.ok ? <p role="status">{!result.verified || result.autoRenewal === null ? "Demande acceptée, mais l’état n’a pas pu être relu. Actualisez sans renvoyer la demande." : `État confirmé par Vélo’v : renouvellement ${result.autoRenewal ? "activé" : "désactivé"}.`}</p> : <>
         <p className="form-error" role="alert">{result.message}</p>
         <p className="bike-action-raw">HTTP {result.httpStatus || "aucune réponse"} · code {result.code ?? "—"} · {result.detail ?? result.message}</p>

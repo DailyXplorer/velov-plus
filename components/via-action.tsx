@@ -48,7 +48,6 @@ export function ViaAction({ stations }: { stations: Station[] }) {
   }
   return <span className="ongoing-extra">
     <Button variant="secondary" onClick={() => setOpen(true)}><TimerIcon size={17} weight="light" aria-hidden="true"/>15 minutes de plus</Button>
-    <small className="soon-note" style={{ fontFamily: "var(--font-label)" }}>Expérimental</small>
     {open ? <Modal titleId={titleId} onClose={close}>
       <div onKeyDownCapture={(event) => { if (pending && event.key === "Escape") event.preventDefault(); }}>
         <div className="modal-heading"><h2 id={titleId}>15 minutes de plus</h2></div>

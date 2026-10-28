@@ -71,7 +71,6 @@ export function ContactSupport({ trips }: { trips: Trip[] | null }) {
       {error ? <p className="form-error" role="alert">{error}</p> : null}
       <div className="profile-form-actions"><Button variant="ghost" onClick={() => setOpen(false)}>Annuler</Button><Button onClick={review}>Vérifier et envoyer</Button></div>
     </div>}
-    <small className="soon-note" style={{ fontFamily: "var(--font-mono)" }}>Expérimental</small>
     <p className="soon-note"><a href={href}>Ouvrir ma messagerie à la place</a></p>
     {draft ? <Modal titleId={titleId} onClose={closeConfirmation}>
       <div className="modal-heading"><h2 id={titleId}>Envoyer au service client ?</h2><button className="icon-button" aria-label="Fermer" disabled={sending} onClick={closeConfirmation}><XIcon size={20}/></button></div>
