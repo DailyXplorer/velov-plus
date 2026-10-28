@@ -500,3 +500,33 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
 @media (max-width: 620px) { .booking-banner > .button { width: 100%; } }
 
 .card-tag.bike-pick { z-index: auto; }
+/* Account tab logout (sidebar hidden): full-width red outline pill. */
+.account-logout { max-width: 560px; margin-top: 40px; }
+.account-logout > .button { width: 100%; min-height: 48px; margin-left: 0; color: var(--red-deep); box-shadow: inset 0 0 0 1px var(--red); font-size: 13px; }
+.account-logout > .button:hover { color: var(--red-deep); background: var(--red-tint); box-shadow: inset 0 0 0 1px var(--red); }
+/* Geolocation: red-outlined white dot with a soft halo; distance next to the selected station. */
+.user-position.leaflet-marker-icon { display: grid; place-items: center; border: 0; background: transparent; }
+.user-position > span { display: block; width: 18px; height: 18px; border: 3px solid var(--red); border-radius: 50%; background: var(--white); box-shadow: 0 0 0 7px rgba(223, 37, 55, .16), 0 1px 4px rgba(28, 23, 23, .2); }
+.station-distance { color: var(--ink-soft); font-family: var(--font-label); font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: -.01em; white-space: nowrap; }
+.selected-station-panel .station-distance { margin-top: 2px; }
+/* Phones: no preselected station; the Stations map fills the screen and a compact sheet appears on demand. */
+@media (max-width: 620px) {
+  .station-pin-wrap { display: grid; place-items: center; }
+  .overview-map .leaflet-control-zoom { display: none; }
+  .map-explore { position: absolute; inset: 0; z-index: 3; display: flex; align-items: center; justify-content: center; padding: 12px; border: 0; background: transparent; }
+  .map-explore > span { display: inline-flex; align-items: center; min-height: 40px; padding: 0 18px; border-radius: 999px; color: var(--red-deep); background: var(--white); box-shadow: var(--shadow-ring); font-family: var(--font-label); font-size: 12px; font-weight: 500; text-transform: uppercase; letter-spacing: -.01em; }
+  .app-main:has(.stations-page) { display: flex; flex-direction: column; height: 100dvh; min-height: 0; }
+  .app-main:has(.stations-page) > .main-content { display: flex; flex: 1; flex-direction: column; min-height: 0; padding-bottom: calc(77px + env(safe-area-inset-bottom)); }
+  .stations-page { display: flex; flex: 1; flex-direction: column; min-height: 0; }
+  .stations-page .stations-toolbar, .stations-page .filter-line, .stations-page .inline-notice { margin-bottom: 12px; }
+  .stations-page .stations-explorer { flex: 1; height: auto; min-height: 320px; }
+  .station-sheet { position: absolute; z-index: 4; right: 8px; bottom: 8px; left: 8px; max-height: 40%; overflow-y: auto; padding: 8px 10px 12px 16px; border-radius: var(--radius); background: var(--white); box-shadow: var(--shadow-ring); }
+  .station-sheet-heading { display: flex; align-items: center; gap: 8px; }
+  .station-sheet-heading h2 { flex: 1; min-width: 0; overflow: hidden; font-size: 18px; line-height: 1.25; white-space: nowrap; text-overflow: ellipsis; }
+  .station-sheet-heading .icon-button { width: 36px; height: 36px; }
+  .station-sheet-facts { display: flex; align-items: center; gap: 12px; padding-right: 6px; }
+  .station-sheet .station-numbers { flex: 1; margin-top: 0; }
+  .station-sheet-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; padding-right: 6px; }
+  .station-sheet-actions .button { min-height: 40px; padding: 0 12px; font-size: 12px; }
+  .station-sheet-actions .button:has(.circle-arrow) { padding-right: 6px; }
+}

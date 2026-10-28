@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useSyncExternalStore } from "react";
 import dynamic from "next/dynamic";
 import { PersonSimpleBikeIcon as BicycleIcon } from "@phosphor-icons/react/dist/csr/PersonSimpleBike";
 import { LightningIcon } from "@phosphor-icons/react/dist/csr/Lightning";
@@ -14,10 +14,11 @@ import { TicketIcon } from "@phosphor-icons/react/dist/csr/Ticket";
 import { TrendUpIcon } from "@phosphor-icons/react/dist/csr/TrendUp";
 import { XIcon } from "@phosphor-icons/react/dist/csr/X";
 import { type Dashboard, type Page, type Resource, type Station, type Trip, formatDate, formatPrice } from "@/lib/models";
-import { haversine } from "@/lib/geo";
+import { haversine, type Point } from "@/lib/geo";
 import { Button, CardTag, CircleArrow, EmptyState, Eyebrow, SectionHeading, SelectField, TextButton } from "./ui";
 import { StationBikes } from "./station-bikes";
 import { TripSheet } from "./trip-sheet";
+import type { UserPosition } from "./station-map";
 
 const StationMap = dynamic(() => import("./station-map"), {
   ssr: false,
@@ -25,6 +26,17 @@ const StationMap = dynamic(() => import("./station-map"), {
 });
 type StationData = { stations: Station[]; updatedAt: string };
 type Navigation = (page: Page) => void;
+
+const phoneQuery = "(max-width: 620px)";
+function subscribePhone(changed: () => void) {
+  const query = window.matchMedia(phoneQuery);
+  query.addEventListener("change", changed);
+  return () => query.removeEventListener("change", changed);
+}
+/** Phones get no preselected station and a compact sheet; the CSS breakpoint matches. */
+function useIsPhone() {
+  return useSyncExternalStore(subscribePhone, () => window.matchMedia(phoneQuery).matches, () => false);
+}
 
 export function TripsTable({ trips }: { trips: Trip[] }) {
   const [selected, setSelected] = useState<Trip | null>(null);
@@ -70,8 +82,9 @@ function StationNumbers({ station, compact = false }: { station: Station; compac
 export function Overview({ data, stations, navigate }: { data: Dashboard; stations: Resource<StationData>; navigate: Navigation }) {
   const [selectedStation, setSelectedStation] = useState<string | null>(null);
   const [bikesOpen, setBikesOpen] = useState(false);
+  const phone = useIsPhone();
   const nearby = stations.kind === "ready" ? stations.data.stations : [];
-  const chosen = nearby.find((station) => station.id === selectedStation) ?? nearby.find((station) => station.number === 2002) ?? nearby[0];
+  const chosen = nearby.find((station) => station.id === selectedStation) ?? (phone ? undefined : nearby.find((station) => station.number === 2002) ?? nearby[0]);
   const minutes = data.trips.reduce((total, trip) => total + trip.duration, 0);
   return (
     <div className="page-content">
@@ -100,6 +113,7 @@ export function Overview({ data, stations, navigate }: { data: Dashboard; statio
         <div className="overview-map">
           <StationMap stations={nearby} selected={chosen?.id ?? null} onSelect={setSelectedStation}/>
           {stations.kind === "error" ? <p className="map-error" role="status">{stations.message}</p> : null}
+          {phone ? <button className="map-explore" onClick={() => navigate("stations")}><span>Toucher pour explorer</span></button> : null}
           {chosen ? (
             <div className="map-station-card">
               <div className="station-card-heading"><strong>{chosen.name}</strong><button className="icon-button" aria-label="Voir les stations" onClick={() => navigate("stations")}><CaretRightIcon size={18} weight="light"/></button></div>
@@ -173,39 +187,70 @@ export function PointsPage({ data }: { data: Dashboard }) {
   );
 }
 
-function distanceTo(station: Station, position: GeolocationCoordinates) {
-  return haversine({ lat: position.latitude, lon: position.longitude }, station);
+type StationFilter = "all" | "available" | "electrical" | "stands";
+
+function matchesFilter(station: Station, filter: StationFilter) {
+  return (filter !== "available" || station.mechanical + station.electrical > 0)
+    && (filter !== "electrical" || station.electrical > 0)
+    && (filter !== "stands" || station.stands > 0);
+}
+
+function distanceTo(station: Station, position: Point) {
+  return haversine(position, station);
+}
+
+/** "350 m", "1,2 km", "14 km". */
+function formatDistance(metres: number) {
+  if (metres < 1000) return `${Math.max(10, Math.round(metres / 10) * 10)} m`;
+  return `${(metres / 1000).toLocaleString("fr-FR", { maximumFractionDigits: metres < 10_000 ? 1 : 0 })} km`;
+}
+
+function locationErrorMessage(error: GeolocationPositionError) {
+  if (error.code === error.PERMISSION_DENIED) return "Localisation refusée. Autorisez-la pour ce site : Réglages > Safari > Position (iPhone) ou l’icône à gauche de l’adresse (ordinateur).";
+  if (error.code === error.TIMEOUT) return "La localisation a pris trop de temps. Réessayez.";
+  return "Position introuvable pour le moment.";
 }
 
 export function StationsPage({ resource, reload }: { resource: Resource<StationData>; reload: () => void }) {
+  const phone = useIsPhone();
   const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState<"all" | "available" | "electrical" | "stands">("all");
+  const [filter, setFilter] = useState<StationFilter>("all");
   const [selected, setSelected] = useState<string | null>(null);
   const [bikesOpen, setBikesOpen] = useState(false);
-  const [position, setPosition] = useState<GeolocationCoordinates | null>(null);
+  const [position, setPosition] = useState<UserPosition | null>(null);
+  const [fit, setFit] = useState<Point[] | null>(null);
   const [locating, setLocating] = useState(false);
   const [locationError, setLocationError] = useState("");
   const stations = resource.kind === "ready" ? resource.data.stations : [];
   const filtered = useMemo(() => {
     const normalize = (value: string) => value.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
-    return stations.filter((station) => normalize(`${station.name} ${station.address} ${station.number}`).includes(normalize(query))
-      && (filter !== "available" || station.mechanical + station.electrical > 0)
-      && (filter !== "electrical" || station.electrical > 0)
-      && (filter !== "stands" || station.stands > 0))
+    return stations.filter((station) => normalize(`${station.name} ${station.address} ${station.number}`).includes(normalize(query)) && matchesFilter(station, filter))
       .sort((left, right) => Number(right.open) - Number(left.open) || (position ? distanceTo(left, position) - distanceTo(right, position) : left.name.localeCompare(right.name, "fr")));
   }, [stations, query, filter, position]);
-  const chosen = filtered.find((station) => station.id === selected) ?? filtered.find((station) => station.number === 2002) ?? filtered[0];
+  const chosen = filtered.find((station) => station.id === selected) ?? (phone ? undefined : filtered.find((station) => station.number === 2002) ?? filtered[0]);
+  const chosenDistance = chosen && position ? formatDistance(distanceTo(chosen, position)) : null;
+  const directions = chosen ? `https://www.google.com/maps/dir/?api=1&destination=${chosen.lat},${chosen.lon}&travelmode=walking` : "";
+
+  function located(coords: GeolocationCoordinates) {
+    const here: UserPosition = { lat: coords.latitude, lon: coords.longitude, accuracy: coords.accuracy };
+    const open = stations.filter((station) => station.open && matchesFilter(station, filter))
+      .sort((left, right) => distanceTo(left, here) - distanceTo(right, here));
+    const withSupply = open.filter((station) => filter === "stands" ? station.stands > 0 : station.mechanical + station.electrical > 0).slice(0, 3);
+    setPosition(here);
+    setSelected(open[0]?.id ?? null);
+    setFit([here, ...open.slice(0, 1), ...withSupply]);
+    if (!open.length) setLocationError("Aucune station ouverte ne correspond à ce filtre.");
+    setLocating(false);
+  }
 
   function locate() {
     setLocationError("");
+    if (!window.isSecureContext) { setLocationError("La localisation demande une connexion sécurisée (https). Recherchez une station par son nom."); return; }
+    if (!("geolocation" in navigator)) { setLocationError("Ce navigateur ne permet pas la localisation. Recherchez une station par son nom."); return; }
     setLocating(true);
-    if (!navigator.geolocation) { setLocationError("Position indisponible."); setLocating(false); return; }
-    navigator.geolocation.getCurrentPosition((result) => {
-      setPosition(result.coords);
-      const closest = [...stations].sort((left, right) => distanceTo(left, result.coords) - distanceTo(right, result.coords))[0];
-      if (closest) setSelected(closest.id);
-      setLocating(false);
-    }, () => { setLocationError("Position indisponible. Recherchez une station par son nom."); setLocating(false); }, { timeout: 10_000, maximumAge: 60_000 });
+    navigator.geolocation.getCurrentPosition((result) => located(result.coords),
+      (error) => { setLocationError(locationErrorMessage(error)); setLocating(false); },
+      { enableHighAccuracy: true, timeout: 20_000, maximumAge: 30_000 });
   }
 
   return (
@@ -230,20 +275,37 @@ export function StationsPage({ resource, reload }: { resource: Resource<StationD
             {filtered.slice(0, 6).map((station) => (
               <button className={`station-item ${chosen?.id === station.id ? "selected" : ""}`} key={station.id} onClick={() => { setSelected(station.id); setQuery(""); }}>
                 <div className="station-item-title"><strong>{station.name}</strong><CaretRightIcon size={16} weight="light"/></div>
-                <small className="station-meta">{position ? `${Math.round(distanceTo(station, position) / 10) * 10} m · ` : ""}n° {station.number}{!station.open ? " · Fermée" : ""}</small>
+                <small className="station-meta">{position ? `${formatDistance(distanceTo(station, position))} · ` : ""}n° {station.number}{!station.open ? " · Fermée" : ""}</small>
               </button>
             ))}
             {!filtered.length ? <EmptyState>Aucune station trouvée.</EmptyState> : null}
           </div>
         ) : null}
         <div className="explorer-map">
-          <StationMap stations={filtered} selected={chosen?.id ?? null} onSelect={setSelected}/>
-          {chosen ? (
+          <StationMap stations={filtered} selected={chosen?.id ?? null} onSelect={setSelected} onClear={phone ? () => setSelected(null) : undefined} userPosition={position} fit={fit}/>
+          {chosen && phone ? (
+            <section className="station-sheet" aria-label={chosen.name}>
+              <div className="station-sheet-heading">
+                <h2>{chosen.name}</h2>
+                {!chosen.open ? <span className="closed-station">Fermée</span> : null}
+                <button className="icon-button" aria-label="Fermer" onClick={() => setSelected(null)}><XIcon size={18} weight="light"/></button>
+              </div>
+              <div className="station-sheet-facts">
+                <StationNumbers station={chosen} compact/>
+                {chosenDistance ? <span className="station-distance">{chosenDistance}</span> : null}
+              </div>
+              <div className="station-sheet-actions">
+                <Button variant="secondary" onClick={() => setBikesOpen(true)}>Voir les vélos</Button>
+                <a className="button button-primary" href={directions} target="_blank" rel="noreferrer">Itinéraire<CircleArrow external/></a>
+              </div>
+            </section>
+          ) : chosen ? (
             <div className="selected-station-panel">
               <div className="station-card-heading"><h2>{chosen.name}</h2>{!chosen.open ? <span className="closed-station">Fermée</span> : null}</div>
+              {chosenDistance ? <p className="station-distance">À {chosenDistance}</p> : null}
               <StationNumbers station={chosen}/>
               <Button variant="secondary" onClick={() => setBikesOpen(true)}>Voir les vélos</Button>
-              <a className="button button-primary" href={`https://www.google.com/maps/dir/?api=1&destination=${chosen.lat},${chosen.lon}&travelmode=walking`} target="_blank" rel="noreferrer">Itinéraire<CircleArrow external/></a>
+              <a className="button button-primary" href={directions} target="_blank" rel="noreferrer">Itinéraire<CircleArrow external/></a>
             </div>
           ) : null}
           {bikesOpen && chosen ? <StationBikes key={chosen.id} station={chosen} onClose={() => setBikesOpen(false)}/> : null}
@@ -281,7 +343,7 @@ export function AccountPage({ data, onLogout }: { data: Dashboard; onLogout: () 
           <a className="text-link" href="https://velov.grandlyon.com/" target="_blank" rel="noreferrer">Gérer sur Vélo’v<CircleArrow external outline/></a>
         </section>
       </div>
-      <div className="account-logout"><Button variant="ghost" onClick={onLogout}><SignOutIcon size={19} weight="light"/>Se déconnecter</Button></div>
+      <div className="account-logout"><Button variant="secondary" onClick={onLogout}><SignOutIcon size={19} weight="regular" aria-hidden="true"/>Se déconnecter</Button></div>
     </div>
   );
 }
