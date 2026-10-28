@@ -1,6 +1,9 @@
 "use client";
 
 import { useEffect, useId, useRef, type ButtonHTMLAttributes, type ReactNode } from "react";
+import type { Icon } from "@phosphor-icons/react";
+import { ArrowRightIcon } from "@phosphor-icons/react/dist/csr/ArrowRight";
+import { ArrowUpRightIcon } from "@phosphor-icons/react/dist/csr/ArrowUpRight";
 import { CaretDownIcon } from "@phosphor-icons/react/dist/csr/CaretDown";
 import { SpinnerGapIcon } from "@phosphor-icons/react/dist/csr/SpinnerGap";
 
@@ -20,6 +23,23 @@ export function Button({ variant = "primary", pending = false, className = "", c
 
 export function TextButton({ children, onClick }: { children: ReactNode; onClick: () => void }) {
   return <button className="text-button" onClick={onClick}>{children}</button>;
+}
+
+export function CircleArrow({ external = false, outline = false }: { external?: boolean; outline?: boolean }) {
+  const Arrow = external ? ArrowUpRightIcon : ArrowRightIcon;
+  return <span className={`circle-arrow${outline ? " is-outline" : ""}`}><Arrow size={13} weight="bold" aria-hidden="true"/></span>;
+}
+
+export function Highlight({ children }: { children: ReactNode }) {
+  return <mark className="highlight">{children}</mark>;
+}
+
+export function Eyebrow({ icon: TagIcon, children }: { icon: Icon; children: ReactNode }) {
+  return <span className="eyebrow"><span className="eyebrow-icon"><TagIcon size={13} weight="bold" aria-hidden="true"/></span>{children}</span>;
+}
+
+export function CardTag({ icon: TagIcon, children }: { icon: Icon; children: ReactNode }) {
+  return <span className="card-tag"><span className="card-tag-icon"><TagIcon size={13} weight="bold" aria-hidden="true"/></span>{children}</span>;
 }
 
 export function SelectField<T extends string>({ label, value, options, onChange }: { label: string; value: T; options: { value: T; label: string }[]; onChange: (value: T) => void }) {

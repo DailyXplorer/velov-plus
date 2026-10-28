@@ -5,14 +5,16 @@ import dynamic from "next/dynamic";
 import { BicycleIcon } from "@phosphor-icons/react/dist/csr/Bicycle";
 import { LightningIcon } from "@phosphor-icons/react/dist/csr/Lightning";
 import { SquareIcon } from "@phosphor-icons/react/dist/csr/Square";
-import { ArrowUpRightIcon } from "@phosphor-icons/react/dist/csr/ArrowUpRight";
 import { CaretRightIcon } from "@phosphor-icons/react/dist/csr/CaretRight";
 import { MagnifyingGlassIcon } from "@phosphor-icons/react/dist/csr/MagnifyingGlass";
 import { NavigationArrowIcon } from "@phosphor-icons/react/dist/csr/NavigationArrow";
 import { SignOutIcon } from "@phosphor-icons/react/dist/csr/SignOut";
+import { StarFourIcon } from "@phosphor-icons/react/dist/csr/StarFour";
+import { TicketIcon } from "@phosphor-icons/react/dist/csr/Ticket";
+import { TrendUpIcon } from "@phosphor-icons/react/dist/csr/TrendUp";
 import { XIcon } from "@phosphor-icons/react/dist/csr/X";
 import { type Dashboard, type Page, type Resource, type Station, type Trip, formatDate, formatPrice } from "@/lib/models";
-import { Button, EmptyState, Modal, SectionHeading, SelectField, TextButton } from "./ui";
+import { Button, CardTag, CircleArrow, EmptyState, Eyebrow, Modal, SectionHeading, SelectField, TextButton } from "./ui";
 
 const StationMap = dynamic(() => import("./station-map"), {
   ssr: false,
@@ -23,10 +25,9 @@ type Navigation = (page: Page) => void;
 
 function BikeType({ type }: { type: Trip["bikeType"] }) {
   return (
-    <span className="bike-type">
-      {type === "electrical" ? <LightningIcon size={17} weight="light"/> : <BicycleIcon size={18} weight="light"/>}
+    <Eyebrow icon={type === "electrical" ? LightningIcon : BicycleIcon}>
       {type === "electrical" ? "Électrique" : type === "mechanical" ? "Mécanique" : "Vélo’v"}
-    </span>
+    </Eyebrow>
   );
 }
 
@@ -39,8 +40,10 @@ export function TripsTable({ trips }: { trips: Trip[] }) {
         {trips.map((trip) => (
           <button className="trip-row" key={trip.id} onClick={() => setSelected(trip)} aria-label={`Détails du trajet du ${formatDate(trip.startedAt)}`}>
             <span className="trip-description">
-              {trip.bikeType === "electrical" ? <LightningIcon size={21} weight="light" aria-label="Vélo électrique"/>
-                : <BicycleIcon size={23} weight="light" aria-label={trip.bikeType === "mechanical" ? "Vélo mécanique" : "Vélo’v"}/>}
+              <span className="trip-icon">
+                {trip.bikeType === "electrical" ? <LightningIcon size={18} weight="light" aria-label="Vélo électrique"/>
+                  : <BicycleIcon size={20} weight="light" aria-label={trip.bikeType === "mechanical" ? "Vélo mécanique" : "Vélo’v"}/>}
+              </span>
               <span className="trip-route">
                 <strong>{trip.startStation ?? "Trajet Vélo’v"}</strong>
                 <small>{trip.endStation ?? (trip.bikeType === "electrical" ? "Électrique" : trip.bikeType === "mechanical" ? "Mécanique" : "Stations non renseignées")}</small>
@@ -95,23 +98,23 @@ export function Overview({ data, stations, navigate }: { data: Dashboard; statio
   return (
     <div className="page-content">
       {data.ongoing.length ? (
-        <div className="ongoing-banner"><BicycleIcon size={21} weight="light"/><strong>Trajet en cours</strong><span>{data.ongoing[0].startStation}</span></div>
+        <div className="ongoing-banner"><Eyebrow icon={BicycleIcon}>Trajet en cours</Eyebrow><span>{data.ongoing[0].startStation}</span></div>
       ) : null}
       <div className="summary-grid">
         <button className="summary-card" onClick={() => navigate("points")}>
-          <span className="metric-label">Points</span>
+          <CardTag icon={StarFourIcon}>Points</CardTag>
           <strong className="metric-value accent">{data.rewards.balance}</strong>
-          <span className="metric-detail">{data.rewards.total.toLocaleString("fr-FR")} gagnés au total<CaretRightIcon size={16} weight="light"/></span>
+          <span className="metric-detail">{data.rewards.total.toLocaleString("fr-FR")} gagnés au total<CircleArrow outline/></span>
         </button>
         <button className="summary-card" onClick={() => navigate("trips")}>
-          <span className="metric-label">Trajets</span>
+          <CardTag icon={BicycleIcon}>Trajets</CardTag>
           <strong className="metric-value">{data.trips.length}</strong>
-          <span className="metric-detail">{minutes >= 60 ? `${Math.floor(minutes / 60)} h ${minutes % 60} min` : `${minutes} min`}<CaretRightIcon size={16} weight="light"/></span>
+          <span className="metric-detail">{minutes >= 60 ? `${Math.floor(minutes / 60)} h ${minutes % 60} min` : `${minutes} min`}<CircleArrow outline/></span>
         </button>
         <button className="summary-card" onClick={() => navigate("account")}>
-          <span className="metric-label">Abonnement</span>
+          <CardTag icon={TicketIcon}>Abonnement</CardTag>
           <strong className="metric-subscription">{data.subscription?.title ?? "Aucun abonnement"}</strong>
-          <span className="metric-detail">{data.subscription?.validUntil ? `Jusqu’au ${formatDate(data.subscription.validUntil, { day: "numeric", month: "short", year: "numeric" })}` : "Voir les formules"}<CaretRightIcon size={16} weight="light"/></span>
+          <span className="metric-detail">{data.subscription?.validUntil ? `Jusqu’au ${formatDate(data.subscription.validUntil, { day: "numeric", month: "short", year: "numeric" })}` : "Voir les formules"}<CircleArrow outline/></span>
         </button>
       </div>
       <section className="map-section">
@@ -162,12 +165,12 @@ export function PointsPage({ data }: { data: Dashboard }) {
   return (
     <div className="page-content">
       <div className="points-summary">
-        <div><span className="metric-label">Solde</span><strong className="points-balance">{data.rewards.balance}<span>points</span></strong></div>
-        <div><span className="metric-label">Total gagné</span><strong className="points-total">{data.rewards.total.toLocaleString("fr-FR")}</strong></div>
+        <div><Eyebrow icon={StarFourIcon}>Solde</Eyebrow><strong className="points-balance">{data.rewards.balance}<span>points</span></strong></div>
+        <div><Eyebrow icon={TrendUpIcon}>Total gagné</Eyebrow><strong className="points-total">{data.rewards.total.toLocaleString("fr-FR")}</strong></div>
       </div>
       <div className="setting-row">
         <div><span className="metric-label">Utilisation automatique</span><strong className="setting-value">{data.rewards.autoSpend ? "Activée" : "Désactivée"}</strong></div>
-        <a className="button button-secondary" href="https://velov.grandlyon.com/" target="_blank" rel="noreferrer" aria-label="Modifier l’utilisation des points sur Vélo’v">Modifier<ArrowUpRightIcon size={16} weight="light"/></a>
+        <a className="button button-secondary" href="https://velov.grandlyon.com/" target="_blank" rel="noreferrer" aria-label="Modifier l’utilisation des points sur Vélo’v">Modifier<CircleArrow external/></a>
       </div>
       {rules.length ? (
         <section className="earn-section">
@@ -263,7 +266,7 @@ export function StationsPage({ resource, reload }: { resource: Resource<StationD
             <div className="selected-station-panel">
               <div className="station-card-heading"><h2>{chosen.name}</h2>{!chosen.open ? <span className="closed-station">Fermée</span> : null}</div>
               <StationNumbers station={chosen}/>
-              <a className="button button-primary" href={`https://www.google.com/maps/dir/?api=1&destination=${chosen.lat},${chosen.lon}&travelmode=walking`} target="_blank" rel="noreferrer">Itinéraire<ArrowUpRightIcon size={16} weight="light"/></a>
+              <a className="button button-primary" href={`https://www.google.com/maps/dir/?api=1&destination=${chosen.lat},${chosen.lon}&travelmode=walking`} target="_blank" rel="noreferrer">Itinéraire<CircleArrow external/></a>
             </div>
           ) : null}
         </div>
@@ -285,13 +288,13 @@ export function AccountPage({ data, onLogout }: { data: Dashboard; onLogout: () 
             <div><dt>Profil</dt><dd>{data.profile.complete ? "Complet" : "À compléter"}</dd></div>
             <div><dt>Paiement</dt><dd>{data.paymentValid ? "Valide" : "À vérifier"}</dd></div>
           </dl>
-          <a className="text-link" href="https://velov.grandlyon.com/" target="_blank" rel="noreferrer">Gérer sur Vélo’v<ArrowUpRightIcon size={16} weight="light"/></a>
+          <a className="text-link" href="https://velov.grandlyon.com/" target="_blank" rel="noreferrer">Gérer sur Vélo’v<CircleArrow external outline/></a>
         </section>
         <section className="account-section">
           <h2>Abonnement</h2>
           <p className="subscription-name">{data.subscription?.title ?? "Aucun abonnement"}</p>
           {data.subscription ? <p className="subscription-validity">{data.subscription.validUntil ? `Jusqu’au ${formatDate(data.subscription.validUntil, { day: "numeric", month: "long", year: "numeric" })}` : data.subscription.active ? "Actif" : "Inactif"}</p> : null}
-          <a className="text-link" href="https://velov.grandlyon.com/" target="_blank" rel="noreferrer">Gérer sur Vélo’v<ArrowUpRightIcon size={16} weight="light"/></a>
+          <a className="text-link" href="https://velov.grandlyon.com/" target="_blank" rel="noreferrer">Gérer sur Vélo’v<CircleArrow external outline/></a>
         </section>
       </div>
       <div className="account-logout"><Button variant="ghost" onClick={onLogout}><SignOutIcon size={19} weight="light"/>Se déconnecter</Button></div>
