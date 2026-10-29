@@ -332,8 +332,8 @@ test("R1: a rating is sent once per trip, even when the sheet is reopened during
   assert.doesNotMatch(sheet, /inFlight/);
   assert.match(sheet, /const operation = useOperation\(`rate:\$\{trip\.id\}`\);/);
   assert.match(sheet, /runOnce\(operations, `rate:\$\{trip\.id\}`, \(\) => sendStars\(trip\.id, bikeNumber, picked\), \{ keep: true, meta: \{ stars: picked \} \}\)/);
-  assert.match(sheet, /\{operation \? <>[^\n]*>Vérifier<\/Button><\/> : <>[\s\S]*?Envoyer · \+5 points<\/Button>\n\s+<\/>\}/);
-  assert.equal(sheet.match(/Envoyer · \+5 points/g)?.length, 1);
+  assert.match(sheet, /\{operation \? <>[^\n]*>Vérifier<\/Button><\/> : <>[\s\S]*?Envoyer<\/Button>\n\s+<\/>\}/);
+  assert.equal(sheet.match(/>Envoyer<\/Button>/g)?.length, 1);
   assert.match(sheet, /<Modal titleId="trip-detail-title" onClose=\{sending \? \(\) => \{\} : onClose\}>/);
   assert.match(sheet, /aria-label="Fermer les détails" disabled=\{sending\} onClick=\{onClose\}/);
   assert.match(sheet, /<Modal titleId="trip-ended-title" onClose=\{sending \? \(\) => \{\} : close\}>/);

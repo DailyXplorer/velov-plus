@@ -91,7 +91,7 @@ function RateBike({ trip, bikeNumber, onLater, onRated }: { trip: Trip; bikeNumb
       <div className="trip-rate-actions">
         {operation ? <>{!sendingHere ? <TextButton onClick={onLater}>Plus tard</TextButton> : null}<Button variant="secondary" pending={sending || checking} onClick={() => void verify()}>Vérifier</Button></> : <>
           {!sendingHere ? <TextButton onClick={onLater}>Plus tard</TextButton> : null}
-          <Button disabled={stars == null} onClick={() => { if (stars != null) void submit(stars); }}>Envoyer · +5 points</Button>
+          <Button disabled={stars == null} onClick={() => { if (stars != null) void submit(stars); }}>Envoyer</Button>
         </>}
       </div>
     </section>
