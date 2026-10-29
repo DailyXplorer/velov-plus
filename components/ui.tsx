@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState, type ButtonHTMLAttributes, type KeyboardEvent, type ReactNode } from "react";
-import { ArrowRightIcon, ArrowUpRightIcon, CheckIcon, type Icon, SpinnerGapIcon } from "./icons";
+import { ArrowRightIcon, ArrowUpRightIcon, type Icon, SpinnerGapIcon } from "./icons";
 
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: "primary" | "secondary" | "ghost";
@@ -121,7 +121,6 @@ export function SelectField<T extends string>({ label, hideLabel = false, value,
                 className={`select-option${index === active ? " is-active" : ""}`}
                 onPointerEnter={() => setActive(index)} onClick={() => choose(index)}>
                 {option.label}
-                {index === selected ? <CheckIcon size={16} weight="bold" aria-hidden="true"/> : null}
               </li>
             ))}
           </ul>
