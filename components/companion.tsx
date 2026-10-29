@@ -97,7 +97,7 @@ export function Companion({ initialSession }: { initialSession: boolean }) {
 
   useEffect(() => {
     setPage(pageFromHash());
-    const changed = () => setPage(pageFromHash());
+    const changed = () => { setPage(pageFromHash()); window.scrollTo({ top: 0, behavior: "auto" }); };
     window.addEventListener("hashchange", changed);
     if (initialSession) { void loadDashboard(); void loadStations(); void loadBookings(); }
     return () => window.removeEventListener("hashchange", changed);
