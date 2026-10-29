@@ -740,3 +740,5 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
 /* Points figures: no "points" unit, and big numbers shrink to fit their card instead of overflowing. */
 .points-balance, .points-total { font-size: clamp(28px, 30cqi, 64px) !important; white-space: nowrap; }
 .points-summary > div { container-type: inline-size; }
+/* Compact counts (station sheet, map card): grouped on the left, not spread across the card. */
+.station-numbers.station-numbers-compact { justify-content: start; column-gap: 18px; }
