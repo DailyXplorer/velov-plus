@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { type Trip, rateBodySchema } from "../lib/models.ts";
-import { type Stars, type TripCheck, UNLOCK_GRACE, WATCH_CAP, WATCH_INTERVAL, createDockWatch, dismissTrip, sendStars, starLabels, tripToGreet, wasDismissed } from "../lib/trip-end.ts";
+import { type Stars, type TripCheck, UNLOCK_GRACE, WATCH_BACKOFF_CAP, WATCH_CAP, WATCH_INTERVAL, createDockWatch, dismissTrip, sendStars, starLabels, tripToGreet, wasDismissed } from "../lib/trip-end.ts";
+import { isUncertain } from "../lib/outcome.ts";
 
 const now = Date.parse("2026-10-29T12:00:00Z");
 const trip = (id: string, endedAt: string | null, extra: Partial<Trip> = {}): Trip => ({
@@ -24,7 +25,7 @@ test("stars map to Vélo’v’s three levels: 5-4 recommend, 3-2 rate 60, 1 rat
   };
   for (const stars of [1, 2, 3, 4, 5] as const) {
     const { calls, send } = recorder(200);
-    assert.equal(await sendStars("trip-1", 20449, stars, send), null);
+    assert.equal((await sendStars("trip-1", 20449, stars, send)).ok, true);
     assert.equal(calls.length, 1);
     assert.equal(calls[0].url, "/api/trips/trip-1/rate");
     assert.equal(calls[0].init.method, "POST");
@@ -35,12 +36,15 @@ test("stars map to Vélo’v’s three levels: 5-4 recommend, 3-2 rate 60, 1 rat
   assert.deepEqual(Object.values(starLabels), ["À réparer", "Décevant", "Moyen", "Bien", "Parfait"]);
 });
 
-test("a refused note is sent once and comes back with its message and a raw line", async () => {
+test("a failed note is sent once and comes back with its message, status and code", async () => {
   const { calls, send } = recorder(502, { error: "Vélo’v n’a pas enregistré la note. Réessayez dans un instant.", code: "unavailable" });
-  assert.deepEqual(await sendStars("trip-1", 20449, 1, send), { message: "Vélo’v n’a pas enregistré la note. Réessayez dans un instant.", raw: "HTTP 502 · Code unavailable" });
+  const failed = await sendStars("trip-1", 20449, 1, send);
+  assert.deepEqual([failed.ok, failed.httpStatus, failed.code, failed.message], [false, 502, "unavailable", "Vélo’v n’a pas enregistré la note. Réessayez dans un instant."]);
+  assert.equal(isUncertain(failed), true);
   assert.equal(calls.length, 1);
   const offline = (async () => { throw new TypeError("offline"); }) as typeof fetch;
-  assert.deepEqual(await sendStars("trip-1", 20449, 5, offline), { message: "La note n’a pas pu être envoyée.", raw: "HTTP aucune réponse" });
+  const lost = await sendStars("trip-1", 20449, 5, offline);
+  assert.deepEqual([lost.ok, lost.httpStatus, lost.message, isUncertain(lost)], [false, 0, "La note n’a pas pu être envoyée.", true]);
 });
 
 function memoryStorage() {
@@ -179,10 +183,10 @@ test("a failed or unreadable check keeps watching; the watch gives up after 3 ho
   h.watch.follow("ride");
   await h.advance(WATCH_INTERVAL);
   await h.answer(new Error("offline"));
-  await h.advance(WATCH_INTERVAL);
+  await h.advance(2 * WATCH_INTERVAL);
   await h.answer({ ongoing: null, latest: null });
   assert.equal(h.docked.length, 0);
-  for (let elapsed = 2 * WATCH_INTERVAL; elapsed < WATCH_CAP; elapsed += WATCH_INTERVAL) {
+  for (let elapsed = 3 * WATCH_INTERVAL; elapsed < WATCH_CAP; elapsed += WATCH_INTERVAL) {
     await h.advance(WATCH_INTERVAL);
     if (h.inFlight) await h.answer(riding("ride"));
   }
@@ -236,4 +240,63 @@ test("following the same ride again does not push its next check back", async ()
   h.watch.follow("ride");
   await h.advance(5_000);
   assert.equal(h.checks, 1);
+});
+
+test("F5: coming back to the page waits for what is left of the delay since the last check", async () => {
+  const h = harness();
+  h.watch.follow("ride");
+  await h.advance(5_000);
+  await h.setVisible(false);
+  await h.setVisible(true);
+  await h.setVisible(false);
+  await h.advance(5_000);
+  await h.setVisible(true);
+  assert.equal(h.checks, 0);
+  assert.equal(h.timers.length, 1);
+  await h.advance(WATCH_INTERVAL - 10_000 - 1);
+  assert.equal(h.checks, 0);
+  await h.advance(1);
+  assert.equal(h.checks, 1);
+  await h.answer(riding("ride"));
+  await h.setVisible(false);
+  await h.advance(3_000);
+  await h.setVisible(true);
+  await h.advance(WATCH_INTERVAL - 3_000 - 1);
+  assert.equal(h.checks, 1);
+  await h.advance(1);
+  assert.equal(h.checks, 2);
+});
+
+test("F5: an unavailable or refused check doubles the delay up to 2 minutes, a good answer restores it", async () => {
+  const h = harness();
+  h.watch.follow("ride");
+  await h.advance(WATCH_INTERVAL);
+  const gaps: number[] = [];
+  for (const failure of [new Error("HTTP 429"), { ongoing: null, latest: null }, new Error("HTTP 503"), new Error("HTTP 429")]) {
+    await h.answer(failure);
+    const sent = h.checks;
+    let waited = 0;
+    while (h.checks === sent) { await h.advance(1_000); waited += 1_000; }
+    gaps.push(waited);
+  }
+  assert.deepEqual(gaps, [2 * WATCH_INTERVAL, 4 * WATCH_INTERVAL, WATCH_BACKOFF_CAP, WATCH_BACKOFF_CAP]);
+  await h.answer(riding("ride"));
+  await h.advance(WATCH_INTERVAL);
+  assert.equal(h.inFlight, 1);
+});
+
+test("F7: stopping and following again during a slow check still leaves exactly one timer for the new ride", async () => {
+  const h = harness();
+  h.watch.follow("ride");
+  await h.advance(WATCH_INTERVAL);
+  h.watch.stop();
+  h.watch.follow("next");
+  assert.equal(h.timers.length, 0);
+  await h.answer(none());
+  assert.equal(h.docked.length, 0);
+  assert.equal(h.timers.length, 1);
+  await h.advance(WATCH_INTERVAL);
+  assert.equal(h.checks, 2);
+  await h.answer(none());
+  assert.deepEqual(h.docked.map((item) => item.tripId), ["next"]);
 });

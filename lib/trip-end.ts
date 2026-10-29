@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { type RateBody, type Trip, canRate, tripSchema } from "./models.ts";
+import { type Outcome, type RateBody, type Trip, canRate, tripSchema } from "./models.ts";
+import { noAnswer, routeFailure } from "./outcome.ts";
 
 export type Stars = 1 | 2 | 3 | 4 | 5;
 export type Vote = Omit<RateBody, "bikeNumber">;
@@ -11,20 +12,18 @@ export function starVote(stars: Stars): Vote {
 
 export const starLabels: Record<Stars, string> = { 5: "Parfait", 4: "Bien", 3: "Moyen", 2: "Décevant", 1: "À réparer" };
 
-const errorSchema = z.object({ error: z.string(), code: z.string().optional() });
 const notSent = "La note n’a pas pu être envoyée.";
-export type RateFailure = { message: string; raw: string };
 
-export async function sendStars(tripId: string, bikeNumber: number, stars: Stars, send: typeof fetch = fetch): Promise<RateFailure | null> {
+export async function sendStars(tripId: string, bikeNumber: number, stars: Stars, send: typeof fetch = fetch): Promise<Outcome> {
   let response: Response;
   try {
     response = await send(`/api/trips/${encodeURIComponent(tripId)}/rate`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ bikeNumber, ...starVote(stars) }), signal: AbortSignal.timeout(25_000) });
   } catch {
-    return { message: notSent, raw: "HTTP aucune réponse" };
+    return noAnswer(notSent);
   }
-  if (response.ok) return null;
-  const error = errorSchema.safeParse(await response.json().catch(() => null));
-  return { message: error.success ? error.data.error : notSent, raw: [`HTTP ${response.status}`, error.success && error.data.code ? `Code ${error.data.code}` : null].filter(Boolean).join(" · ") };
+  const body: unknown = await response.json().catch(() => null);
+  if (response.ok && z.object({ rated: z.literal(true) }).safeParse(body).success) return { ok: true, httpStatus: response.status, transactionState: null, code: null, message: null, detail: null };
+  return routeFailure(response.status, body, notSent);
 }
 
 type Store = Pick<Storage, "getItem" | "setItem">;
@@ -58,6 +57,7 @@ export type TripCheck = z.infer<typeof tripCheckSchema>;
 export const WATCH_INTERVAL = 20_000;
 export const WATCH_CAP = 3 * 3_600_000;
 export const UNLOCK_GRACE = 2 * 60_000;
+export const WATCH_BACKOFF_CAP = 2 * 60_000;
 
 type Timer = ReturnType<typeof setTimeout>;
 export type DockWatchDeps = {
@@ -75,6 +75,8 @@ export function createDockWatch({ check, docked, visible, now = Date.now, setTim
   let timer: Timer | null = null;
   let inFlight = false;
   let generation = 0;
+  let interval = WATCH_INTERVAL;
+  let nextCheckAt: number | null = null;
 
   function cancel() {
     if (timer !== null) clearTimer(timer);
@@ -83,11 +85,15 @@ export function createDockWatch({ check, docked, visible, now = Date.now, setTim
   function stop() {
     watch = { kind: "idle" };
     generation += 1;
+    interval = WATCH_INTERVAL;
+    nextCheckAt = null;
     cancel();
   }
-  function schedule() {
+  function schedule(delay = interval) {
     cancel();
-    if (watch.kind !== "idle") timer = setTimer(() => void tick(), WATCH_INTERVAL);
+    if (watch.kind === "idle") return;
+    nextCheckAt = now() + delay;
+    timer = setTimer(() => void tick(), delay);
   }
 
   async function tick() {
@@ -99,8 +105,12 @@ export function createDockWatch({ check, docked, visible, now = Date.now, setTim
     let answer: TripCheck | null = null;
     try { answer = await check(); } catch {}
     finally { inFlight = false; }
-    if (sent !== generation) return;
+    if (sent !== generation) {
+      if (timer === null) schedule();
+      return;
+    }
     const ongoing = answer?.ongoing;
+    interval = ongoing ? WATCH_INTERVAL : Math.min(interval * 2, WATCH_BACKOFF_CAP);
     if (ongoing?.length) watch = { kind: "riding", tripId: ongoing[0].id, startedAt: watch.startedAt };
     else if (ongoing && watch.kind === "riding") {
       const { tripId } = watch;
@@ -118,9 +128,11 @@ export function createDockWatch({ check, docked, visible, now = Date.now, setTim
       if (timer === null && !inFlight) schedule();
     },
     visibilityChanged() {
-      if (watch.kind === "idle") return;
+      if (watch.kind === "idle" || inFlight) return;
       cancel();
-      void tick();
+      if (!visible()) return;
+      const wait = nextCheckAt === null ? 0 : nextCheckAt - now();
+      if (wait > 0) schedule(wait); else void tick();
     },
     stop,
     get active() { return watch.kind !== "idle"; }

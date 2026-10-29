@@ -14,7 +14,7 @@ import { API, BASE, BROWSER_AGENT, lenient, normalizeTrip, patchAutoRenewal, pat
 import { VelovError } from "./auth-protocol";
 import { memo } from "./memo";
 import { type TripCheck, latestFinished } from "./trip-end";
-import { buildStats, collectPages, type Stats } from "./stats";
+import { buildStats, collectPages, statsTtl, type Stats } from "./stats";
 import { appToken, fetchTransient, getStations, getWithAppToken } from "./upstream";
 import type { Session } from "./session";
 
@@ -274,7 +274,7 @@ export async function consumePromoCode(session: Session, expectedCost: number) {
 }
 
 const TRIP_PAGE_SIZE = 100;
-const stats = memo<Stats>(10 * 60_000);
+const stats = memo<Stats>(statsTtl);
 
 export function getStats(session: Session): Promise<Stats> {
   return stats(session.email, async () => {
@@ -287,7 +287,7 @@ export function getStats(session: Session): Promise<Stats> {
     return buildStats({
       trips: history.items.map((trip) => normalizeTrip(trip, byNumber)), coords: byNumber, balance,
       movements: movements?.items.map((movement) => ({ date: utcDate(movement.createdAt), amount: movement.amount * (movement.direction === "DEBIT" ? -1 : 1) })) ?? null,
-      now: new Date()
+      now: new Date(), complete: history.complete && movements?.complete !== false
     });
   });
 }

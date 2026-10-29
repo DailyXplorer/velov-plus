@@ -1,15 +1,21 @@
 "use client";
 
-import { useId, useRef, useState } from "react";
+import { useId, useState } from "react";
 import { TimerIcon } from "./icons";
 import { type Outcome, type Station, capitalize, outcomeSchema } from "@/lib/models";
 import { fullStations } from "@/lib/via-models";
 import { UNCERTAIN, isUncertain, noAnswer, routeFailure } from "@/lib/outcome";
 import { describeLocationFailure, findPosition, formatDistance, haversine, type Point } from "@/lib/geo";
+import { BUSY, UNSAVED, runOnce } from "@/lib/operations";
+import { operations, useAccountKey, useOperation, useSending } from "./operations";
 import { Button, Modal, SelectField } from "./ui";
 
-export function ViaAction({ stations }: { stations: Station[] }) {
+export function ViaAction({ stations, account, tripId }: { stations: Station[]; account: string; tripId: string }) {
   const titleId = useId();
+  const digest = useAccountKey(account);
+  const operationKey = digest ? `via:${digest}:${tripId}` : null;
+  const operation = useOperation(operationKey);
+  const sendingHere = useSending();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState("");
@@ -17,13 +23,20 @@ export function ViaAction({ stations }: { stations: Station[] }) {
   const [locationError, setLocationError] = useState<{ message: string; raw?: string } | null>(null);
   const [locating, setLocating] = useState(false);
   const [reviewing, setReviewing] = useState(false);
-  const [pending, setPending] = useState(false);
-  const [failure, setFailure] = useState<Outcome | null>(null);
-  const inFlight = useRef(false);
+  const [refusal, setFailure] = useState<Outcome | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const choices = fullStations(stations, query, position);
-  const station = choices.find((item) => String(item.number) === selected);
+  const held = operation ? { number: Number(operation.meta.number), name: String(operation.meta.name) } : null;
+  const station = held ?? choices.find((item) => String(item.number) === selected);
+  const failure = operation?.outcome ?? refusal;
+  const pending = operation?.status === "sending";
 
-  function close() { if (!inFlight.current) { setOpen(false); setReviewing(false); setFailure(null); } }
+  function close() { if (!operations.sending()) { setOpen(false); setReviewing(false); setFailure(null); setNotice(null); } }
+  function startOver() {
+    if (!operationKey) return;
+    operations.clear(operationKey);
+    setFailure(null); setNotice(null); setReviewing(false); setSelected(""); setQuery("");
+  }
   function locate() {
     if (!navigator.geolocation) { setLocationError({ message: "Localisation indisponible. Recherchez une station par son nom." }); return; }
     setLocating(true);
@@ -31,31 +44,33 @@ export function ViaAction({ stations }: { stations: Station[] }) {
       async (error: unknown) => { setLocationError(await describeLocationFailure(error, navigator)); setLocating(false); });
   }
   async function confirm() {
-    if (inFlight.current || !station) return;
-    inFlight.current = true;
-    setPending(true);
+    if (!station || !operationKey) return;
     setFailure(null);
-    let outcome: Outcome;
-    try {
-      const response = await fetch("/api/account/via", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ stationNumber: station.number }), signal: AbortSignal.timeout(40_000) });
-      const body: unknown = await response.json().catch(() => null);
-      const parsed = outcomeSchema.safeParse(body);
-      outcome = parsed.success ? parsed.data : routeFailure(response.status, body, "Réponse inattendue. Les 15 minutes ont peut-être été ajoutées.");
-    } catch {
-      outcome = noAnswer("Vélo’v ne répond pas. Les 15 minutes ont peut-être été ajoutées.");
-    } finally { inFlight.current = false; setPending(false); }
-    if (!outcome.ok) { setFailure(outcome); return; }
+    setNotice(null);
+    const outcome = await runOnce(operations, operationKey, async () => {
+      try {
+        const response = await fetch("/api/account/via", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ stationNumber: station.number }), signal: AbortSignal.timeout(40_000) });
+        const body: unknown = await response.json().catch(() => null);
+        const parsed = outcomeSchema.safeParse(body);
+        return parsed.success ? parsed.data : routeFailure(response.status, body, "Réponse inattendue. Les 15 minutes ont peut-être été ajoutées.");
+      } catch {
+        return noAnswer("Vélo’v ne répond pas. Les 15 minutes ont peut-être été ajoutées.");
+      }
+    }, { keep: true, meta: { number: station.number, name: station.name } });
+    if (outcome === "unsaved" || outcome === "busy") { if (outcome === "unsaved" || !operations.get(operationKey)) setNotice(outcome === "unsaved" ? UNSAVED : BUSY); return; }
+    if (!outcome.ok) { if (!isUncertain(outcome)) setFailure(outcome); return; }
     setOpen(false); setReviewing(false); setSelected(""); setQuery("");
   }
   return <span className="ongoing-extra">
     <Button variant="secondary" onClick={() => setOpen(true)}><TimerIcon size={17} weight="light" aria-hidden="true"/>15 minutes de plus</Button>
     {open ? <Modal titleId={titleId} onClose={close}>
-      <div onKeyDownCapture={(event) => { if (pending && event.key === "Escape") event.preventDefault(); }}>
+      <div onKeyDownCapture={(event) => { if (pending && sendingHere && event.key === "Escape") event.preventDefault(); }}>
         <div className="modal-heading"><h2 id={titleId}>15 minutes de plus</h2></div>
-        {reviewing && station ? <>
+        {(reviewing || held) && station ? <>
           <p className="write-question">La station <strong>{station.name} (n° {station.number})</strong> est pleine. Demander 15 minutes de plus pour rejoindre une autre station ?</p>
           {failure ? <><p className="form-error" role="alert">{failure.message}</p><p className="bike-action-raw">HTTP {failure.httpStatus || "aucune réponse"} · Code {failure.code ?? "—"} · {capitalize(failure.detail ?? failure.message ?? "")}</p>{isUncertain(failure) ? <p className="uncertain-note">{UNCERTAIN}</p> : null}</> : null}
-          <div className="modal-actions">{failure && isUncertain(failure) ? <Button variant="ghost" onClick={close}>Fermer</Button> : <><Button variant="ghost" disabled={pending} onClick={() => { setFailure(null); setReviewing(false); }}>Retour</Button><Button pending={pending} onClick={() => void confirm()}>Confirmer</Button></>}</div>
+          {notice ? <p className="form-error" role="alert">{notice}</p> : null}
+          <div className="modal-actions">{failure && isUncertain(failure) ? <><Button variant="ghost" onClick={close}>Fermer</Button><Button variant="secondary" onClick={startOver}>Nouvelle demande</Button></> : <><Button variant="ghost" disabled={pending} onClick={() => { setFailure(null); setNotice(null); setReviewing(false); }}>Retour</Button><Button pending={pending} disabled={!operationKey} onClick={() => void confirm()}>Confirmer</Button></>}</div>
         </> : <>
           <p>Choisissez la station pleine où vous vouliez rendre votre vélo.</p>
           <label className="field"><span className="metric-label">Rechercher une station pleine</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Nom, adresse ou numéro"/></label>

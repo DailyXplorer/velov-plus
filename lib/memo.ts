@@ -1,4 +1,4 @@
-export function memo<T>(ttl: number, { stale = false } = {}) {
+export function memo<T>(ttl: number | ((value: T) => number), { stale = false } = {}) {
   const values = new Map<string, { value: T; expiresAt: number }>();
   const pending = new Map<string, Promise<T>>();
   return (key: string, load: () => Promise<T>): Promise<T> => {
@@ -8,7 +8,7 @@ export function memo<T>(ttl: number, { stale = false } = {}) {
     if (running) return running;
     const promise = load().then((value) => {
       if (!stale && values.size > 500) for (const [old, entry] of values) if (entry.expiresAt <= Date.now()) values.delete(old);
-      values.set(key, { value, expiresAt: Date.now() + ttl });
+      values.set(key, { value, expiresAt: Date.now() + (typeof ttl === "number" ? ttl : ttl(value)) });
       return value;
     }, (error: unknown) => {
       const last = values.get(key);

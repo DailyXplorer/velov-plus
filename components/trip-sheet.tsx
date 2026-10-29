@@ -2,8 +2,11 @@
 
 import { useRef, useState } from "react";
 import { BicycleIcon, CaretDownIcon, CaretRightIcon, CheckIcon, CopyIcon, LightningIcon, StarIcon, XIcon } from "./icons";
-import { type Trip, canRate, formatDate, formatPrice } from "@/lib/models";
-import { type RateFailure, type Stars, dismissTrip, sendStars, starLabels } from "@/lib/trip-end";
+import { type Outcome, type Trip, canRate, formatDate, formatPrice } from "@/lib/models";
+import { type Stars, dismissTrip, sendStars, starLabels } from "@/lib/trip-end";
+import { UNCERTAIN, isUncertain, settle } from "@/lib/outcome";
+import { ratingCheck } from "@/lib/checks";
+import { readDashboard } from "./get-json";
 import { formatDistance } from "@/lib/geo";
 import { Button, Eyebrow, Modal, TextButton } from "./ui";
 import { BikeDrawer } from "./station-bikes";
@@ -29,7 +32,7 @@ function Stop({ label, station, stand }: { label: string; station: string | null
   return <div><small>{label}</small><span>{station ?? "Non renseignée"}{stand != null ? <span className="trip-stand">Borne {stand}</span> : null}</span></div>;
 }
 
-type RatingStep = { kind: "choose"; failure?: RateFailure } | { kind: "sending" } | { kind: "done" };
+type RatingStep = { kind: "choose"; failure?: Outcome } | { kind: "sending" } | { kind: "uncertain"; failure: Outcome; checking: boolean } | { kind: "done" };
 const starNumbers: Stars[] = [1, 2, 3, 4, 5];
 
 function RateBike({ trip, bikeNumber, onLater }: { trip: Trip; bikeNumber: number; onLater: () => void }) {
@@ -41,15 +44,30 @@ function RateBike({ trip, bikeNumber, onLater }: { trip: Trip; bikeNumber: numbe
     if (inFlight.current) return;
     inFlight.current = true;
     setStep({ kind: "sending" });
-    const failure = await sendStars(trip.id, bikeNumber, chosen);
+    const outcome = await sendStars(trip.id, bikeNumber, chosen);
     inFlight.current = false;
-    if (failure) return setStep({ kind: "choose", failure });
+    if (outcome.ok) return rated();
+    if (!isUncertain(outcome)) return setStep({ kind: "choose", failure: outcome });
+    await verify(outcome);
+  }
+
+  function rated() {
     ratedHere.add(trip.id);
     setStep({ kind: "done" });
   }
 
+  async function verify(failure: Outcome) {
+    if (inFlight.current) return;
+    inFlight.current = true;
+    setStep({ kind: "uncertain", failure, checking: true });
+    const settled = await settle(failure, async () => ratingCheck(await readDashboard(), trip.id));
+    inFlight.current = false;
+    if (settled.kind === "done") rated();
+    else setStep(settled.kind === "refused" ? { kind: "choose", failure: settled.outcome } : { kind: "uncertain", failure, checking: false });
+  }
+
   if (step.kind === "done") return <p className="trip-rate-done" role="status"><CheckIcon size={16} weight="bold" aria-hidden="true"/>Merci ! +5 points</p>;
-  const sending = step.kind === "sending";
+  const sending = step.kind === "sending" || step.kind === "uncertain";
   return (
     <section className="trip-rate" aria-labelledby="trip-rate-title">
       <h3 id="trip-rate-title" className="trip-rate-title">Noter ce vélo</h3>
@@ -62,12 +80,14 @@ function RateBike({ trip, bikeNumber, onLater }: { trip: Trip; bikeNumber: numbe
         ))}
       </div>
       <p className={`trip-rate-label${stars == null ? " is-empty" : ""}`} aria-live="polite">{stars != null ? starLabels[stars] : "Touchez une étoile"}</p>
-      {step.kind === "choose" && step.failure ? (
-        <div className="trip-rate-failure" role="alert"><p className="form-error">{step.failure.message}</p><p className="bike-action-raw">{step.failure.raw}</p></div>
+      {(step.kind === "choose" || step.kind === "uncertain") && step.failure ? (
+        <div className="trip-rate-failure" role="alert"><p className="form-error">{step.failure.message}</p><p className="bike-action-raw">{[`HTTP ${step.failure.httpStatus || "aucune réponse"}`, step.failure.code && !step.failure.code.startsWith("local.") && step.failure.code !== "network" ? `Code ${step.failure.code}` : null].filter(Boolean).join(" · ")}</p>{step.kind === "uncertain" ? <p className="uncertain-note">{UNCERTAIN}</p> : null}</div>
       ) : null}
       <div className="trip-rate-actions">
-        {!sending ? <TextButton onClick={onLater}>Plus tard</TextButton> : null}
-        <Button pending={sending} disabled={stars == null} onClick={() => { if (stars != null) void submit(stars); }}>Envoyer · +5 points</Button>
+        {step.kind === "uncertain" ? <><TextButton onClick={onLater}>Plus tard</TextButton><Button variant="secondary" pending={step.checking} onClick={() => void verify(step.failure)}>Vérifier</Button></> : <>
+          {!sending ? <TextButton onClick={onLater}>Plus tard</TextButton> : null}
+          <Button pending={sending} disabled={stars == null} onClick={() => { if (stars != null) void submit(stars); }}>Envoyer · +5 points</Button>
+        </>}
       </div>
     </section>
   );

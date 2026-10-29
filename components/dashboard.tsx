@@ -89,7 +89,7 @@ export function Overview({ data, stations, navigate, reload, reloading }: { data
       {data.ongoing?.length ? (
         <div className="ongoing-banner">
           <Eyebrow icon={BicycleIcon}>Trajet en cours</Eyebrow><span className="ongoing-station">{data.ongoing[0].startStation ?? "Trajet Vélo’v"}</span>
-          <ViaAction stations={nearby}/>
+          <ViaAction stations={nearby} account={data.profile.email} tripId={data.ongoing[0].id}/>
         </div>
       ) : null}
       <div className="summary-grid">
@@ -339,7 +339,7 @@ export function AccountPage({ data, onLogout, onSaved }: { data: Dashboard; onLo
         </section>
         <section className="account-section">
           <h2>Service client</h2>
-          <div className="account-contact"><ContactSupport trips={data.trips}/></div>
+          <div className="account-contact"><ContactSupport trips={data.trips} account={data.profile.email}/></div>
         </section>
       </div>
       <div className="account-logout"><Button variant="secondary" onClick={onLogout}><SignOutIcon size={19} weight="regular" aria-hidden="true"/>Se déconnecter</Button></div>

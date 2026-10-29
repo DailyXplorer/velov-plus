@@ -1,10 +1,12 @@
 "use client";
 
-import { createContext, useContext, useEffect, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import { ClockIcon, LockOpenIcon, TimerIcon, WarningIcon, XIcon } from "./icons";
 import { BOOKING_MINUTES, BOOKING_POINTS, RELEASE_DISTANCE, type Booking, type Outcome, bookResultSchema, capitalize, formatDate, unlockResultSchema } from "@/lib/models";
 import { formatDistance, haversine } from "@/lib/geo";
 import { UNCERTAIN, UNCERTAIN_UNLOCK, isUncertain, noAnswer, routeFailure } from "@/lib/outcome";
+import { BUSY, runOnce } from "@/lib/operations";
+import { operations, useOperation, useSending } from "./operations";
 import { Button, CardTag, Modal } from "./ui";
 
 export const BookingsContext = createContext<{ bookings: Booking[]; changed: () => void; unlocked: (tripId: string | null) => void } | null>(null);
@@ -76,37 +78,47 @@ function BookedUntil({ endsAt }: { endsAt: string | null }) {
   return <><strong>Vélo réservé jusqu’à <span className="clock">{formatDate(endsAt, { hour: "2-digit", minute: "2-digit" })}</span></strong><span className="bike-action-countdown"><ClockIcon size={15} weight="bold" aria-hidden="true"/>{left > 0 ? <>Il reste <span className="clock">{clock(left)}</span></> : "Réservation expirée"}</span></>;
 }
 
+async function post(action: Action, place: Place): Promise<Outcome & { ongoing?: { id: string }[] | null }> {
+  const body = action === "book" ? { stationNumber: place.stationNumber, bikeNumber: place.bikeNumber } : { stationNumber: place.stationNumber, standNumber: place.standNumber, bikeNumber: place.bikeNumber };
+  try {
+    const response = await fetch(action === "book" ? "/api/bookings" : "/api/unlock", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const raw: unknown = await response.json().catch(() => null);
+    const parsed = action === "book" ? bookResultSchema.safeParse(raw) : unlockResultSchema.safeParse(raw);
+    return response.ok && parsed.success ? parsed.data : routeFailure(response.status, raw, "Réponse inattendue.");
+  } catch {
+    return noAnswer("Le serveur ne répond pas.");
+  }
+}
+
 export function BikeActions({ place, booking = null, initial, onDone }: { place: Place; booking?: Booking | null; initial?: Action; onDone: () => void }) {
   const account = useContext(BookingsContext);
-  const [step, setStep] = useState<Step>(initial ? { kind: "confirm", action: initial } : { kind: "start" });
-  const [failure, setFailure] = useState<Outcome | null>(null);
-  const inFlight = useRef(false);
+  const [chosen, setStep] = useState<Step>(initial ? { kind: "confirm", action: initial } : { kind: "start" });
+  const [refused, setFailure] = useState<Outcome | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const unlocking = useOperation(`unlock:${place.bikeNumber}`);
+  const reserving = useOperation(`book:${place.bikeNumber}`);
+  const wantsUnlock = chosen.kind !== "start" && chosen.kind !== "expired" && chosen.action === "unlock";
+  const held = unlocking ? { action: "unlock" as const, operation: unlocking } : reserving && !wantsUnlock ? { action: "book" as const, operation: reserving } : null;
+  const bookedNow = booking !== null && reserving?.status === "uncertain";
+
+  useEffect(() => { if (bookedNow) operations.clear(`book:${place.bikeNumber}`); }, [bookedNow, place.bikeNumber]);
+  const step: Step = held && chosen.kind !== "expired" ? { kind: held.operation.status === "sending" ? "sending" : "confirm", action: held.action } : chosen;
+  const failure = held ? held.operation.outcome : refused;
 
   if (!account || step.kind === "expired") return <p className="bike-action-signin">{signIn}</p>;
 
   async function send(action: Action) {
-    if (inFlight.current) return;
-    inFlight.current = true;
     setFailure(null);
-    setStep({ kind: "sending", action });
-    let outcome: Outcome;
-    try {
-      const body = action === "book" ? { stationNumber: place.stationNumber, bikeNumber: place.bikeNumber } : { stationNumber: place.stationNumber, standNumber: place.standNumber, bikeNumber: place.bikeNumber };
-      const response = await fetch(action === "book" ? "/api/bookings" : "/api/unlock", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-      const raw: unknown = await response.json().catch(() => null);
-      if (response.status === 401) { setStep({ kind: "expired" }); return; }
-      const parsed = action === "book" ? bookResultSchema.safeParse(raw) : unlockResultSchema.safeParse(raw);
-      if (response.ok && parsed.success && parsed.data.ok) {
-        account?.changed();
-        if (action === "unlock") account?.unlocked("ongoing" in parsed.data ? parsed.data.ongoing?.[0]?.id ?? null : null);
-        onDone();
-        return;
-      }
-      outcome = response.ok && parsed.success ? parsed.data : routeFailure(response.status, raw, "Réponse inattendue.");
-    } catch {
-      outcome = noAnswer("Le serveur ne répond pas.");
-    } finally {
-      inFlight.current = false;
+    setNotice(null);
+    const key = `${action}:${place.bikeNumber}`;
+    const outcome = await runOnce(operations, key, () => post(action, place));
+    if (outcome === "busy" || outcome === "unsaved") { if (!operations.get(key)) setNotice(BUSY); return; }
+    if (outcome.httpStatus === 401) { setStep({ kind: "expired" }); return; }
+    if (outcome.ok) {
+      account?.changed();
+      if (action === "unlock") account?.unlocked("ongoing" in outcome ? outcome.ongoing?.[0]?.id ?? null : null);
+      onDone();
+      return;
     }
     setFailure({ ...outcome, message: outcome.message ?? (action === "book" ? "Réservation impossible." : "Déverrouillage impossible.") });
     setStep({ kind: "confirm", action });
@@ -125,8 +137,9 @@ export function BikeActions({ place, booking = null, initial, onDone }: { place:
         </>
       ) : (
         <>
-          <Confirm action={step.action} place={place} sending={step.kind === "sending"} uncertain={failure !== null && isUncertain(failure)} onCancel={() => { setFailure(null); setStep({ kind: "start" }); }} onClose={onDone} onConfirm={() => void send(step.action)}/>
-          {failure ? <><p className="form-error" role="alert">{failure.message}</p><Raw outcome={failure}/>{isUncertain(failure) ? <p className="uncertain-note">{step.action === "unlock" ? UNCERTAIN_UNLOCK : UNCERTAIN}</p> : null}</> : null}
+          <Confirm action={step.action} place={place} sending={step.kind === "sending"} uncertain={failure !== null && isUncertain(failure)} onCancel={() => { setFailure(null); setNotice(null); setStep({ kind: "start" }); }} onClose={onDone} onConfirm={() => void send(step.action)}/>
+          {notice ? <p className="form-error" role="alert">{notice}</p> : null}
+          {failure ? <><p className="form-error" role="alert">{failure.message ?? (step.action === "book" ? "Réservation impossible." : "Déverrouillage impossible.")}</p><Raw outcome={failure}/>{isUncertain(failure) ? <p className="uncertain-note">{step.action === "unlock" ? UNCERTAIN_UNLOCK : UNCERTAIN}</p> : null}</> : null}
         </>
       )}
     </section>
@@ -152,12 +165,13 @@ export function BookingBanner({ booking, onUnlock }: { booking: Booking; onUnloc
 
 export function UnlockModal({ booking, onClose }: { booking: Booking; onClose: () => void }) {
   const place = placeOf(booking);
+  const sending = useSending();
   if (!place) return null;
   return (
-    <Modal titleId="booking-unlock-title" onClose={onClose}>
+    <Modal titleId="booking-unlock-title" onClose={sending ? () => {} : onClose}>
       <div className="modal-heading">
         <h2 id="booking-unlock-title">Vélo {place.bikeNumber}</h2>
-        <button className="icon-button" aria-label="Fermer" onClick={onClose}><XIcon size={20} weight="light"/></button>
+        <button className="icon-button" aria-label="Fermer" disabled={sending} onClick={onClose}><XIcon size={20} weight="light"/></button>
       </div>
       <BikeActions place={place} booking={booking} initial="unlock" onDone={onClose}/>
     </Modal>

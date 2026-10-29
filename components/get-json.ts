@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { dashboardSchema } from "@/lib/models";
 
 const errorSchema = z.object({ error: z.string() });
 
@@ -30,4 +31,8 @@ export async function getJson<T>(url: string, schema: z.ZodType<T>, unavailable:
     clearTimeout(timer);
     signal?.removeEventListener("abort", abort);
   }
+}
+
+export function readDashboard() {
+  return getJson("/api/dashboard", dashboardSchema, "Votre compte est momentanément indisponible.");
 }

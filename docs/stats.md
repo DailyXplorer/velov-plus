@@ -30,7 +30,7 @@ Ce document liste les données que l’onglet « Statistiques » utilise, d’o�
 - à une page qui n’apporte aucun trajet nouveau (cas d’un serveur qui ignore `page` : deux lectures au plus) ;
 - après 50 pages (l’historique est alors marqué incomplet).
 
-Une page en échec après la première garde les pages déjà lues et marque l’historique incomplet. Chaque lecture passe par `fetchTransient` : nouvel essai sur 502, 503, 504 ou panne réseau, jamais sur un délai dépassé. Le résultat est gardé 10 minutes par compte côté serveur, et pour la durée de l’onglet côté navigateur.
+Une page en échec après la première garde les pages déjà lues et marque l’historique incomplet. Chaque lecture passe par `fetchTransient` : nouvel essai sur 502, 503, 504 ou panne réseau, jamais sur un délai dépassé. Un historique complet est gardé 10 minutes par compte côté serveur, et pour la durée de l’onglet côté navigateur. Un historique incomplet n’est gardé qu’une minute côté serveur et jamais côté navigateur, et l’onglet affiche « Historique partiel » sous le choix de la période.
 
 ## Calculs et limites
 

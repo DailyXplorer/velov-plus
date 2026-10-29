@@ -4,6 +4,9 @@ import { useId, useRef, useState } from "react";
 import { z } from "zod";
 import { autoRenewalResultSchema, type AutoRenewalResult } from "@/lib/renewal-models";
 import { capitalize } from "@/lib/models";
+import { UNCERTAIN, isUncertain, settle } from "@/lib/outcome";
+import { renewalCheck } from "@/lib/checks";
+import { readDashboard } from "./get-json";
 import { Button, Modal } from "./ui";
 
 const errorSchema = z.object({ error: z.string(), code: z.string().optional() });
@@ -13,6 +16,8 @@ export function AutoRenewal({ subscriptionId, value, allowed, onSaved }: { subsc
   const [asking, setAsking] = useState(false);
   const [pending, setPending] = useState(false);
   const [failure, setFailure] = useState<AutoRenewalResult | null>(null);
+  const [checking, setChecking] = useState(false);
+  const [uncertain, setUncertain] = useState(false);
   const [saved, setSaved] = useState<AutoRenewalResult | null>(null);
   const inFlight = useRef(false);
   const titleId = useId();
@@ -36,8 +41,21 @@ export function AutoRenewal({ subscriptionId, value, allowed, onSaved }: { subsc
     }
     inFlight.current = false;
     setPending(false);
-    if (!outcome.ok) { setFailure(outcome); return; }
+    if (!outcome.ok) { setFailure(outcome); if (isUncertain(outcome)) { setUncertain(true); await resolve(outcome); } return; }
     if (outcome.verified && outcome.autoRenewal !== null) setSaved(outcome);
+    setAsking(false);
+    onSaved();
+  }
+
+  async function resolve(outcome: AutoRenewalResult) {
+    if (!subscriptionId || inFlight.current) return;
+    inFlight.current = true;
+    setChecking(true);
+    const settled = await settle(outcome, async () => renewalCheck(await readDashboard(), subscriptionId, next));
+    inFlight.current = false;
+    setChecking(false);
+    if (settled.kind === "uncertain") return;
+    if (settled.kind === "refused") { setFailure({ ...outcome, ...settled.outcome }); setUncertain(false); return; }
     setAsking(false);
     onSaved();
   }
@@ -48,15 +66,17 @@ export function AutoRenewal({ subscriptionId, value, allowed, onSaved }: { subsc
 
   return <div className="setting-row renewal-setting">
     <div><span className="metric-label">Renouvellement automatique</span><strong className="setting-value">{actual === null ? "Indisponible pour le moment" : actual ? "Activé" : "Désactivé"}</strong></div>
-    {canChange && subscriptionId && actual !== null ? <button type="button" role="switch" className="switch" aria-checked={actual} aria-label="Renouvellement automatique" onClick={() => { setFailure(null); setAsking(true); }}/> : null}
+    {canChange && subscriptionId && actual !== null ? <button type="button" role="switch" className="switch" aria-checked={actual} aria-label="Renouvellement automatique" onClick={() => { setFailure(null); setUncertain(false); setAsking(true); }}/> : null}
     {asking ? <Modal titleId={titleId} onClose={close}>
       <h2 id={titleId}>{next ? "Activer le renouvellement automatique ?" : "Désactiver le renouvellement automatique ?"}</h2>
       {next ? <p>Votre abonnement sera renouvelé et facturé à son échéance.</p> : null}
       {failure ? <>
         <p className="form-error" role="alert">{failure.message}</p>
         <p className="bike-action-raw">HTTP {failure.httpStatus || "aucune réponse"} · Code {failure.code ?? "—"} · {capitalize(failure.detail ?? failure.message ?? "")}</p>
+        {uncertain ? <p className="uncertain-note">{UNCERTAIN}</p> : null}
       </> : null}
-      <div className="modal-actions"><Button variant="secondary" disabled={pending} onClick={close}>Annuler</Button><Button pending={pending} onClick={() => void confirm()}>Confirmer</Button></div>
+      <div className="modal-actions">{uncertain && failure ? <><Button variant="secondary" disabled={checking} onClick={close}>Fermer</Button><Button variant="secondary" pending={checking} onClick={() => void resolve(failure)}>Vérifier</Button></>
+        : <><Button variant="secondary" disabled={pending} onClick={close}>Annuler</Button><Button pending={pending} onClick={() => void confirm()}>Confirmer</Button></>}</div>
     </Modal> : null}
   </div>;
 }

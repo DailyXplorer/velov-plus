@@ -1,12 +1,12 @@
 import { z } from "zod";
+import { accountDigest } from "./operations.ts";
 
 const savedSchema = z.array(z.object({ code: z.string().min(1), createdAt: z.string() }));
 export type SavedPromo = z.infer<typeof savedSchema>[number];
 type Store = Pick<Storage, "getItem" | "setItem">;
 
 export async function promoStorageKey(account: string): Promise<string> {
-  const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(account.trim().toLowerCase()));
-  return `velov:promocodes:v1:${Array.from(new Uint8Array(hash), (byte) => byte.toString(16).padStart(2, "0")).join("")}`;
+  return `velov:promocodes:v1:${await accountDigest(account)}`;
 }
 
 export function readPromoCodes(storage: Store, key: string): SavedPromo[] {

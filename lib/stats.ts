@@ -5,6 +5,8 @@ import type { Trip } from "./models.ts";
 export const DETOUR_FACTOR = 1.3;
 export const CO2_GRAMS_PER_KM = 200;
 export const MAX_PAGES = 50;
+export const COMPLETE_TTL = 10 * 60_000;
+export const PARTIAL_TTL = 60_000;
 export const PERIODS = ["30d", "12m", "all"] as const;
 export type Period = (typeof PERIODS)[number];
 const TOP = 5;
@@ -22,12 +24,13 @@ export const periodStatsSchema = z.object({
 });
 export const statsSchema = z.object({
   periods: z.object({ "30d": periodStatsSchema, "12m": periodStatsSchema, all: periodStatsSchema }),
-  balance: z.number().nullable()
+  balance: z.number().nullable(),
+  complete: z.boolean()
 });
 export type PeriodStats = z.infer<typeof periodStatsSchema>;
 export type Stats = z.infer<typeof statsSchema>;
 export type Movement = { date: string | null; amount: number };
-export type StatsInput = { trips: Trip[]; coords: Map<number, Point>; movements: Movement[] | null; balance: number | null; now: Date };
+export type StatsInput = { trips: Trip[]; coords: Map<number, Point>; movements: Movement[] | null; balance: number | null; now: Date; complete?: boolean };
 
 export async function collectPages<T>(fetchPage: (page: number) => Promise<T[]>, idOf: (item: T) => string, maxPages = MAX_PAGES): Promise<{ items: T[]; complete: boolean }> {
   const items: T[] = [];
@@ -168,6 +171,11 @@ export function periodStats(period: Period, { trips: history, coords, movements,
 export function buildStats(input: StatsInput): Stats {
   return {
     periods: { "30d": periodStats("30d", input), "12m": periodStats("12m", input), all: periodStats("all", input) },
-    balance: input.balance ?? input.movements?.reduce((sum, movement) => sum + movement.amount, 0) ?? null
+    balance: input.balance ?? input.movements?.reduce((sum, movement) => sum + movement.amount, 0) ?? null,
+    complete: input.complete ?? true
   };
+}
+
+export function statsTtl(stats: Stats) {
+  return stats.complete ? COMPLETE_TTL : PARTIAL_TTL;
 }

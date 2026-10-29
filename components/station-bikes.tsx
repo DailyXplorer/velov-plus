@@ -7,6 +7,7 @@ import { type AssessedBike, assessBikes, isCheckOverdue } from "@/lib/bike-score
 import { type Bike, type Resource, type Station, bikeSchema, capitalize, formatDate } from "@/lib/models";
 import { Button, EmptyState, Eyebrow, Ghost, Modal } from "./ui";
 import { BikeActions, BookingsContext } from "./bike-actions";
+import { useSending } from "./operations";
 import { getJson } from "./get-json";
 
 const unavailable = "Les vélos de cette station sont momentanément indisponibles.";
@@ -209,6 +210,7 @@ export function StationBikes({ station, onClose }: { station: Station; onClose: 
   const own = useOwnBikes();
   const returnTo = useRef<number | null>(null);
   const list = useRef<HTMLUListElement>(null);
+  const sending = useSending();
 
   const { run: load, refreshing } = useLatestLoad(
     useCallback((signal: AbortSignal) => getJson(`/api/stations/${station.number}/bikes`, z.array(bikeSchema), unavailable, signal), [station.number]),
@@ -229,16 +231,17 @@ export function StationBikes({ station, onClose }: { station: Station; onClose: 
   const count = assessed ? assessed.length : null;
 
   function back() {
+    if (sending) return;
     returnTo.current = selected;
     setSelected(null);
   }
 
   return (
-    <Modal titleId="station-bikes-title" onClose={onClose} className="bikes-drawer">
+    <Modal titleId="station-bikes-title" onClose={sending ? () => {} : onClose} className="bikes-drawer">
       <div className="bikes-header">
         {opened ? (
           <>
-            <button className="icon-button" onClick={back} aria-label="Retour à la liste des vélos" autoFocus><ArrowLeftIcon size={20} weight="light"/></button>
+            <button className="icon-button" onClick={back} disabled={sending} aria-label="Retour à la liste des vélos" autoFocus><ArrowLeftIcon size={20} weight="light"/></button>
             <h2 id="station-bikes-title" className="bikes-title"><span className="sr-only">Vélo </span><span className="bike-sheet-number">{opened.bike.number}</span>{own.has(opened.bike.number) ? null : <VerdictMark verdict={opened.verdict}/>}</h2>
           </>
         ) : (
@@ -246,7 +249,7 @@ export function StationBikes({ station, onClose }: { station: Station; onClose: 
         )}
         <div className="bikes-actions">
           {!opened ? <button className="icon-button" onClick={() => void load()} disabled={refreshing} aria-label="Actualiser les vélos" title="Actualiser"><ArrowClockwiseIcon size={19} weight="light" className={refreshing ? "spin" : undefined}/></button> : null}
-          <button className="icon-button" onClick={onClose} aria-label="Fermer"><XIcon size={20} weight="light"/></button>
+          <button className="icon-button" onClick={onClose} disabled={sending} aria-label="Fermer"><XIcon size={20} weight="light"/></button>
         </div>
       </div>
       {opened ? <BikeSheet item={opened} actions={<StationActions bike={opened.bike} station={station} onDone={onClose}/>}/> : (

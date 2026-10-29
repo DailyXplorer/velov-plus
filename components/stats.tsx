@@ -36,7 +36,7 @@ export function StatsPage({ account }: { account: string }) {
     setState({ kind: "loading" });
     try {
       const stats = await getJson("/api/stats", statsSchema, unavailable);
-      cached = { account, stats };
+      cached = stats.complete ? { account, stats } : null;
       setState({ kind: "ready", stats });
     } catch (error) {
       setState({ kind: "error", message: error instanceof ApiError ? error.message : unavailable });
@@ -58,6 +58,7 @@ export function StatsView({ stats }: { stats: Stats }) {
       <div className="filter-line">
         <SelectField label="Période" hideLabel value={period} onChange={setPeriod} options={periods}/>
       </div>
+      {!stats.complete ? <small className="soon-note" role="status">Historique partiel</small> : null}
       <Headline data={data} balance={stats.balance}/>
       {!data.trips ? (
         <EmptyState>{ever ? "Aucun trajet sur cette période." : "Vos statistiques apparaîtront après votre premier trajet."}</EmptyState>

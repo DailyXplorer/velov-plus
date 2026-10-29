@@ -5,6 +5,9 @@ import { z } from "zod";
 import { DownloadSimpleIcon, StarIcon, XIcon } from "./icons";
 import { ADDRESS_MAX, NAME_MAX, type Dashboard, type Outcome, type ProfileBody, type Receipt, type Station, type Trip, autoSpendResultSchema, capitalize, formatDate, outcomeSchema } from "@/lib/models";
 import { type Draft, changesOf, countries, countryName, draftOf } from "@/lib/profile-draft";
+import { type Check, UNCERTAIN, UNVERIFIED, isUncertain, settle } from "@/lib/outcome";
+import { autoSpendCheck, favoriteCheck, profileCheck } from "@/lib/checks";
+import { readDashboard } from "./get-json";
 import { Button, Modal, SelectField } from "./ui";
 
 const errorSchema = z.object({ error: z.string(), code: z.string().optional() });
@@ -31,12 +34,20 @@ function RawStatus({ outcome }: { outcome: Outcome }) {
   return <p className="bike-action-raw">{[`HTTP ${outcome.httpStatus || "aucune réponse"}`, `Code ${outcome.code ?? "—"}`, outcome.detail && capitalize(outcome.detail)].filter(Boolean).join(" · ")}</p>;
 }
 
-type Step = { kind: "confirm" } | { kind: "sending" } | { kind: "failed"; outcome: Outcome };
+type Step = { kind: "confirm" } | { kind: "sending" } | { kind: "failed"; outcome: Outcome } | { kind: "uncertain"; outcome: Outcome; checking: boolean };
 
-function ConfirmDialog({ title, children, run, onClose }: { title: string; children?: ReactNode; run: () => Promise<Outcome>; onClose: () => void }) {
+function ConfirmDialog({ title, children, run, check, onDone, onClose }: { title: string; children?: ReactNode; run: () => Promise<Outcome>; check: () => Promise<Check>; onDone: () => void; onClose: () => void }) {
   const titleId = useId();
   const [step, setStep] = useState<Step>({ kind: "confirm" });
   const inFlight = useRef(false);
+
+  async function resolve(outcome: Outcome) {
+    setStep({ kind: "uncertain", outcome, checking: true });
+    const settled = await settle(outcome, check);
+    if (settled.kind === "done") { onDone(); onClose(); }
+    else if (settled.kind === "refused") setStep({ kind: "failed", outcome: settled.outcome });
+    else setStep({ kind: "uncertain", outcome: { ...settled.outcome, message: settled.outcome.message ?? UNVERIFIED }, checking: false });
+  }
 
   async function confirm() {
     if (inFlight.current) return;
@@ -44,24 +55,29 @@ function ConfirmDialog({ title, children, run, onClose }: { title: string; child
     setStep({ kind: "sending" });
     try {
       const outcome = await run();
-      if (outcome.ok) onClose();
+      if (outcome.ok) { onDone(); onClose(); }
+      else if (isUncertain(outcome)) await resolve(outcome);
       else setStep({ kind: "failed", outcome });
     } finally {
       inFlight.current = false;
     }
   }
 
+  const busy = step.kind === "sending" || step.kind === "uncertain" && step.checking;
   return (
-    <Modal titleId={titleId} onClose={step.kind === "sending" ? () => {} : onClose}>
+    <Modal titleId={titleId} onClose={busy ? () => {} : onClose}>
       <div className="modal-heading">
         <h2 id={titleId}>{title}</h2>
-        <button className="icon-button" aria-label="Fermer" disabled={step.kind === "sending"} onClick={onClose}><XIcon size={20} weight="light"/></button>
+        <button className="icon-button" aria-label="Fermer" disabled={busy} onClick={onClose}><XIcon size={20} weight="light"/></button>
       </div>
       {children ? <div className="write-question">{children}</div> : null}
-      {step.kind === "failed" ? <><p className="form-error" role="alert">{step.outcome.message ?? "La modification n’a pas abouti."}</p><RawStatus outcome={step.outcome}/></> : null}
+      {step.kind === "failed" || step.kind === "uncertain" ? <><p className="form-error" role="alert">{step.outcome.message ?? "La modification n’a pas abouti."}</p><RawStatus outcome={step.outcome}/></> : null}
+      {step.kind === "uncertain" ? <p className="uncertain-note">{UNCERTAIN}</p> : null}
       <div className="modal-actions">
-        <Button variant="ghost" disabled={step.kind === "sending"} onClick={onClose}>Annuler</Button>
-        <Button pending={step.kind === "sending"} onClick={() => void confirm()}>Confirmer</Button>
+        {step.kind === "uncertain" ? <><Button variant="ghost" disabled={busy} onClick={onClose}>Fermer</Button><Button variant="secondary" pending={step.checking} onClick={() => void resolve(step.outcome)}>Vérifier</Button></> : <>
+          <Button variant="ghost" disabled={busy} onClick={onClose}>Annuler</Button>
+          <Button pending={step.kind === "sending"} onClick={() => void confirm()}>Confirmer</Button>
+        </>}
       </div>
     </Modal>
   );
@@ -73,6 +89,7 @@ function Switch({ checked, label, disabled = false, onClick }: { checked: boolea
 
 export function AutoSpendSetting({ value, onChanged }: { value: boolean | null; onChanged: (value: boolean) => void }) {
   const [asking, setAsking] = useState(false);
+  const confirmed = useRef<boolean | null>(null);
   const next = !value;
   return (
     <div className="setting-row">
@@ -83,10 +100,11 @@ export function AutoSpendSetting({ value, onChanged }: { value: boolean | null; 
       {value != null ? <Switch checked={value} label="Utilisation automatique des points" onClick={() => setAsking(true)}/> : null}
       {asking ? (
         <ConfirmDialog title={next ? "Activer l’utilisation automatique ?" : "Désactiver l’utilisation automatique ?"} onClose={() => setAsking(false)}
+          onDone={() => onChanged(confirmed.current ?? next)} check={async () => autoSpendCheck(await readDashboard(), next)}
           run={async () => {
             const { outcome, data } = await sendWrite("/api/account/rewards", "PATCH", { autoSpend: next });
             const result = autoSpendResultSchema.safeParse(data);
-            if (outcome.ok) onChanged(result.success && result.data.autoSpend != null ? result.data.autoSpend : next);
+            confirmed.current = outcome.ok && result.success ? result.data.autoSpend : null;
             return outcome;
           }}>
           <p>{next ? "Vos points régleront automatiquement les minutes au-delà de la période gratuite." : "Vos points ne régleront plus les minutes au-delà de la période gratuite."}</p>
@@ -105,11 +123,8 @@ export function FavoriteButton({ station, favorite, onChanged }: { station: Stat
       </button>
       {asking ? (
         <ConfirmDialog title={favorite ? "Retirer des favoris ?" : "Ajouter aux favoris ?"} onClose={() => setAsking(false)}
-          run={async () => {
-            const { outcome } = await sendWrite(`/api/account/favorites/${station.number}`, favorite ? "DELETE" : "POST");
-            if (outcome.ok) onChanged(station.number, !favorite);
-            return outcome;
-          }}/>
+          onDone={() => onChanged(station.number, !favorite)} check={async () => favoriteCheck(await readDashboard(), station.number, !favorite)}
+          run={async () => (await sendWrite(`/api/account/favorites/${station.number}`, favorite ? "DELETE" : "POST")).outcome}/>
       ) : null}
     </>
   );
@@ -230,11 +245,8 @@ export function ProfileCoordinates({ profile, onSaved }: { profile: Profile; onS
       )}
       {asking ? (
         <ConfirmDialog title="Enregistrer les modifications ?" onClose={() => setAsking(null)}
-          run={async () => {
-            const { outcome } = await sendWrite("/api/account/profile", "PATCH", asking);
-            if (outcome.ok) { setDraft(null); onSaved(); }
-            return outcome;
-          }}/>
+          onDone={() => { setDraft(null); onSaved(); }} check={async () => profileCheck(profile, (await readDashboard()).profile, asking)}
+          run={async () => (await sendWrite("/api/account/profile", "PATCH", asking)).outcome}/>
       ) : null}
     </>
   );

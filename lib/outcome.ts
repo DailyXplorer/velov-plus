@@ -21,3 +21,17 @@ export function routeFailure(status: number, body: unknown, message: string): Ou
   const error = body && typeof body === "object" ? body as Record<string, unknown> : {};
   return { ok: false, httpStatus: status, transactionState: null, code: typeof error.code === "string" ? error.code : "local.unreadable", message: typeof error.error === "string" ? error.error : message, detail: null };
 }
+
+export const NOT_APPLIED = "Vélo’v n’a rien enregistré. Vous pouvez réessayer.";
+export const UNVERIFIED = "Le résultat est incertain et n’a pas pu être vérifié. Vérifiez de nouveau avant de réessayer.";
+export type Check = "applied" | "unchanged" | "unknown";
+export type Settled = { kind: "done" } | { kind: "refused" | "uncertain"; outcome: Outcome };
+
+export async function settle(outcome: Outcome, check: () => Promise<Check>): Promise<Settled> {
+  if (outcome.ok) return { kind: "done" };
+  if (!isUncertain(outcome)) return { kind: "refused", outcome };
+  const state = await check().catch((): Check => "unknown");
+  if (state === "applied") return { kind: "done" };
+  if (state === "unchanged") return { kind: "refused", outcome: { ...outcome, message: NOT_APPLIED } };
+  return { kind: "uncertain", outcome };
+}

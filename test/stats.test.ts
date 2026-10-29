@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { CO2_GRAMS_PER_KM, DETOUR_FACTOR, buildStats, collectPages, estimateDistance, parisTime, periodStats, type StatsInput } from "../lib/stats.ts";
+import { readFileSync } from "node:fs";
+import { CO2_GRAMS_PER_KM, COMPLETE_TTL, DETOUR_FACTOR, PARTIAL_TTL, type Stats, buildStats, collectPages, estimateDistance, parisTime, periodStats, statsSchema, statsTtl, type StatsInput } from "../lib/stats.ts";
+import { memo } from "../lib/memo.ts";
 import { haversine } from "../lib/geo.ts";
 import type { Trip } from "../lib/models.ts";
 
@@ -154,4 +156,49 @@ test("pagination over a mocked fetch: pages requested one at a time, never in pa
     assert.equal(peak, 1);
     assert.equal(urls.length, 3);
   } finally { globalThis.fetch = original; }
+});
+
+test("F6: a history cut by a failed page or the 50-page cap reaches the client marked incomplete", async () => {
+  for (const fetchPage of [async (page: number) => { if (page === 1) throw new Error("502"); return [trip("2026-10-20T07:00:00Z", { id: "kept" })]; }, async (page: number) => [trip("2026-10-20T07:00:00Z", { id: `p${page}` })]]) {
+    const history = await collectPages(fetchPage, (item) => item.id);
+    const stats = statsSchema.parse(JSON.parse(JSON.stringify(buildStats(input(history.items, { complete: history.complete })))));
+    assert.equal(stats.complete, false);
+  }
+  assert.equal(buildStats(input([])).complete, true);
+  const { complete: _, ...withoutFlag } = buildStats(input([]));
+  assert.equal(statsSchema.safeParse(withoutFlag).success, false);
+  const velov = readFileSync(new URL("../lib/velov.ts", import.meta.url), "utf8");
+  assert.match(velov, /complete: history\.complete && movements\?\.complete !== false/);
+  assert.match(velov, /memo<Stats>\(statsTtl\)/);
+});
+
+test("F6: the server keeps an incomplete history one minute only, a complete one ten minutes", async () => {
+  const realNow = Date.now;
+  let clock = 0;
+  Date.now = () => clock;
+  try {
+    const partial = { ...buildStats(input([])), complete: false } satisfies Stats;
+    const whole = buildStats(input([]));
+    assert.deepEqual([statsTtl(partial), statsTtl(whole)], [PARTIAL_TTL, COMPLETE_TTL]);
+    assert.equal(PARTIAL_TTL, 60_000);
+    const cache = memo<Stats>(statsTtl);
+    let loads = 0;
+    const load = (value: Stats) => () => { loads++; return Promise.resolve(value); };
+    await cache("a", load(partial));
+    clock += PARTIAL_TTL - 1;
+    await cache("a", load(partial));
+    assert.equal(loads, 1);
+    clock += 1;
+    await cache("a", load(whole));
+    assert.equal(loads, 2);
+    clock += PARTIAL_TTL * 5;
+    await cache("a", load(whole));
+    assert.equal(loads, 2);
+  } finally { Date.now = realNow; }
+});
+
+test("F6: the page says Historique partiel under the period and never keeps a partial result in the tab", () => {
+  const page = readFileSync(new URL("../components/stats.tsx", import.meta.url), "utf8");
+  assert.match(page, /cached = stats\.complete \? \{ account, stats \} : null;/);
+  assert.match(page, /<\/div>\n\s+\{!stats\.complete \? <small className="soon-note" role="status">Historique partiel<\/small> : null\}/);
 });

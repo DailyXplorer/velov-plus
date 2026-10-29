@@ -5,6 +5,7 @@ import { z } from "zod";
 import { ArrowClockwiseIcon, BicycleIcon, ChartIcon, HouseIcon, MapPinIcon, SignOutIcon, StarFourIcon, UserCircleIcon, WarningCircleIcon, XIcon } from "./icons";
 import { bookingSchema, dashboardSchema, stationsSchema, type Booking, type Dashboard, type Page, type Resource, type Trip, formatDate, formatName } from "@/lib/models";
 import { createDockWatch, tripCheckSchema, tripToGreet } from "@/lib/trip-end";
+import { createRefreshGate } from "@/lib/refresh-gate";
 import { AccountPage, AccountSkeleton, Overview, OverviewSkeleton, PointsPage, PointsSkeleton, StationsPage, StationsSkeleton, TripsPage, TripsSkeleton } from "./dashboard";
 import { Button, Modal } from "./ui";
 import { Login } from "./login";
@@ -52,6 +53,7 @@ export function Companion({ initialSession }: { initialSession: boolean }) {
   const watch = useRef<ReturnType<typeof createDockWatch> | null>(null);
   const dockedTrips = useRef(new Set<string>());
   const greeted = useRef(false);
+  const refreshGate = useRef(createRefreshGate());
 
   const loadBookings = useCallback(async () => {
     try { setBookings(await getJson("/api/bookings", z.array(bookingSchema), "")); }
@@ -152,6 +154,11 @@ export function Companion({ initialSession }: { initialSession: boolean }) {
     void loadBookings();
   }
 
+  function refreshAll() {
+    if (!refreshGate.current(dashboardInFlight.current || stationsInFlight.current)) return;
+    void loadDashboard(); void loadStations(); void loadBookings();
+  }
+
   function openLogout() { setLogoutError(null); setLogoutOpen(true); }
 
   async function logout() {
@@ -215,7 +222,7 @@ export function Companion({ initialSession }: { initialSession: boolean }) {
             <h1>{label}</h1>
             <div className="header-actions">
               <button className="icon-button" title={data ? `Actualisé à ${formatDate(data.updatedAt, { hour: "2-digit", minute: "2-digit" })}` : "Actualiser"}
-                aria-label="Actualiser mon compte" onClick={() => { void loadDashboard(); void loadStations(); void loadBookings(); }} disabled={refreshing}>
+                aria-label="Actualiser mon compte" onClick={refreshAll} disabled={refreshing}>
                 <ArrowClockwiseIcon className={refreshing ? "spin" : ""} size={20} weight="light"/>
               </button>
               <button className="user-avatar" onClick={() => navigate("account")} aria-label={name ? `Mon compte, ${name}` : "Mon compte"} title={name || undefined}>{initial ?? <UserCircleIcon size={22} weight="light" aria-hidden="true"/>}</button>
