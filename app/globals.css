@@ -99,7 +99,7 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
 .sidebar-user:hover { color: var(--ink); background: var(--mist); }
 .app-main { min-height: 100svh; margin-left: 224px; }
 .app-header, .main-content { width: 100%; max-width: 1240px; margin-inline: auto; padding-inline: 48px; }
-.app-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-top: 36px; padding-bottom: 36px; }
+.app-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-top: 29px; padding-bottom: 43px; /* title cap height starts on the same line as the first sidebar tab */ }
 .app-header h1 { font-size: 34px; line-height: 1.2; }
 .header-actions { display: flex; align-items: center; gap: 10px; }
 .user-avatar { display: grid; place-items: center; flex-shrink: 0; width: 40px; height: 40px; padding: 0; border: 0; border-radius: 50%; color: var(--ink); background: var(--mist); font-size: 18px; transition: background-color .2s ease, color .2s ease; }
