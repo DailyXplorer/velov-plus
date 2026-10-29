@@ -54,7 +54,7 @@ export type Trip = z.infer<typeof tripSchema>;
 export type Receipt = z.infer<typeof receiptSchema>;
 export type Station = z.infer<typeof stationSchema>;
 export type Bike = z.infer<typeof bikeSchema>;
-export type Page = "overview" | "trips" | "points" | "stations" | "account";
+export type Page = "overview" | "trips" | "stats" | "points" | "stations" | "account";
 export type Resource<T> = { kind: "loading" } | { kind: "ready"; data: T } | { kind: "error"; message: string };
 
 /** Vélo’v keeps three levels: recommended (100), or not with 60 for a minor problem and 30 for a serious one. */

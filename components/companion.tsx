@@ -2,12 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
-import { ArrowClockwiseIcon, BicycleIcon, HouseIcon, MapPinIcon, SignOutIcon, StarFourIcon, UserCircleIcon, WarningCircleIcon, XIcon } from "./icons";
+import { ArrowClockwiseIcon, BicycleIcon, ChartIcon, HouseIcon, MapPinIcon, SignOutIcon, StarFourIcon, UserCircleIcon, WarningCircleIcon, XIcon } from "./icons";
 import { bookingSchema, dashboardSchema, stationsSchema, type Booking, type Dashboard, type Page, type Resource, type Trip, formatDate, formatName } from "@/lib/models";
 import { createDockWatch, tripCheckSchema, tripToGreet } from "@/lib/trip-end";
 import { AccountPage, Overview, PointsPage, StationsPage, TripsPage } from "./dashboard";
 import { Button, Modal } from "./ui";
 import { Login } from "./login";
+import { StatsPage } from "./stats";
 import { BookingBanner, BookingsContext, UnlockModal } from "./bike-actions";
 import { ApiError, getJson } from "./get-json";
 import { TripEndedSheet } from "./trip-sheet";
@@ -15,6 +16,7 @@ import { TripEndedSheet } from "./trip-sheet";
 const navigation = [
   { id: "overview", label: "Vue d’ensemble", mobile: "Accueil", icon: HouseIcon },
   { id: "trips", label: "Trajets", mobile: "Trajets", icon: BicycleIcon },
+  { id: "stats", label: "Statistiques", mobile: "Stats", icon: ChartIcon },
   { id: "points", label: "Points", mobile: "Points", icon: StarFourIcon },
   { id: "stations", label: "Stations", mobile: "Stations", icon: MapPinIcon },
   { id: "account", label: "Compte", mobile: "Compte", icon: UserCircleIcon }
@@ -237,6 +239,7 @@ export function Companion({ initialSession }: { initialSession: boolean }) {
                 ) : null}
                 {page === "overview" ? <Overview data={state.data} stations={stations} navigate={navigate} reload={() => void loadStations()} reloading={stationsPending}/>
                   : page === "trips" ? <TripsPage data={state.data}/>
+                    : page === "stats" ? <StatsPage account={state.data.profile.email}/>
                     : page === "points" ? <PointsPage data={state.data} onAutoSpend={setAutoSpend} onChanged={() => void loadDashboard()}/>
                       : page === "stations" ? <StationsPage resource={stations} reload={() => void loadStations()} reloading={stationsPending} favorites={state.data.profile.favorites} onFavorite={setFavorite}/>
                         : <AccountPage data={state.data} onLogout={openLogout} onSaved={() => void loadDashboard()}/>}
