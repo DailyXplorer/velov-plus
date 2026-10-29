@@ -483,7 +483,6 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
 .bike-action-buttons { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin-top: 12px; }
 .bike-action > .bike-action-buttons:first-child, .bike-action-mine + .bike-action-buttons { margin-top: 0; }
 .bike-action-buttons > .button { flex: 1 1 150px; }
-.bike-action-buttons > .button-ghost { flex: 0 0 auto; }
 .bike-action-question { font-size: 15px; }
 .bike-action-facts { display: grid; gap: 6px; margin: 10px 0 0; }
 .bike-action-facts > div { display: flex; justify-content: space-between; gap: 12px; }
@@ -635,3 +634,11 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
 .map-wheel-hint { position: absolute; inset: 0; z-index: 6; border-radius: inherit; display: grid; place-items: center; color: var(--white); background: rgba(28, 23, 23, .45); font-family: var(--font); font-size: 18px; opacity: 0; pointer-events: none; transition: opacity .25s ease; }
 .map-wheel-hint.is-visible { opacity: 1; }
 @media (prefers-reduced-motion: reduce) { .map-wheel-hint { transition: none; } }
+/* Paired actions (Annuler / Confirmer…): every button in a row is as wide and as tall as the widest one,
+   ghost included, so its hover background matches the filled button. */
+.modal-actions, .trip-rate-actions, .bike-action-buttons, .profile-form-actions { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(120px, 1fr); justify-content: end; }
+.modal-actions > .button, .trip-rate-actions > .button, .bike-action-buttons > .button, .profile-form-actions > .button { width: 100%; min-height: 42px; padding-inline: 20px; }
+@media (max-width: 620px) {
+  .modal-actions, .trip-rate-actions, .bike-action-buttons { grid-auto-columns: 1fr; justify-content: stretch; }
+  .profile-form-actions { grid-auto-flow: row; }
+}
