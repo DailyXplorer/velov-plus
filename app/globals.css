@@ -713,3 +713,15 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
   .stat-records dd, .stat-bike { font-size: 23px; }
   .stat-ranking li { grid-template-columns: 18px minmax(0, 1fr) auto; }
 }
+
+/* Uppercase where the old mono font was uppercase (owner): same text in DM Sans, small caps spacing. */
+.button, .text-button, .text-link, .eyebrow, .card-tag, .skip-link, .metric-label, .table-head, .select-field > .select-label, .result-count, .points-balance > span, .points-total > span, .station-numbers small, .station-pin, .closed-station, .trip-detail-route small, .trip-detail-facts small, .detail-type, .account-details dt, .data-notice summary,
+.trip-stand,
+.trip-rate-title,
+.trip-rated,
+.bike-meta, .bike-reserved, .bike-avoid, .bike-more summary, .bike-details dd > small,
+.bike-action-countdown,
+.bike-action-signin,
+.station-distance,
+.map-explore > span,
+.stat-records dt { text-transform: uppercase; letter-spacing: .02em; }
