@@ -115,7 +115,7 @@ test("F2: the invite state lives in the store, Obtenir un code keeps it, and a r
   assert.match(invite, /uncertain && verification\?\.kind === "not-debited" \? <Button onClick=\{\(\) => void retry\(\)\}>Je n’ai pas été débité, réessayer<\/Button>/);
   assert.equal(invite.match(/débité, réessayer/g)?.length, 1);
   assert.match(invite, /async function retry\(\) \{\n\s+if \(!operationKey \|\| !operation \|\| verification\?\.kind !== "not-debited"\) return;/);
-  assert.match(invite, /\{uncertain \|\| verification\?\.kind === "debited" \? <a className="text-link" href="#account">Contacter le service client<\/a> : null\}/);
+  assert.match(invite, /\{uncertain \|\| verification\?\.kind === "debited" \? <a className="text-link" href="#account">Écrire au service client<\/a> : null\}/);
   assert.doesNotMatch(invite, /pendingAccounts|finally \{/);
   assert.match(invite, /getJson\(`\/api\/account\/rewards\?since=\$\{held\.at - DEBIT_SLACK\}`, rewardsHistorySchema, /);
   assert.match(invite, /inviteDebit\(\{ at: held\.at, cost: Number\(held\.meta\.cost\) \}, history, Date\.now\(\)\)/);

@@ -9,6 +9,7 @@ import { blockedMessage, runOnce, settleHeld } from "@/lib/operations";
 import { renewalCheck } from "@/lib/checks";
 import { readDashboard } from "./get-json";
 import { operations, useAccountKey, useOperation, useSending } from "./operations";
+import { XIcon } from "./icons";
 import { Button, Modal } from "./ui";
 
 const errorSchema = z.object({ error: z.string(), code: z.string().optional() });
@@ -71,16 +72,19 @@ export function AutoRenewal({ subscriptionId, account, value, allowed, onSaved }
     <div><span className="metric-label">Renouvellement automatique</span><strong className="setting-value">{actual === null ? "Indisponible pour le moment" : actual ? "Activé" : "Désactivé"}</strong></div>
     {canChange && subscriptionId && actual !== null ? <button type="button" role="switch" className="switch" aria-checked={actual} aria-label="Renouvellement automatique" onClick={() => { setFailure(null); setNotice(null); setAsking(true); }}/> : null}
     {asking ? <Modal titleId={titleId} onClose={close}>
-      <h2 id={titleId}>{next ? "Activer le renouvellement automatique ?" : "Désactiver le renouvellement automatique ?"}</h2>
-      {next ? <p>Votre abonnement sera renouvelé et facturé à son échéance.</p> : null}
+      <div className="modal-heading">
+        <h2 id={titleId}>{next ? "Activer le renouvellement automatique ?" : "Désactiver le renouvellement automatique ?"}</h2>
+        <button className="icon-button" aria-label="Fermer" disabled={(pending && sendingHere) || checking} onClick={close}><XIcon size={20} weight="light"/></button>
+      </div>
+      {next ? <div className="write-question"><p>Votre abonnement sera renouvelé et facturé à son échéance.</p></div> : null}
       {failure ? <>
         <p className="form-error" role="alert">{failure.message}</p>
         <p className="bike-action-raw">HTTP {failure.httpStatus || "aucune réponse"} · Code {failure.code ?? "—"} · {capitalize(failure.detail ?? failure.message ?? "")}</p>
         {uncertain ? <p className="uncertain-note">{UNCERTAIN}</p> : null}
       </> : null}
       {notice ? <p className="form-error" role="alert">{notice}</p> : null}
-      <div className="modal-actions">{uncertain && failure ? <><Button variant="secondary" disabled={checking} onClick={close}>Fermer</Button><Button variant="secondary" pending={checking} onClick={() => void resolve()}>Vérifier</Button></>
-        : <><Button variant="secondary" disabled={pending} onClick={close}>Annuler</Button><Button pending={pending} disabled={!operationKey} onClick={() => void confirm()}>Confirmer</Button></>}</div>
+      <div className="modal-actions">{uncertain && failure ? <><Button variant="ghost" disabled={checking} onClick={close}>Fermer</Button><Button variant="secondary" pending={checking} onClick={() => void resolve()}>Vérifier</Button></>
+        : <><Button variant="ghost" disabled={pending} onClick={close}>Annuler</Button><Button pending={pending} disabled={!operationKey} onClick={() => void confirm()}>Confirmer</Button></>}</div>
     </Modal> : null}
   </div>;
 }

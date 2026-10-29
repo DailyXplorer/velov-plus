@@ -83,7 +83,7 @@ function BookedUntil({ endsAt }: { endsAt: string | null }) {
   return <><strong>Vélo réservé jusqu’à <span className="clock">{formatDate(endsAt, { hour: "2-digit", minute: "2-digit" })}</span></strong><span className="bike-action-countdown"><ClockIcon size={15} weight="bold" aria-hidden="true"/>{left > 0 ? <>Il reste <span className="clock">{clock(left)}</span></> : "Réservation expirée"}</span></>;
 }
 
-export function BikeActions({ place, booking = null, initial, onDone }: { place: Place; booking?: Booking | null; initial?: Action; onDone: () => void }) {
+export function BikeActions({ place, booking = null, initial, dialog = false, onDone }: { place: Place; booking?: Booking | null; initial?: Action; dialog?: boolean; onDone: () => void }) {
   const account = useContext(BookingsContext);
   const [chosen, setStep] = useState<Step>(initial ? { kind: "confirm", action: initial } : { kind: "start" });
   const [refused, setFailure] = useState<Outcome | null>(null);
@@ -144,7 +144,7 @@ export function BikeActions({ place, booking = null, initial, onDone }: { place:
   }
 
   return (
-    <section className="bike-action" aria-label="Réserver ou déverrouiller">
+    <section className={dialog ? "bike-action bike-action-dialog" : "bike-action"} aria-label="Réserver ou déverrouiller">
       {step.kind === "start" ? (
         <>
           {booking ? <p className="bike-action-mine"><BookedUntil endsAt={booking.endsAt}/></p> : null}
@@ -191,7 +191,7 @@ export function UnlockModal({ booking, onClose }: { booking: Booking; onClose: (
         <h2 id="booking-unlock-title">Vélo {place.bikeNumber}</h2>
         <button className="icon-button" aria-label="Fermer" disabled={sending} onClick={onClose}><XIcon size={20} weight="light"/></button>
       </div>
-      <BikeActions place={place} booking={booking} initial="unlock" onDone={onClose}/>
+      <BikeActions place={place} booking={booking} initial="unlock" dialog onDone={onClose}/>
     </Modal>
   );
 }

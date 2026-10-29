@@ -12,7 +12,7 @@ import { createSessionGate } from "../lib/session-gate.ts";
 import { type Stats, COMPLETE_TTL, PARTIAL_TTL, createStatsCache } from "../lib/stats.ts";
 import { createThrottle } from "../lib/refresh-gate.ts";
 import { RATE_LIMITED, clientAddress, createRateLimit } from "../lib/rate-limit.ts";
-import { type Booking, type Outcome, type Trip, formatCount, formatDuration } from "../lib/models.ts";
+import { type Booking, type Outcome, type Trip, formatCount, formatCountSans, formatDuration, formatPhone } from "../lib/models.ts";
 import { HISTORY_LAG, NOT_APPLIED, isUncertain, noAnswer } from "../lib/outcome.ts";
 
 const realFetch = globalThis.fetch;
@@ -308,15 +308,16 @@ test("hardening: the CSP allows the app, its fonts, OSM tiles and Vercel, nothin
 test("parity: French thousands separators for quantities, whole minutes for durations", () => {
   assert.equal(formatCount(1380), "1 380");
   assert.equal(formatCount(-1000), "-1 000");
+  assert.equal(formatCountSans(2380), "2 380");
   assert.equal(formatDuration(12.5), "13 min");
   assert.equal(formatDuration(12.4), "12 min");
   assert.equal(formatDuration(125), "2 h 5 min");
-  assert.equal(formatDuration(60 * 1200), "1 200 h 0 min");
+  assert.equal(formatDuration(60 * 1200), "1 200 h 0 min");
   const dashboard = source("components/dashboard.tsx");
   assert.doesNotMatch(dashboard, /\$\{trip\.duration\} min|\{data\.rewards\.balance \?\? "—"\}|\{data\.trips\?\.length \?\? "—"\}|\{trips\.length\} trajet|\+\{rule\.points\}|\{movement\.amount\}<|toLocaleString/);
   assert.doesNotMatch(source("components/trip-sheet.tsx"), /\$\{trip\.duration\} min/);
   const invite = source("components/invite-friend.tsx");
-  assert.match(invite, /Il vous manque \{formatCount\(cost - balance\)\} points\./);
+  assert.match(invite, /Il vous manque \{formatCountSans\(cost - balance\)\} points\./);
   assert.match(invite, /const costLabel = cost !== null \? formatCount\(cost\) : "—";/);
   assert.doesNotMatch(invite, /\{cost\} points/);
 });
@@ -360,4 +361,12 @@ test("F3: a failed trip history read is unknown, never proof that the unlock did
   const settled = await settleHeld(tab, "unlock:20449", async () => unlockCheck({ ongoing: null, latest: null }, 20449, at).check, () => later);
   assert.equal(settled?.kind, "uncertain");
   assert.equal(tab.get("unlock:20449")?.status, "uncertain", "the lock stays held");
+});
+
+test("profile phone numbers display grouped with non-breaking spaces, other formats stay as stored", () => {
+  assert.equal(formatPhone("+33612345678"), "+33\u00a06\u00a012\u00a034\u00a056\u00a078");
+  assert.equal(formatPhone("0612345678"), "06\u00a012\u00a034\u00a056\u00a078");
+  assert.equal(formatPhone("+33 1 23 45 67 89"), "+33\u00a01\u00a023\u00a045\u00a067\u00a089");
+  assert.equal(formatPhone("+41791234567"), "+41791234567");
+  assert.equal(formatPhone("12345"), "12345");
 });

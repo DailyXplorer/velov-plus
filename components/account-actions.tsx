@@ -3,7 +3,7 @@
 import { type ReactNode, useId, useRef, useState } from "react";
 import { z } from "zod";
 import { DownloadSimpleIcon, StarIcon, XIcon } from "./icons";
-import { ADDRESS_MAX, NAME_MAX, type Dashboard, type Outcome, type ProfileBody, type Receipt, type Station, type Trip, autoSpendResultSchema, capitalize, formatDate, outcomeSchema, profileBodySchema } from "@/lib/models";
+import { ADDRESS_MAX, NAME_MAX, type Dashboard, type Outcome, type ProfileBody, type Receipt, type Station, type Trip, autoSpendResultSchema, capitalize, formatDate, formatPhone, outcomeSchema, profileBodySchema } from "@/lib/models";
 import { type Draft, changesOf, countries, countryName, draftOf } from "@/lib/profile-draft";
 import { type Check, UNCERTAIN, UNVERIFIED, isUncertain } from "@/lib/outcome";
 import { type Operation, blockedMessage, runOnce, settleHeld } from "@/lib/operations";
@@ -264,7 +264,7 @@ export function ProfileCoordinates({ profile, account, onSaved }: { profile: Pro
         <>
           <dl className="account-details">
             <div><dt>Adresse</dt><dd>{[profile.address, profile.addressComplement].filter(Boolean).join(", ") || "Non renseignée"}<small>{[profile.zipCode, profile.city].filter(Boolean).join(" ")}{profile.country ? `${profile.zipCode || profile.city ? " · " : ""}${countryName(profile.country)}` : ""}</small></dd></div>
-            <div><dt>Téléphone</dt><dd>{profile.phoneNumber ?? "Non renseigné"}</dd></div>
+            <div><dt>Téléphone</dt><dd>{profile.phoneNumber ? formatPhone(profile.phoneNumber) : "Non renseigné"}</dd></div>
           </dl>
           <Button variant="secondary" onClick={() => { if (held) { setAsking(held); return; } setError(null); setDraft(draftOf(profile)); }}>Modifier mes coordonnées</Button>
         </>

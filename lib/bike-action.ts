@@ -3,6 +3,10 @@ import { type Check, noAnswer, routeFailure } from "./outcome.ts";
 import type { TripCheck } from "./trip-end.ts";
 
 export const BIKE_ACTION_TIMEOUT = 60_000;
+const MAYBE: Record<BikeAction, string> = {
+  unlock: "Le vélo est peut-être déverrouillé : regardez la borne avant de réessayer.",
+  book: "Le vélo est peut-être réservé : actualisez la page avant de réessayer."
+};
 
 export type BikeAction = "book" | "unlock";
 type Target = { stationNumber: number; standNumber: number; bikeNumber: number };
@@ -13,9 +17,9 @@ export async function sendBikeAction(action: BikeAction, target: Target, send: t
     const response = await send(action === "book" ? "/api/bookings" : "/api/unlock", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), signal: AbortSignal.timeout(BIKE_ACTION_TIMEOUT) });
     const raw: unknown = await response.json().catch(() => null);
     const parsed = action === "book" ? bookResultSchema.safeParse(raw) : unlockResultSchema.safeParse(raw);
-    return response.ok && parsed.success ? parsed.data : routeFailure(response.status, raw, "Réponse inattendue.");
+    return response.ok && parsed.success ? parsed.data : routeFailure(response.status, raw, `Réponse inattendue. ${MAYBE[action]}`);
   } catch {
-    return noAnswer("Le serveur ne répond pas.");
+    return noAnswer(`Le serveur ne répond pas. ${MAYBE[action]}`);
   }
 }
 

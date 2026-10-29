@@ -5,7 +5,7 @@ import { BicycleIcon, ClockIcon, CoinsIcon, type Icon, LeafIcon, RouteIcon, Star
 import { Button, CardTag, EmptyState, Ghost, SelectField, SelectSkeleton } from "./ui";
 import { BikeDrawer } from "./station-bikes";
 import { ApiError, getJson } from "./get-json";
-import { capitalize, formatDate, formatPrice } from "@/lib/models";
+import { capitalize, formatCountSans, formatDate, formatPrice } from "@/lib/models";
 import { type Period, type PeriodStats, type Stats, createStatsCache, statsSchema } from "@/lib/stats";
 
 const unavailable = "Vos statistiques sont momentanément indisponibles.";
@@ -15,14 +15,14 @@ const periods: { value: Period; label: string }[] = [
   { value: "all", label: "Depuis le début" }
 ];
 const WEEKDAYS = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
-const number = (value: number) => value.toLocaleString("fr-FR");
-const plural = (count: number, word: string) => `${number(count)} ${word}${count > 1 ? "s" : ""}`;
+const figure = (value: number) => value.toLocaleString("fr-FR");
+const plural = (count: number, word: string, format = formatCountSans) => `${format(count)} ${word}${count > 1 ? "s" : ""}`;
 const dayLabel = (day: string, options: Intl.DateTimeFormatOptions = { day: "numeric", month: "short" }) => formatDate(`${day}T12:00:00Z`, options);
 const monthLabel = (month: string, options: Intl.DateTimeFormatOptions = { month: "short" }) => formatDate(`${month}-15T12:00:00Z`, options);
 const monthInitial = (month: string) => monthLabel(month, { month: "narrow" }).toLocaleUpperCase("fr-FR");
 const bucketLabel = (unit: "day" | "month", key: string) => unit === "day" ? dayLabel(key, { weekday: "long", day: "numeric", month: "long" }) : monthLabel(key, { month: "long", year: "numeric" });
-function hours(minutes: number) {
-  return minutes >= 60 ? `${number(Math.floor(minutes / 60))} h ${minutes % 60 ? `${minutes % 60} min` : ""}`.trim() : `${minutes} min`;
+function hours(minutes: number, format = formatCountSans) {
+  return minutes >= 60 ? `${format(Math.floor(minutes / 60))} h ${minutes % 60 ? `${minutes % 60} min` : ""}`.trim() : `${minutes} min`;
 }
 function kilometres(metres: number) {
   return (metres / 1000).toLocaleString("fr-FR", { maximumFractionDigits: metres < 100_000 ? 1 : 0 });
@@ -94,8 +94,8 @@ export function StatsSkeleton() {
         {HEADLINES.map((card) => <StatCard key={card.label} {...card} detail="—" skeleton/>)}
       </div>
       <div className="stat-grid">
-        <Panel title="Temps à vélo par mois" full><ChartSkeleton height={BAR_HEIGHT}/></Panel>
-        <Panel title="Horaires de départ" wide><ChartSkeleton height={heatmapHeight}/></Panel>
+        <Panel title="Temps à vélo par mois" full><ChartSkeleton height={BAR_HEIGHT} plotTop={PLOT_TOP}/></Panel>
+        <Panel title="Horaires de départ" wide><ChartSkeleton height={heatmapHeight} plotTop={HEAT_TOP}/></Panel>
         <Panel title="Répartition par type de vélo">
           <div className="donut">
             <div className="donut-chart" style={{ width: DONUT }}><ChartSkeleton height={DONUT} className="donut-skeleton"/></div>
@@ -113,22 +113,22 @@ export function StatsSkeleton() {
   );
 }
 
-function ChartSkeleton({ height, className = "" }: { height: number | ((width: number) => number); className?: string }) {
+function ChartSkeleton({ height, plotTop = 0, className = "" }: { height: number | ((width: number) => number); plotTop?: number; className?: string }) {
   const [ref, width] = useWidth();
   const pixels = typeof height === "number" ? height : width ? height(width) : 0;
-  return <div className="chart-lane" aria-hidden="true"><div className={`chart skeleton ${className}`} ref={ref} style={{ height: pixels || undefined }}/></div>;
+  return <div className={`chart skeleton ${className}`} ref={ref} style={{ height: pixels || undefined, marginTop: PLOT_GAP - plotTop }} aria-hidden="true"/>;
 }
 
 function Headline({ data, balance }: { data: PeriodStats; balance: number | null }) {
   const kg = data.co2Grams / 1000;
   return (
     <div className="stat-cards">
-      <StatCard icon={BicycleIcon} label="Trajets" value={number(data.trips)} detail={data.trips ? `${hours(Math.round(data.minutes / data.trips))} en moyenne` : "Aucun trajet"}/>
-      <StatCard icon={ClockIcon} label="Minutes à vélo" value={number(data.minutes)} detail={data.minutes >= 60 ? `Soit ${hours(data.minutes)}` : "Moins d’une heure"}/>
+      <StatCard icon={BicycleIcon} label="Trajets" value={figure(data.trips)} detail={data.trips ? `${hours(Math.round(data.minutes / data.trips))} en moyenne` : "Aucun trajet"}/>
+      <StatCard icon={ClockIcon} label="Minutes à vélo" value={figure(data.minutes)} detail={data.minutes >= 60 ? `Soit ${hours(data.minutes)}` : "Moins d’une heure"}/>
       <StatCard icon={RouteIcon} label="Distance" value={kilometres(data.distance.metres)} unit="km" detail={`Sur ${plural(data.distance.known, "trajet")}`}/>
-      <StatCard icon={LeafIcon} label="CO₂ évité" value={kg >= 1 ? kg.toLocaleString("fr-FR", { maximumFractionDigits: kg < 10 ? 1 : 0 }) : number(data.co2Grams)} unit={kg >= 1 ? "kg" : "g"} detail="Plutôt qu’en voiture"/>
+      <StatCard icon={LeafIcon} label="CO₂ évité" value={kg >= 1 ? kg.toLocaleString("fr-FR", { maximumFractionDigits: kg < 10 ? 1 : 0 }) : figure(data.co2Grams)} unit={kg >= 1 ? "kg" : "g"} detail="Plutôt qu’en voiture"/>
       <StatCard icon={CoinsIcon} label="Dépenses" value={formatPrice(data.spentCents)} detail={data.savedCents ? `${formatPrice(data.savedCents)} économisés` : data.spentCents ? "Aucune réduction" : "Aucun supplément"}/>
-      <StatCard icon={StarFourIcon} label="Points gagnés" value={number(data.pointsEarned)} detail={balance != null ? `Solde de ${plural(balance, "point")}` : undefined}/>
+      <StatCard icon={StarFourIcon} label="Points gagnés" value={figure(data.pointsEarned)} detail={balance != null ? `Solde de ${plural(balance, "point")}` : undefined}/>
     </div>
   );
 }
@@ -167,9 +167,10 @@ function useWidth() {
 }
 
 type Tip = { x: number; content: ReactNode };
-const LANE = 56;
+const TIP_GAP = 6;
+const PLOT_GAP = 16;
 
-function placeTip(tip: HTMLElement, chart: HTMLElement, x: number) {
+function placeTip(tip: HTMLElement, chart: HTMLElement, x: number, plotTop: number) {
   const card = chart.closest<HTMLElement>(".stat-panel") ?? chart;
   const style = getComputedStyle(card);
   const bounds = card.getBoundingClientRect();
@@ -177,11 +178,13 @@ function placeTip(tip: HTMLElement, chart: HTMLElement, x: number) {
   const min = bounds.left + parseFloat(style.paddingLeft) - own.left;
   const max = bounds.right - parseFloat(style.paddingRight) - own.left;
   tip.style.maxWidth = `${max - min}px`;
-  tip.style.left = `${Math.min(Math.max(x - tip.offsetWidth / 2, min), max - tip.offsetWidth)}px`;
+  const size = tip.getBoundingClientRect();
+  tip.style.left = `${Math.min(Math.max(x - size.width / 2, min), max - size.width)}px`;
+  tip.style.top = `${Math.max(plotTop - TIP_GAP - size.height, bounds.top + parseFloat(style.paddingTop) - own.top)}px`;
 }
 
-function Chart({ label, height, table, hit, tip, children }: {
-  label: string; height: number | ((width: number) => number); table: ReactNode;
+function Chart({ label, height, plotTop = 0, table, hit, tip, children }: {
+  label: string; height: number | ((width: number) => number); plotTop?: number; table: ReactNode;
   hit: (x: number, y: number, width: number) => number | null;
   tip: (index: number, width: number) => Tip;
   children: (width: number, active: number | null) => ReactNode;
@@ -197,15 +200,15 @@ function Chart({ label, height, table, hit, tip, children }: {
   }, [active, ref]);
   function point(event: PointerEvent<HTMLDivElement>) {
     const box = event.currentTarget.getBoundingClientRect();
-    setActive(hit(event.clientX - box.left, event.clientY - box.top - LANE, width));
+    setActive(hit(event.clientX - box.left, event.clientY - box.top, width));
   }
   const shown = active != null && width ? tip(active, width) : null;
   const pixels = typeof height === "number" ? height : width ? height(width) : 0;
   useLayoutEffect(() => {
-    if (tipRef.current && ref.current && shown) placeTip(tipRef.current, ref.current, shown.x);
+    if (tipRef.current && ref.current && shown) placeTip(tipRef.current, ref.current, shown.x, plotTop);
   });
   return (
-    <div className="chart chart-lane" ref={ref} style={{ height: pixels ? pixels + LANE : undefined }} onPointerMove={point} onPointerDown={point}
+    <div className="chart" ref={ref} style={{ height: pixels || undefined, marginTop: PLOT_GAP - plotTop }} onPointerMove={point} onPointerDown={point}
       onPointerLeave={(event) => { if (event.pointerType === "mouse") setActive(null); }}>
       {width ? <svg width={width} height={pixels} role="img" aria-label={label}>{children(width, active)}</svg> : null}
       {shown ? <div className="chart-tip" ref={tipRef} aria-hidden="true">{shown.content}</div> : null}
@@ -224,33 +227,35 @@ type Bar = { label: string; value: number; tip: ReactNode; axis?: string };
 const AXIS = 34;
 const BASE = 24;
 const BAR_HEIGHT = 220;
+const PLOT_TOP = 8;
 
 function BarChart({ bars, label, caption, unit, height = BAR_HEIGHT }: { bars: Bar[]; label: string; caption: string; unit: string; height?: number }) {
   const top = niceMax(Math.max(...bars.map((bar) => bar.value)));
   const inner = (width: number) => width - AXIS;
+  const axisSpacing = Math.max(...bars.map((bar) => (bar.axis ?? bar.label).length)) * 7 + 10;
   const band = (width: number) => inner(width) / bars.length;
-  const chartHeight = height - BASE - 8;
+  const chartHeight = height - BASE - PLOT_TOP;
   return (
-    <Chart label={label} height={height}
+    <Chart label={label} height={height} plotTop={PLOT_TOP}
       hit={(x, _y, width) => { const index = Math.floor((x - AXIS) / band(width)); return index >= 0 && index < bars.length ? index : null; }}
       tip={(index, width) => ({ x: AXIS + band(width) * (index + .5), content: bars[index].tip })}
       table={<><caption>{caption}</caption><thead><tr><th scope="col">Période</th><th scope="col">{unit}</th></tr></thead><tbody>{bars.map((bar) => <tr key={bar.label}><th scope="row">{bar.label}</th><td>{bar.value}</td></tr>)}</tbody></>}>
       {(width, active) => {
         const step = band(width);
         const barWidth = Math.max(2, Math.min(step * .68, 40));
-        const every = Math.max(1, Math.ceil(bars.length * 38 / inner(width)));
+        const every = Math.max(1, Math.ceil(bars.length * axisSpacing / inner(width)));
         return (
           <>
             {[0, .5, 1].map((share) => {
-              const y = 8 + chartHeight * (1 - share);
-              return <g key={share}><line className="chart-grid" x1={AXIS} x2={width} y1={y} y2={y}/><text className="chart-axis" x={AXIS - 8} y={y + 3.5} textAnchor="end">{number(Math.round(top * share))}</text></g>;
+              const y = PLOT_TOP + chartHeight * (1 - share);
+              return <g key={share}><line className="chart-grid" x1={AXIS} x2={width} y1={y} y2={y}/><text className="chart-axis" x={AXIS - 8} y={y + 3.5} textAnchor="end">{formatCountSans(Math.round(top * share))}</text></g>;
             })}
             {bars.map((bar, index) => {
               const barHeight = chartHeight * bar.value / top;
               const x = AXIS + step * index + (step - barWidth) / 2;
               return (
                 <g key={bar.label}>
-                  {bar.value ? <rect className={`chart-bar${active === index ? " is-active" : ""}`} x={x} y={8 + chartHeight - barHeight} width={barWidth} height={barHeight} rx={Math.min(3, barWidth / 2)}/> : null}
+                  {bar.value ? <rect className={`chart-bar${active === index ? " is-active" : ""}`} x={x} y={PLOT_TOP + chartHeight - barHeight} width={barWidth} height={barHeight} rx={Math.min(3, barWidth / 2)}/> : null}
                   {(bars.length - 1 - index) % every === 0 ? <text className="chart-axis" x={x + barWidth / 2} y={height - 6} textAnchor="middle">{bar.axis ?? bar.label}</text> : null}
                 </g>
               );
@@ -274,6 +279,9 @@ function MinutesChart({ data }: { data: PeriodStats }) {
 }
 
 const HEAT_LEFT = 20;
+const RADIUS = 3;
+const HEAT_GAP = 2;
+const HEAT_TOP = HEAT_GAP / 2;
 const cellHeight = (width: number) => Math.min(26, Math.max(12, (width - HEAT_LEFT) / 24));
 const heatmapHeight = (width: number) => 7 * cellHeight(width) + 20;
 
@@ -281,10 +289,10 @@ function Heatmap({ data }: { data: PeriodStats }) {
   const rows = data.heatmap;
   const max = Math.max(1, ...rows.flat());
   const left = HEAT_LEFT;
-  const gap = 2;
+  const gap = HEAT_GAP;
   const busiest = rows.flatMap((row, day) => row.map((count, hour) => ({ day, hour, count }))).sort((one, other) => other.count - one.count)[0];
   return (
-    <Chart label={`Départs selon le jour et l’heure, le plus souvent le ${WEEKDAYS[busiest.day].toLowerCase()} entre ${busiest.hour} h et ${busiest.hour + 1} h`} height={heatmapHeight}
+    <Chart label={`Départs selon le jour et l’heure, le plus souvent le ${WEEKDAYS[busiest.day].toLowerCase()} entre ${busiest.hour} h et ${busiest.hour + 1} h`} height={heatmapHeight} plotTop={HEAT_TOP}
         hit={(x, y, width) => {
           const column = Math.floor((x - left) / ((width - left) / 24));
           const row = Math.floor(y / cellHeight(width));
@@ -298,15 +306,23 @@ function Heatmap({ data }: { data: PeriodStats }) {
         {(width, active) => {
           const cellWidth = (width - left) / 24;
           const cell = cellHeight(width);
+          const square = Math.min(cellWidth, cell) - gap;
           return (
             <>
               {rows.map((row, day) => (
                 <g key={day}>
                   <text className="chart-axis" x={0} y={day * cell + cell / 2 + 3.5}>{WEEKDAYS[day].charAt(0)}</text>
-                  {row.map((count, hour) => (
-                    <rect key={hour} className={`heat-cell${count ? "" : " is-empty"}${active === day * 24 + hour ? " is-active" : ""}`} x={left + hour * cellWidth + gap / 2} y={day * cell + gap / 2}
-                      width={cellWidth - gap} height={cell - gap} rx={3} fillOpacity={count ? .18 + .82 * count / max : 1}/>
-                  ))}
+                  {row.map((count, hour) => {
+                    const side = count ? Math.round(square * (.4 + .6 * count / max)) : 0;
+                    const [cx, cy] = [left + hour * cellWidth + cellWidth / 2, day * cell + cell / 2];
+                    return (
+                      <g key={hour}>
+                        <rect className={`heat-cell${active === day * 24 + hour ? " is-active" : ""}`} x={left + hour * cellWidth + gap / 2} y={day * cell + gap / 2}
+                          width={cellWidth - gap} height={cell - gap} rx={RADIUS}/>
+                        {side ? <rect className="heat-mark" x={cx - side / 2} y={cy - side / 2} width={side} height={side} rx={RADIUS * side / square}/> : null}
+                      </g>
+                    );
+                  })}
                 </g>
               ))}
               {[0, 6, 12, 18, 23].map((hour) => <text key={hour} className="chart-axis" x={left + cellWidth * (hour + .5)} y={7 * cell + 14} textAnchor="middle">{hour} h</text>)}
@@ -375,9 +391,9 @@ function Records({ data }: { data: PeriodStats }) {
   return (
     <>
     <dl className="stat-records">
-      <div><dt>Plus long trajet</dt><dd>{longestMinutes != null ? hours(longestMinutes) : "—"}</dd></div>
-      <div><dt>Jour record</dt><dd>{busiestDayTrips ? plural(busiestDayTrips, "trajet") : "—"}</dd></div>
-      <div><dt>Série</dt><dd>{streakDays ? plural(streakDays, "jour") : "—"}</dd></div>
+      <div><dt>Plus long trajet</dt><dd>{longestMinutes != null ? hours(longestMinutes, figure) : "—"}</dd></div>
+      <div><dt>Jour record</dt><dd>{busiestDayTrips ? plural(busiestDayTrips, "trajet", figure) : "—"}</dd></div>
+      <div><dt>Série</dt><dd>{streakDays ? plural(streakDays, "jour", figure) : "—"}</dd></div>
       <div><dt>Vélo favori</dt><dd>{bike ? <button className="stat-bike" onClick={() => setBikeOpen(true)} aria-label={`Voir la fiche du vélo ${bike}`}>N° {bike}</button> : "—"}</dd></div>
     </dl>
     {bikeOpen && bike ? <BikeDrawer number={bike} onClose={() => setBikeOpen(false)}/> : null}
@@ -391,7 +407,7 @@ function Ranking({ items }: { items: { name: string; count: number }[] }) {
       {items.map((item) => (
         <li key={item.name}>
           <span className="stat-ranking-label">{item.name}</span>
-          <span className="stat-ranking-count">{number(item.count)}<span className="sr-only"> passages</span></span>
+          <span className="stat-ranking-count">{formatCountSans(item.count)}<span className="sr-only"> passages</span></span>
         </li>
       ))}
     </ol>

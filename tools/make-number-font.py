@@ -19,7 +19,7 @@ FILES = {
 }
 NAMES = {1: "Velov Glyphic", 3: "1.004;NONE;VelovGlyphic-Regular", 4: "Velov Glyphic Regular", 6: "VelovGlyphic-Regular"}
 NARROW_SPACES = {0x202F: "uni202F", 0x00A0: "uni00A0"}
-NARROW_SPACE_WIDTH = 0.18
+NARROW_SPACE_WIDTH = 0.26
 NOTICE = ("Velov Glyphic is a modified version of Faculty Glyphic: the tabular one keeps the proportional one's spacing "
           "and a narrow no-break space (U+202F) is added. It is not the Original Version and does not use its name.\n\n")
 

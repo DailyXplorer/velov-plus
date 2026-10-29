@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useState } from "react";
-import { TimerIcon } from "./icons";
+import { TimerIcon, XIcon } from "./icons";
 import { type Outcome, type Station, capitalize, outcomeSchema } from "@/lib/models";
 import { fullStations } from "@/lib/via-models";
 import { UNCERTAIN, isUncertain, noAnswer, routeFailure } from "@/lib/outcome";
@@ -60,7 +60,7 @@ export function ViaAction({ stations, account, tripId }: { stations: Station[]; 
     <Button variant="secondary" onClick={() => setOpen(true)}><TimerIcon size={17} weight="light" aria-hidden="true"/>15 minutes de plus</Button>
     {open ? <Modal titleId={titleId} onClose={close}>
       <div onKeyDownCapture={(event) => { if (pending && sendingHere && event.key === "Escape") event.preventDefault(); }}>
-        <div className="modal-heading"><h2 id={titleId}>15 minutes de plus</h2></div>
+        <div className="modal-heading"><h2 id={titleId}>15 minutes de plus</h2><button className="icon-button" aria-label="Fermer" disabled={pending && sendingHere} onClick={close}><XIcon size={20} weight="light"/></button></div>
         {(reviewing || held) && station ? <>
           <p className="write-question">La station <strong>{station.name} (n° {station.number})</strong> est pleine. Demander 15 minutes de plus pour rejoindre une autre station ?</p>
           {failure ? <><p className="form-error" role="alert">{failure.message}</p><p className="bike-action-raw">HTTP {failure.httpStatus || "aucune réponse"} · Code {failure.code ?? "—"} · {capitalize(failure.detail ?? failure.message ?? "")}</p>{isUncertain(failure) ? <p className="uncertain-note">{UNCERTAIN}</p> : null}</> : null}

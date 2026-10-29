@@ -123,7 +123,7 @@ class LoginTransport {
       const html = await response.text();
       if (!response.ok) {
         const text = load(html).text().toLowerCase();
-        if (text.includes("autre appareil") || text.includes("another device")) throw new VelovError("device", "Votre compte est déjà connecté sur un autre appareil.");
+        if (text.includes("autre appareil") || text.includes("another device")) throw new VelovError("device", "Votre compte est déjà connecté sur un autre appareil. Déconnectez-le avant de réessayer.");
         throw new VelovError("unavailable", "Vélo’v ne peut pas vous connecter pour le moment. Réessayez dans un instant.");
       }
       return { kind: "page", html };

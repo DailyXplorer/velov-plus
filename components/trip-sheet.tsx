@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { BicycleIcon, CaretDownIcon, CaretRightIcon, CheckIcon, CopyIcon, LightningIcon, StarIcon, XIcon } from "./icons";
-import { type Outcome, type Trip, canRate, formatCount, formatDate, formatDuration, formatPrice } from "@/lib/models";
+import { type Outcome, type Trip, canRate, formatCountSans, formatDate, formatDuration, formatPrice } from "@/lib/models";
 import { type Stars, dismissTrip, sendStars, starLabels } from "@/lib/trip-end";
 import { UNCERTAIN, isUncertain } from "@/lib/outcome";
 import { ratingCheck } from "@/lib/checks";
@@ -24,8 +24,8 @@ function tripTimes(trip: Trip) {
 }
 
 function pointsLine({ pointsEarned: earned, pointsSpent: spent }: Trip) {
-  const points = (count: number) => `${formatCount(count)} point${count > 1 ? "s" : ""}`;
-  if (earned > 0 && spent > 0) return `+${points(earned)} gagné${earned > 1 ? "s" : ""} · ${formatCount(spent)} dépensé${spent > 1 ? "s" : ""}`;
+  const points = (count: number) => `${formatCountSans(count)} point${count > 1 ? "s" : ""}`;
+  if (earned > 0 && spent > 0) return `+${points(earned)} gagné${earned > 1 ? "s" : ""} · ${formatCountSans(spent)} dépensé${spent > 1 ? "s" : ""}`;
   if (earned > 0) return `+${points(earned)} gagné${earned > 1 ? "s" : ""}`;
   if (spent > 0) return `${points(spent)} dépensé${spent > 1 ? "s" : ""}`;
   return null;

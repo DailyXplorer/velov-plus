@@ -329,7 +329,7 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
   .summary-card { min-height: 168px; padding: 14px 14px 16px; }
   .summary-card:nth-child(3) { grid-row: 2; grid-column: 1 / -1; min-height: 150px; }
   .metric-value { margin-top: 20px; font-size: 40px; }
-  .metric-detail { gap: 6px; font-size: 11px; }
+  .metric-detail { gap: 4px; font-size: 11px; }
   .summary-card .metric-detail > .circle-arrow { width: 24px; height: 24px; }
   .map-section, .recent-trips { margin-top: 32px; }
   .overview-map { height: 310px; }
@@ -612,6 +612,8 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
 .stat-panel.is-wide { grid-column: span 2; }
 .stat-panel.is-full { grid-column: 1 / -1; }
 .stat-panel > h2 { margin-bottom: 22px; font-size: 20px; line-height: 1.2; }
+.stat-panel > h2 { transition: opacity .15s ease; }
+.stat-panel:has(.chart-tip) > h2 { opacity: 0; }
 .stat-panel .empty-state { padding: 28px 8px; }
 .chart { position: relative; width: 100%; touch-action: pan-y; user-select: none; -webkit-user-select: none; }
 .chart svg { display: block; overflow: visible; }
@@ -619,11 +621,10 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
 .chart-grid { stroke: var(--line); stroke-width: 1; }
 .chart-bar { fill: var(--red); transition: fill .15s ease; }
 .chart-bar.is-active { fill: var(--red-deep); }
-.heat-cell { fill: var(--red); }
-.heat-cell.is-empty { fill: var(--mist); }
-.heat-cell.is-active { fill: var(--red-deep); fill-opacity: 1; }
-.chart-lane { padding-top: 56px; }
-.chart-tip { position: absolute; z-index: 3; bottom: calc(100% - 50px); left: 0; display: flex; flex-direction: column; gap: 2px; width: max-content; padding: 8px 11px; border-radius: 10px; background: var(--white); box-shadow: var(--shadow-ring); font-size: 12px; line-height: 1.3; pointer-events: none; }
+.heat-cell { fill: var(--mist); }
+.heat-cell.is-active { fill: var(--red-deep); }
+.heat-mark { fill: var(--red); pointer-events: none; }
+.chart-tip { position: absolute; z-index: 3; top: 0; left: 0; display: flex; flex-direction: column; gap: 2px; width: max-content; padding: 8px 11px; border-radius: 10px; background: var(--white); box-shadow: var(--shadow-ring); font-size: 12px; line-height: 1.3; pointer-events: none; }
 .chart-tip strong { font-weight: 500; }
 .chart-tip span { color: var(--ink-soft); }
 .donut { display: flex; flex-direction: column; align-items: center; gap: 20px; }
@@ -703,9 +704,15 @@ h3.metric-label, h3.trip-rate-title { font-family: var(--font); font-weight: 500
 .modal.bikes-drawer, .stations-list, .station-sheet, .select-popover { scrollbar-gutter: stable; }
 .station-numbers { grid-template-columns: repeat(3, auto); justify-content: space-between; gap: 8px 12px; }
 .station-numbers small { white-space: nowrap; }
-.points-balance, .points-total { font-size: clamp(28px, 30cqi, 64px) !important; white-space: nowrap; }
+.points-balance, .points-total { font-size: clamp(28px, 26cqi, 64px) !important; white-space: nowrap; }
 .points-summary > div { container-type: inline-size; }
 .station-numbers.station-numbers-compact { justify-content: start; column-gap: 18px; }
 .booking-banner .booking-clock { display: grid; flex: none; place-items: center; width: 34px; height: 34px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px var(--white); }
 .booking-banner .button-on-red, .booking-banner .button-on-red:hover { gap: 10px; padding: 0 18px 0 5px; color: var(--ink); background: var(--white); box-shadow: none; }
 .booking-banner .button-on-red .eyebrow-icon { width: 32px; height: 32px; }
+.modal .bike-action.bike-action-dialog { margin-top: 0; padding: 0; border-radius: 0; background: none; }
+.bike-action-dialog .bike-action-question { margin-top: 18px; font-family: var(--font-title); font-size: 20px; line-height: 1.25; letter-spacing: -.03em; }
+.bike-action-dialog .bike-action-note { margin-top: 10px; font-size: 15px; }
+.bike-action-dialog .bike-action-buttons { margin-top: 30px; }
+.modal-actions { display: flex; flex-wrap: wrap; }
+.modal-actions > .button { flex: 1 0 max(120px, calc(50% - 5px)); padding-inline: 12px; }

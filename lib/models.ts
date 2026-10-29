@@ -99,9 +99,24 @@ export function formatCount(value: number) {
   return value.toLocaleString("fr-FR");
 }
 
+export function formatCountSans(value: number) {
+  return formatCount(value).replace(/\u202f/g, "\u00a0");
+}
+
+export function formatPhone(raw: string) {
+  const compact = raw.replace(/[\s.()-]/g, "");
+  const international = /^\+33([1-9])(\d{8})$/.exec(compact);
+  if (international) return ["+33", international[1], ...pairs(international[2])].join("\u00a0");
+  return /^0[1-9]\d{8}$/.test(compact) ? pairs(compact).join("\u00a0") : raw;
+}
+
+function pairs(digits: string) {
+  return digits.match(/\d{2}/g) ?? [];
+}
+
 export function formatDuration(minutes: number) {
   const whole = Math.round(minutes);
-  return whole >= 60 ? `${formatCount(Math.floor(whole / 60))} h ${whole % 60} min` : `${whole} min`;
+  return whole >= 60 ? `${formatCountSans(Math.floor(whole / 60))} h ${whole % 60} min` : `${whole} min`;
 }
 
 export function formatPrice(cents: number) {

@@ -4,7 +4,7 @@ import { useEffect, useId, useState } from "react";
 import { CopyIcon, XIcon } from "./icons";
 import { promoResultSchema, type PromoResult } from "@/lib/promo-models";
 import { preparePromoStorage, promoStorageKey, readPromoCodes, savePromoCode, type SavedPromo } from "@/lib/promo-storage";
-import { type Outcome, capitalize, formatCount } from "@/lib/models";
+import { type Outcome, capitalize, formatCount, formatCountSans } from "@/lib/models";
 import { UNCERTAIN, isUncertain, noAnswer, routeFailure } from "@/lib/outcome";
 import { DEBIT_SLACK, type DebitCheck, blockedMessage, inviteDebit, rewardsHistorySchema, runOnce } from "@/lib/operations";
 import { getJson } from "./get-json";
@@ -112,24 +112,25 @@ export function InviteFriend({ cost, balance, account, onChanged }: { onChanged:
   const shown = uncertain ?? outcome;
   const settled = shown !== null && (shown.ok || isUncertain(shown)) || verification?.kind === "debited";
   const costLabel = cost !== null ? formatCount(cost) : "—";
+  const costText = cost !== null ? formatCountSans(cost) : "—";
   const canObtain = cost !== null && storageKey !== null && operationKey !== null && balance !== null && balance >= cost && Number.isSafeInteger(cost) && cost >= 0;
   const codeList = codes.length ? <div className="promo-codes"><p className="metric-label">Code à transmettre à votre ami</p>{codes.map((entry) => <div className="promo-code" key={entry.code}><code>{entry.code}</code><Button variant="secondary" onClick={() => void copy(entry.code)}><CopyIcon size={16} aria-hidden="true"/>{copied === entry.code ? "Copié" : "Copier"}</Button></div>)}<small className="soon-note">Enregistré sur ce navigateur.</small></div> : null;
   return <>
     <div className="soon-row invite-row">
-      <div><span className="metric-label">Inviter un ami</span><p>Échangez vos points contre un code à offrir à un ami.</p>{cost === null ? <small className="soon-note">L’offre est momentanément indisponible.</small> : null}{cost !== null && balance !== null && balance < cost ? <small className="soon-note">Il vous manque {formatCount(cost - balance)} points.</small> : null}</div>
+      <div><span className="metric-label">Inviter un ami</span><p>Échangez vos points contre un code à offrir à un ami.</p>{cost === null ? <small className="soon-note">L’offre est momentanément indisponible.</small> : null}{cost !== null && balance !== null && balance < cost ? <small className="soon-note">Il vous manque {formatCountSans(cost - balance)} points.</small> : null}</div>
       <Button variant="secondary" disabled={!operation && !canObtain} onClick={open}>{codes.length ? "Obtenir un autre code" : "Obtenir un code"}</Button>
     </div>
     {codeList}
     {!asking && warning ? <p className="form-error" role="alert">{warning}</p> : null}
     {asking ? <Modal titleId={titleId} onClose={close}>
       <div className="modal-heading"><h2 id={titleId}>Échanger {costLabel} points ?</h2><button className="icon-button" disabled={blocked} aria-label="Fermer" onClick={close}><XIcon size={20}/></button></div>
-      <p>Les {costLabel} points sont débités dès la création du code, même s’il n’est jamais utilisé.</p>
+      <p>Les {costText} points sont débités dès la création du code, même s’il n’est jamais utilisé.</p>
       {verification?.kind === "debited" ? <p className="form-error" role="status">Vos points ont été débités, mais aucun code n’a été reçu. Contactez le service client pour le récupérer.</p>
         : shown ? <><p className={shown.ok ? "write-done" : "form-error"} role="status">{shown.ok ? "Code créé. Copiez-le pour l’envoyer à votre ami." : shown.message}</p>{!shown.ok ? <RawLine outcome={shown}/> : null}{isUncertain(shown) ? <p className="uncertain-note">{UNCERTAIN}</p> : null}{codeList}</> : null}
-      {verification?.kind === "not-debited" ? <p className="soon-note" role="status">Votre historique complet ne montre aucun débit de {costLabel} points depuis la demande.</p> : null}
-      {verification?.kind === "unknown" ? <p className="soon-note" role="status">Votre historique de points ne prouve pas encore que vos points n’ont pas été débités. Vérifiez de nouveau dans quelques minutes.</p> : null}
+      {verification?.kind === "not-debited" ? <p className="soon-note" role="status">Votre historique complet ne montre aucun débit de {costText} points depuis la demande.</p> : null}
+      {verification?.kind === "unknown" ? <p className="soon-note" role="status">Votre historique de points ne permet pas encore d’exclure un débit. Vérifiez de nouveau dans quelques minutes ou écrivez au service client.</p> : null}
       {verification?.kind === "failed" ? <p className="form-error" role="alert">Votre historique de points n’a pas pu être lu. Réessayez dans un instant.</p> : null}
-      {uncertain || verification?.kind === "debited" ? <a className="text-link" href="#account">Contacter le service client</a> : null}
+      {uncertain || verification?.kind === "debited" ? <a className="text-link" href="#account">Écrire au service client</a> : null}
       {warning ? <p className="form-error" role="alert">{warning}</p> : null}
       <div className="modal-actions">
         <Button variant="ghost" disabled={blocked} onClick={close}>{settled ? "Fermer" : "Annuler"}</Button>
