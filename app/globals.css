@@ -481,20 +481,11 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
 .bike-action .form-error { margin-top: 10px; }
 .bike-action-signin { margin-top: 18px; color: var(--ink-soft); font-size: 13px; }
 .modal .bike-action { margin-top: 18px; }
-.booking-banner { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; padding: 8px; border-radius: var(--radius); color: var(--white); background: var(--red); }
-.booking-banner .card-tag { flex: none; }
-.booking-banner .booking-left { font-family: var(--font-title); font-size: 26px; line-height: 1; letter-spacing: -.02em; }
-.booking-banner .button-on-red { flex: none; min-height: 40px; margin-left: auto; color: var(--red); background: var(--white); }
-.booking-banner .button-on-red:hover { color: var(--red-deep); background: var(--white); }
-.booking-banner .booking-left { min-width: 0; }
-@media (max-width: 620px) {
-  .booking-banner { gap: 8px; }
-  .booking-banner .card-tag { gap: 8px; padding: 5px 12px 5px 5px; }
-  .booking-banner .card-tag-icon { width: 26px; height: 26px; }
-  .booking-banner .booking-left { font-size: 22px; }
-  .booking-banner .button-on-red { padding: 0 14px; }
-  .booking-banner .button-on-red svg { display: none; }
-}
+.booking-banner { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; padding: 6px 6px 6px 16px; border-radius: var(--radius); color: var(--white); background: var(--red); }
+.booking-banner .booking-left { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+.booking-banner .booking-time { min-width: 2.7em; font-family: var(--font-title); font-size: 26px; line-height: 1; letter-spacing: -.02em; font-variant-numeric: proportional-nums; }
+.booking-banner .button-on-red { flex: none; gap: 8px; margin-left: auto; padding: 0 16px; color: var(--white); background: transparent; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .7); text-transform: uppercase; letter-spacing: .04em; font-size: 13px; }
+.booking-banner .button-on-red:hover { color: var(--white); background: rgba(255, 255, 255, .1); box-shadow: inset 0 0 0 1px var(--white); }
 
 .card-tag.bike-pick { z-index: auto; }
 .account-logout { max-width: 560px; margin-top: 40px; }

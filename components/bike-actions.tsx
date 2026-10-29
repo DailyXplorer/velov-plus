@@ -8,7 +8,7 @@ import { UNCERTAIN, UNCERTAIN_UNLOCK, isUncertain } from "@/lib/outcome";
 import { sendBikeAction } from "@/lib/bike-action";
 import { BUSY, runOnce } from "@/lib/operations";
 import { operations, useOperation, useSending } from "./operations";
-import { Button, CardTag, Modal } from "./ui";
+import { Button, Modal } from "./ui";
 
 export const BookingsContext = createContext<{ bookings: Booking[]; changed: () => void; unlocked: (tripId: string | null) => void } | null>(null);
 
@@ -144,10 +144,9 @@ export function BookingBanner({ booking, onUnlock }: { booking: Booking; onUnloc
   const place = placeOf(booking);
   if (left === 0) return null;
   return (
-    <div className="booking-banner" role="status">
-      <CardTag icon={ClockIcon}>Réservé</CardTag>
-      {left != null ? <span className="booking-left clock">{clock(left)}</span> : null}
-      {place ? <Button className="button-on-red" onClick={onUnlock}><LockOpenIcon size={17} weight="bold" aria-hidden="true"/>Déverrouiller</Button> : null}
+    <div className="booking-banner" role="status" aria-label={left != null ? `Vélo réservé, ${Math.floor(left / 60)} min ${String(left % 60).padStart(2, "0")} restantes` : "Vélo réservé"}>
+      <span className="booking-left"><ClockIcon size={18} weight="bold" aria-hidden="true"/>{left != null ? <span className="booking-time">{clock(left)}</span> : null}</span>
+      {place ? <Button className="button-on-red" onClick={onUnlock}><LockOpenIcon size={16} weight="bold" aria-hidden="true"/>Déverrouiller</Button> : null}
     </div>
   );
 }
