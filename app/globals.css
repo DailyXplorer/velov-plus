@@ -273,8 +273,8 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
 .trip-alert .text-link { min-height: 32px; font-size: 12px; }
 .trip-rate { margin-top: 14px; padding: 14px 16px 16px; border-radius: var(--radius); background: var(--mist); }
 .trip-rate-title { color: var(--ink); font-size: 12px; text-transform: uppercase; }
-.trip-rate-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-top: 14px; }
-.trip-rate-actions .button-primary { margin-left: auto; }
+.trip-rate-actions { display: flex; flex-direction: column-reverse; gap: 2px; margin-top: 14px; }
+.trip-rate-actions .text-button { align-self: center; }
 .trip-rate-actions .button:disabled:not([aria-busy]) { cursor: default; }
 .trip-rate-stars { display: flex; justify-content: center; gap: 2px; margin-top: 8px; }
 .trip-rate-star { display: grid; place-items: center; width: 54px; height: 54px; padding: 0; border: 0; border-radius: 50%; color: var(--ink-soft); background: transparent; transition: color .15s ease, transform .15s ease; }
