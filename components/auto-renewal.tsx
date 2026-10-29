@@ -5,7 +5,7 @@ import { z } from "zod";
 import { autoRenewalResultSchema, type AutoRenewalResult } from "@/lib/renewal-models";
 import { type Outcome, capitalize } from "@/lib/models";
 import { UNCERTAIN, isUncertain } from "@/lib/outcome";
-import { BUSY, UNSAVED, runOnce, settleHeld } from "@/lib/operations";
+import { blockedMessage, runOnce, settleHeld } from "@/lib/operations";
 import { renewalCheck } from "@/lib/checks";
 import { readDashboard } from "./get-json";
 import { operations, useAccountKey, useOperation, useSending } from "./operations";
@@ -47,7 +47,7 @@ export function AutoRenewal({ subscriptionId, account, value, allowed, onSaved }
         return failed(0, "network", "Vélo’v ne répond pas. Actualisez la page pour voir si le réglage a changé.");
       }
     }, { keep: true, meta: { wanted: next ? 1 : 0 } });
-    if (outcome === "busy" || outcome === "unsaved") { if (outcome === "unsaved" || !operations.get(operationKey)) setNotice(outcome === "unsaved" ? UNSAVED : BUSY); return; }
+    if (typeof outcome === "string") { const message = blockedMessage(outcome, operations.get(operationKey) !== null); if (message) setNotice(message); return; }
     if (!outcome.ok) { if (isUncertain(outcome)) await resolve(); else setFailure(outcome); return; }
     if ("verified" in outcome && outcome.verified && outcome.autoRenewal !== null) setSaved(outcome);
     setAsking(false);

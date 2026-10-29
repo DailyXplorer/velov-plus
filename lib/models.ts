@@ -95,6 +95,15 @@ export function formatName(name: string) {
   }).join("-")).join(" ");
 }
 
+export function formatCount(value: number) {
+  return value.toLocaleString("fr-FR");
+}
+
+export function formatDuration(minutes: number) {
+  const whole = Math.round(minutes);
+  return whole >= 60 ? `${formatCount(Math.floor(whole / 60))} h ${whole % 60} min` : `${whole} min`;
+}
+
 export function formatPrice(cents: number) {
   return new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(cents / 100);
 }

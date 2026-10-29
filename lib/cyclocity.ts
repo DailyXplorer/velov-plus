@@ -57,15 +57,23 @@ export function normalizeTrip(value: z.infer<typeof rawTrip>, stations: Map<numb
   };
 }
 
-export async function postRating({ accountId, tripId, body, token, identity }: { accountId: string; tripId: string; body: RateBody; token: string; identity: string }, send: typeof fetch = fetch) {
-  const response = await send(`${BASE}/accounts/${encodeURIComponent(accountId)}/trips/${encodeURIComponent(tripId)}/rate`, {
+export async function postRating({ accountId, tripId, body, token, identity }: { accountId: string; tripId: string; body: RateBody; token: string; identity: string }, send: typeof fetch = fetch): Promise<Outcome> {
+  let response: Response;
+  try {
+    response = await send(`${BASE}/accounts/${encodeURIComponent(accountId)}/trips/${encodeURIComponent(tripId)}/rate`, {
     method: "POST",
     headers: { Authorization: `Taknv1 ${token}`, Identity: identity, "Content-Type": "application/vnd.trip.v6+json", "User-Agent": BROWSER_AGENT },
     body: JSON.stringify({ bikeId: body.bikeNumber, recommended: body.recommended, contract: "lyon", rating: body.rating }),
-    cache: "no-store", signal: AbortSignal.timeout(15_000)
-  });
+    redirect: "manual", cache: "no-store", signal: AbortSignal.timeout(15_000)
+    });
+  } catch (error) {
+    return { ...refusal("network", "Vélo’v ne répond pas. La note a peut-être été enregistrée."), detail: error instanceof Error ? error.name : null };
+  }
   if (response.status === 401) throw new VelovError("expired", "Votre session a expiré. Reconnectez-vous.");
-  if (!response.ok) throw new VelovError("unavailable", "Vélo’v n’a pas confirmé la note.");
+  const reply = await answer(response);
+  if (response.ok) return { ok: true, httpStatus: response.status, transactionState: null, code: null, message: null, detail: null };
+  const refused = response.status >= 400 && response.status < 500 && reply.code !== null;
+  return { ok: false, httpStatus: response.status, transactionState: null, code: reply.code, message: refused ? "Vélo’v a refusé cette note." : "Vélo’v n’a pas confirmé la note. Elle a peut-être été enregistrée.", detail: reply.detail };
 }
 
 const releaseCodes: Record<string, string> = {
@@ -126,7 +134,7 @@ export async function postRelease({ accountId, subscriptionId, body, token, iden
       method: "POST",
       headers: { Authorization: `Taknv1 ${token}`, Identity: identity, "Content-Type": "application/vnd.trip.v6+json", Accept: "application/vnd.trip.v6+json", "Accept-Language": "fr", "User-Agent": BROWSER_AGENT },
       body: JSON.stringify({ stationNumber: body.stationNumber, standNumber: body.standNumber, bikeNumber: body.bikeNumber, typeFrom: "SMARTPHONE" }),
-      cache: "no-store", signal: AbortSignal.timeout(ACTION_TIMEOUT_MS)
+      redirect: "manual", cache: "no-store", signal: AbortSignal.timeout(ACTION_TIMEOUT_MS)
     });
   } catch (error) {
     return { ...refusal("network", "Vélo’v ne répond pas. Le vélo est peut-être déverrouillé : regardez la borne avant de réessayer."), detail: error instanceof Error ? error.name : null };
@@ -144,7 +152,7 @@ export async function postBooking({ accountId, body, token, identity }: { accoun
       method: "POST",
       headers: { Authorization: `Taknv1 ${token}`, Identity: identity, "Content-Type": "application/json; charset=UTF-8", "User-Agent": BROWSER_AGENT },
       body: JSON.stringify({ stationId: body.stationId, stationNumber: body.stationNumber, standNumber: body.standNumber, subscriptionId: body.subscriptionId, bikeId: body.bikeId }),
-      cache: "no-store", signal: AbortSignal.timeout(ACTION_TIMEOUT_MS)
+      redirect: "manual", cache: "no-store", signal: AbortSignal.timeout(ACTION_TIMEOUT_MS)
     });
   } catch (error) {
     return { outcome: { ...refusal("network", "Vélo’v ne répond pas. Le vélo est peut-être réservé : actualisez la page avant de réessayer."), detail: error instanceof Error ? error.name : null }, booking: null };
@@ -152,8 +160,10 @@ export async function postBooking({ accountId, body, token, identity }: { accoun
   if (response.status === 401) throw new VelovError("expired", "Votre session a expiré. Reconnectez-vous.");
   const reply = await answer(response);
   const outcome = bookingOutcome(response.status, reply);
+  if (!outcome.ok) return { outcome, booking: null };
   const booking = rawBooking.safeParse(reply.value);
-  return { outcome, booking: outcome.ok && booking.success ? booking.data : null };
+  if (!booking.success || booking.data.bikeId !== body.bikeId || booking.data.stationNumber !== body.stationNumber) return { outcome: { ...outcome, ok: false, code: "local.booking.unreadable", message: "Vélo’v n’a pas confirmé la réservation. Vérifiez-la avant de réessayer." }, booking: null };
+  return { outcome, booking: booking.data };
 }
 
 export type Auth = { accountId: string; token: string; identity: string };
@@ -165,7 +175,7 @@ const accountCodes: Record<string, string> = {
 export async function accountCall(url: string, init: { method: "POST" | "PATCH" | "DELETE"; headers: Record<string, string>; body?: BodyInit }, auth: Auth, failed: string, send: typeof fetch, preserveUnauthorized = false) {
   let response: Response;
   try {
-    response = await send(url, { ...init, headers: { Authorization: `Taknv1 ${auth.token}`, Identity: auth.identity, ...init.headers, "User-Agent": BROWSER_AGENT }, cache: "no-store", signal: AbortSignal.timeout(15_000) });
+    response = await send(url, { ...init, headers: { Authorization: `Taknv1 ${auth.token}`, Identity: auth.identity, ...init.headers, "User-Agent": BROWSER_AGENT }, redirect: "manual", cache: "no-store", signal: AbortSignal.timeout(15_000) });
   } catch (error) {
     return { outcome: { ...refusal("network", "Vélo’v ne répond pas. La modification a peut-être été prise en compte : actualisez la page avant de réessayer."), detail: error instanceof Error ? error.name : null }, value: null };
   }

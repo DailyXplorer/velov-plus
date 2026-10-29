@@ -1,12 +1,15 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState } from "react";
+import { z } from "zod";
 import { ClockIcon, LockOpenIcon, TimerIcon, WarningIcon, XIcon } from "./icons";
-import { BOOKING_MINUTES, BOOKING_POINTS, RELEASE_DISTANCE, type Booking, type Outcome, capitalize, formatDate } from "@/lib/models";
+import { BOOKING_MINUTES, BOOKING_POINTS, RELEASE_DISTANCE, type Booking, type Outcome, bookingSchema, capitalize, formatDate } from "@/lib/models";
 import { formatDistance, haversine } from "@/lib/geo";
-import { UNCERTAIN, UNCERTAIN_UNLOCK, isUncertain } from "@/lib/outcome";
-import { sendBikeAction } from "@/lib/bike-action";
-import { BUSY, runOnce } from "@/lib/operations";
+import { UNCERTAIN, UNCERTAIN_UNLOCK, UNVERIFIED, isUncertain } from "@/lib/outcome";
+import { bookingCheck, sendBikeAction, unlockCheck } from "@/lib/bike-action";
+import { tripCheckSchema } from "@/lib/trip-end";
+import { blockedMessage, runOnce, settleHeld } from "@/lib/operations";
+import { getJson } from "./get-json";
 import { operations, useOperation, useSending } from "./operations";
 import { Button, Modal } from "./ui";
 
@@ -54,7 +57,7 @@ function Raw({ outcome, extra }: { outcome: Outcome; extra?: string }) {
   return <p className="bike-action-raw">{parts.join(" · ")}</p>;
 }
 
-function Confirm({ action, place, onCancel, onClose, onConfirm, sending, uncertain }: { action: Action; place: Place; onCancel: () => void; onClose: () => void; onConfirm: () => void; sending: boolean; uncertain: boolean }) {
+function Confirm({ action, place, onCancel, onClose, onConfirm, onVerify, sending, checking, uncertain }: { action: Action; place: Place; onCancel: () => void; onClose: () => void; onConfirm: () => void; onVerify: () => void; sending: boolean; checking: boolean; uncertain: boolean }) {
   const distance = useKnownDistance(place);
   const far = distance != null && distance > RELEASE_DISTANCE;
   return (
@@ -64,7 +67,7 @@ function Confirm({ action, place, onCancel, onClose, onConfirm, sending, uncerta
         : <p className="bike-action-note bike-action-warning">Vous aurez ensuite 60 secondes pour appuyer sur le bouton de la borne {place.standNumber} et retirer le vélo.</p>}
       {action === "unlock" && far ? <p className="bike-action-far" role="alert"><WarningIcon size={16} weight="bold" aria-hidden="true"/>Vous semblez être à plus de {RELEASE_DISTANCE} m de la station. Si quelqu’un d’autre prend le vélo, le trajet vous sera facturé.</p> : null}
       <div className="bike-action-buttons">
-        {uncertain ? <Button variant="ghost" onClick={onClose}>Fermer</Button> : <>
+        {uncertain ? <><Button variant="ghost" onClick={onClose}>Fermer</Button><Button variant="secondary" pending={checking} onClick={onVerify}>Vérifier</Button></> : <>
           <Button variant="ghost" disabled={sending} onClick={onCancel}>Annuler</Button>
           <Button pending={sending} onClick={onConfirm}>Confirmer</Button>
         </>}
@@ -84,13 +87,15 @@ export function BikeActions({ place, booking = null, initial, onDone }: { place:
   const [chosen, setStep] = useState<Step>(initial ? { kind: "confirm", action: initial } : { kind: "start" });
   const [refused, setFailure] = useState<Outcome | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [checking, setChecking] = useState(false);
   const unlocking = useOperation(`unlock:${place.bikeNumber}`);
   const reserving = useOperation(`book:${place.bikeNumber}`);
   const wantsUnlock = chosen.kind !== "start" && chosen.kind !== "expired" && chosen.action === "unlock";
   const held = unlocking ? { action: "unlock" as const, operation: unlocking } : reserving && !wantsUnlock ? { action: "book" as const, operation: reserving } : null;
   const bookedNow = booking !== null && reserving?.status === "uncertain";
 
-  useEffect(() => { if (bookedNow) { operations.clear(`book:${place.bikeNumber}`); setFailure(null); setStep({ kind: "start" }); } }, [bookedNow, place.bikeNumber]);
+  const reservingId = reserving?.id ?? "";
+  useEffect(() => { if (bookedNow) { void operations.clear(`book:${place.bikeNumber}`, reservingId); setFailure(null); setStep({ kind: "start" }); } }, [bookedNow, place.bikeNumber, reservingId]);
   const step: Step = held && chosen.kind !== "expired" ? { kind: held.operation.status === "sending" ? "sending" : "confirm", action: held.action } : chosen;
   const failure = held ? held.operation.outcome : refused;
 
@@ -100,8 +105,8 @@ export function BikeActions({ place, booking = null, initial, onDone }: { place:
     setFailure(null);
     setNotice(null);
     const key = `${action}:${place.bikeNumber}`;
-    const outcome = await runOnce(operations, key, () => sendBikeAction(action, place));
-    if (outcome === "busy" || outcome === "unsaved") { if (!operations.get(key)) setNotice(BUSY); return; }
+    const outcome = await runOnce(operations, key, () => sendBikeAction(action, place), { meta: { stationNumber: place.stationNumber, standNumber: place.standNumber, bikeNumber: place.bikeNumber } });
+    if (typeof outcome === "string") { setNotice(blockedMessage(outcome, operations.get(key) !== null)); return; }
     if (outcome.httpStatus === 401) { setStep({ kind: "expired" }); return; }
     if (outcome.ok) {
       account?.changed();
@@ -112,6 +117,29 @@ export function BikeActions({ place, booking = null, initial, onDone }: { place:
     setFailure({ ...outcome, message: outcome.message ?? (action === "book" ? "Réservation impossible." : "Déverrouillage impossible.") });
     setStep({ kind: "confirm", action });
     if (action === "book" && isUncertain(outcome)) account?.changed();
+  }
+
+  async function verify(action: Action) {
+    const key = `${action}:${place.bikeNumber}`;
+    let tripId: string | null = null;
+    setChecking(true);
+    setNotice(null);
+    const settled = await settleHeld(operations, key, async (held) => {
+      const bikeNumber = Number(held.meta.bikeNumber ?? place.bikeNumber);
+      if (action === "book") return bookingCheck(await getJson("/api/bookings", z.array(bookingSchema), ""), bikeNumber);
+      const found = unlockCheck(await getJson("/api/trips/current", tripCheckSchema, ""), bikeNumber, held.at);
+      tripId = found.tripId;
+      return found.check;
+    });
+    setChecking(false);
+    if (settled?.kind === "done") {
+      account?.changed();
+      if (action === "unlock") account?.unlocked(tripId);
+      onDone();
+    } else if (settled?.kind === "refused") {
+      setFailure(settled.outcome);
+      setStep({ kind: "confirm", action });
+    } else if (settled) setNotice(UNVERIFIED);
   }
 
   return (
@@ -126,7 +154,7 @@ export function BikeActions({ place, booking = null, initial, onDone }: { place:
         </>
       ) : (
         <>
-          <Confirm action={step.action} place={place} sending={step.kind === "sending"} uncertain={failure !== null && isUncertain(failure)} onCancel={() => { setFailure(null); setNotice(null); setStep({ kind: "start" }); }} onClose={onDone} onConfirm={() => void send(step.action)}/>
+          <Confirm action={step.action} place={place} sending={step.kind === "sending"} checking={checking} onVerify={() => void verify(step.action)} uncertain={failure !== null && isUncertain(failure)} onCancel={() => { setFailure(null); setNotice(null); setStep({ kind: "start" }); }} onClose={onDone} onConfirm={() => void send(step.action)}/>
           {notice ? <p className="form-error" role="alert">{notice}</p> : null}
           {failure ? <><p className="form-error" role="alert">{failure.message ?? (step.action === "book" ? "Réservation impossible." : "Déverrouillage impossible.")}</p><Raw outcome={failure}/>{isUncertain(failure) ? <p className="uncertain-note">{step.action === "unlock" ? UNCERTAIN_UNLOCK : UNCERTAIN}</p> : null}</> : null}
         </>

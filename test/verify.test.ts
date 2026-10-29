@@ -77,7 +77,7 @@ test("R2: an uncertain setting stays held after Fermer and in another tab, and o
     let writes = 0;
     const lost = async () => { writes++; return noAnswer("Le serveur ne répond pas."); };
     const first = await runOnce(tab, key, lost, { keep: true, meta: { wanted: 1 } });
-    assert.ok(first !== "busy" && first !== "unsaved" && isUncertain(first));
+    assert.ok(typeof first !== "string" && isUncertain(first));
     const reopened = createOperations(() => storage, () => clock);
     assert.equal(reopened.get(key)?.status, "uncertain", key);
     assert.equal(reopened.get(key)?.meta.wanted, 1, key);

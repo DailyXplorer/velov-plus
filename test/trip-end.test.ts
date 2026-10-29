@@ -4,7 +4,7 @@ import { test } from "node:test";
 import { type Trip, rateBodySchema } from "../lib/models.ts";
 import { type Stars, type TripCheck, UNLOCK_GRACE, WATCH_BACKOFF_CAP, WATCH_CAP, WATCH_INTERVAL, createDockWatch, dismissTrip, sendStars, starLabels, tripToGreet, wasDismissed } from "../lib/trip-end.ts";
 import { HISTORY_LAG, isUncertain } from "../lib/outcome.ts";
-import { SENDING_LIMIT, UNCERTAIN_HOLD, createOperations, runOnce, settleHeld } from "../lib/operations.ts";
+import { SENDING_LIMIT, createOperations, runOnce, settleHeld } from "../lib/operations.ts";
 
 const now = Date.parse("2026-10-29T12:00:00Z");
 const trip = (id: string, endedAt: string | null, extra: Partial<Trip> = {}): Trip => ({
@@ -319,8 +319,8 @@ test("R1: a rating is sent once per trip, even when the sheet is reopened during
   assert.equal(await rate(), "busy", "sheet reopened while sending");
   answers.shift()!(Response.json(null, { status: 504 }));
   const outcome = await first;
-  assert.ok(outcome !== "busy" && outcome !== "unsaved" && isUncertain(outcome));
-  clock += SENDING_LIMIT + UNCERTAIN_HOLD + 3_600_000;
+  assert.ok(typeof outcome !== "string" && isUncertain(outcome));
+  clock += SENDING_LIMIT + 2 * 60_000 + 3_600_000;
   const held = createOperations(() => storage, () => clock).get("rate:trip-1");
   assert.equal(held?.status, "uncertain", "Plus tard then reopening still asks for Vérifier");
   assert.equal(held?.meta.stars, 5);
@@ -355,7 +355,7 @@ test("R2: a rating the browser gave up on stays held while Vélo’v may still r
     const send = (async (url: string) => { posts.push(url); return answer(); }) as unknown as typeof fetch;
     const rate = () => runOnce(tab, "rate:trip-1", () => sendStars("trip-1", 20449, 4, send), { keep: true, meta: { stars: 4 } });
     const outcome = await rate();
-    assert.ok(outcome !== "busy" && outcome !== "unsaved" && isUncertain(outcome));
+    assert.ok(typeof outcome !== "string" && isUncertain(outcome));
     const notYetRated = async () => "unchanged" as const;
     clock += 1_000;
     assert.equal((await settleHeld(tab, "rate:trip-1", notYetRated, () => clock))?.kind, "uncertain", "the history may not show the rating yet");

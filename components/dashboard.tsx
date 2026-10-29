@@ -4,7 +4,7 @@ import { useMemo, useState, useSyncExternalStore } from "react";
 import dynamic from "next/dynamic";
 import { BicycleIcon, CaretRightIcon, DownloadSimpleIcon, EnvelopeSimpleIcon, type Icon, LetterCirclePIcon, LightningIcon, MagnifyingGlassIcon, NavigationArrowIcon, SignOutIcon, StarFourIcon, StarIcon, TicketIcon, TrendUpIcon, XIcon } from "./icons";
 import { ViaAction } from "./via-action";
-import { type Dashboard, type Page, type Resource, type Station, type Trip, formatDate, formatName, formatPrice } from "@/lib/models";
+import { type Dashboard, type Page, type Resource, type Station, type Trip, formatCount, formatDate, formatDuration, formatName, formatPrice } from "@/lib/models";
 import { describeLocationFailure, findPosition, formatDistance, haversine, type Point } from "@/lib/geo";
 import { Button, CardTag, CircleArrow, EmptyState, Eyebrow, Ghost, SectionHeading, SelectField, SelectSkeleton, TextButton } from "./ui";
 import { StationBikes } from "./station-bikes";
@@ -54,7 +54,7 @@ export function TripsTable({ trips }: { trips: Trip[] }) {
               </span>
             </span>
             <span className="trip-date">{formatDate(trip.startedAt)}<small className="clock">{formatDate(trip.startedAt, { hour: "2-digit", minute: "2-digit" })}</small></span>
-            <span className="trip-duration">{trip.duration != null ? `${trip.duration} min` : "—"}</span>
+            <span className="trip-duration">{trip.duration != null ? formatDuration(trip.duration) : "—"}</span>
             <span className="trip-price">{trip.price != null ? formatPrice(trip.price) : "—"}</span>
             <CaretRightIcon className="trip-arrow" size={16} weight="light"/>
           </button>
@@ -95,13 +95,13 @@ export function Overview({ data, stations, navigate, reload, reloading }: { data
       <div className="summary-grid">
         <button className="summary-card" onClick={() => navigate("points")}>
           <CardTag icon={StarFourIcon}>Points</CardTag>
-          <strong className="metric-value accent">{data.rewards.balance ?? "—"}</strong>
-          <span className="metric-detail">{data.rewards.total != null ? `${data.rewards.total.toLocaleString("fr-FR")} gagnés au total` : MISSING}<CircleArrow outline/></span>
+          <strong className="metric-value accent">{data.rewards.balance != null ? formatCount(data.rewards.balance) : "—"}</strong>
+          <span className="metric-detail">{data.rewards.total != null ? `${formatCount(data.rewards.total)} gagnés au total` : MISSING}<CircleArrow outline/></span>
         </button>
         <button className="summary-card" onClick={() => navigate("trips")}>
           <CardTag icon={BicycleIcon}>Trajets</CardTag>
-          <strong className="metric-value">{data.trips?.length ?? "—"}</strong>
-          <span className="metric-detail">{!data.trips ? MISSING : minutes >= 60 ? `${Math.floor(minutes / 60)} h ${minutes % 60} min` : `${minutes} min`}<CircleArrow outline/></span>
+          <strong className="metric-value">{data.trips ? formatCount(data.trips.length) : "—"}</strong>
+          <span className="metric-detail">{!data.trips ? MISSING : formatDuration(minutes)}<CircleArrow outline/></span>
         </button>
         <button className="summary-card" onClick={() => navigate("account")}>
           <CardTag icon={TicketIcon}>Abonnement</CardTag>
@@ -143,7 +143,7 @@ export function TripsPage({ data }: { data: Dashboard }) {
       <div className="filter-line">
         <SelectField label="Type de vélo" hideLabel value={filter} onChange={(value) => { setFilter(value); setLimit(10); }}
           options={bikeFilters}/>
-        <span className="result-count">{trips.length} trajet{trips.length > 1 ? "s" : ""}</span>
+        <span className="result-count">{formatCount(trips.length)} trajet{trips.length > 1 ? "s" : ""}</span>
       </div>
       <TripsTable trips={trips.slice(0, limit)}/>
       {trips.length > limit ? <div className="load-more"><Button variant="secondary" onClick={() => setLimit(limit + 10)}>Voir plus</Button></div> : null}
@@ -162,15 +162,15 @@ export function PointsPage({ data, onAutoSpend, onChanged }: { onChanged: () => 
   return (
     <div className="page-content">
       <div className="points-summary">
-        <div><Eyebrow icon={StarFourIcon}>Solde actuel</Eyebrow><strong className="points-balance">{data.rewards.balance?.toLocaleString("fr-FR") ?? "—"}</strong></div>
-        <div><Eyebrow icon={TrendUpIcon}>Total gagné</Eyebrow><strong className="points-total">{data.rewards.total?.toLocaleString("fr-FR") ?? "—"}</strong></div>
+        <div><Eyebrow icon={StarFourIcon}>Solde actuel</Eyebrow><strong className="points-balance">{data.rewards.balance != null ? formatCount(data.rewards.balance) : "—"}</strong></div>
+        <div><Eyebrow icon={TrendUpIcon}>Total gagné</Eyebrow><strong className="points-total">{data.rewards.total != null ? formatCount(data.rewards.total) : "—"}</strong></div>
       </div>
       <AutoSpendSetting value={data.rewards.autoSpend} account={data.profile.email} onChanged={onAutoSpend}/>
       <InviteFriend key={data.profile.email} account={data.profile.email} onChanged={onChanged} cost={invite?.points ?? null} balance={data.rewards.balance}/>
       {rules.length ? (
         <section className="earn-section">
           <SectionHeading title="Gagner des points"/>
-          <div className="earn-grid">{rules.map((rule) => <div className="earn-rule" key={rule.name}><span>{rule.label === "Vélo évalué" ? "Évaluation d’un vélo après un trajet" : rule.label}</span><strong>+{rule.points}</strong></div>)}</div>
+          <div className="earn-grid">{rules.map((rule) => <div className="earn-rule" key={rule.name}><span>{rule.label === "Vélo évalué" ? "Évaluation d’un vélo après un trajet" : rule.label}</span><strong>+{formatCount(rule.points)}</strong></div>)}</div>
         </section>
       ) : null}
       <section className="points-history">
@@ -178,7 +178,7 @@ export function PointsPage({ data, onAutoSpend, onChanged }: { onChanged: () => 
         {data.rewards.movements.slice(0, limit).map((movement) => (
           <div className="movement" key={movement.id}>
             <span className="movement-description"><strong>{rewardLabel(movement.label)}</strong><small>{formatDate(movement.date, { day: "numeric", month: "long", year: "numeric" })}</small></span>
-            <span className={`movement-amount ${movement.amount > 0 ? "is-credit" : ""}`}>{movement.amount > 0 ? "+" : ""}{movement.amount}</span>
+            <span className={`movement-amount ${movement.amount > 0 ? "is-credit" : ""}`}>{movement.amount > 0 ? "+" : ""}{formatCount(movement.amount)}</span>
           </div>
         ))}
         {!data.rewards.movements.length ? <EmptyState>Aucun mouvement de points.</EmptyState> : null}

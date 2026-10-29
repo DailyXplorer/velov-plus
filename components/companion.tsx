@@ -1,16 +1,18 @@
 "use client";
 
+import "@/lib/zod-jitless";
 import { memo, type ReactNode, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { z } from "zod";
 import { ArrowClockwiseIcon, BicycleIcon, ChartIcon, HouseIcon, MapPinIcon, SignOutIcon, StarFourIcon, UserCircleIcon, WarningCircleIcon, XIcon } from "./icons";
 import { bookingSchema, dashboardSchema, stationsSchema, type Booking, type Dashboard, type Page, type Resource, type Trip, formatDate, formatName } from "@/lib/models";
 import { createDockWatch, tripCheckSchema, tripToGreet } from "@/lib/trip-end";
-import { createRefreshGate } from "@/lib/refresh-gate";
+import { createRefreshGate, createThrottle } from "@/lib/refresh-gate";
+import { createSessionGate } from "@/lib/session-gate";
 import { whenIdle } from "@/lib/idle";
 import { AccountPage, AccountSkeleton, Overview as OverviewPage, OverviewSkeleton, PointsPage, PointsSkeleton, StationsPage as StationsMapPage, StationsSkeleton, TripsPage, TripsSkeleton } from "./dashboard";
 import { Button, Modal } from "./ui";
 import { Login } from "./login";
-import { StatsPage, StatsSkeleton } from "./stats";
+import { StatsPage, StatsSkeleton, forgetStats } from "./stats";
 import { BookingBanner, BookingsContext, UnlockModal } from "./bike-actions";
 import { ApiError, getJson } from "./get-json";
 import { TripEndedSheet } from "./trip-sheet";
@@ -62,6 +64,7 @@ export function Companion({ initialSession }: { initialSession: boolean }) {
   const dockedTrips = useRef(new Set<string>());
   const greeted = useRef(false);
   const refreshGate = useRef(createRefreshGate());
+  const session = useRef(createSessionGate());
   const [kept, setKept] = useState(new Set<Page>());
   if (page && mapPages.has(page) && !kept.has(page)) setKept(new Set(kept).add(page));
   const ready = state.kind === "ready";
@@ -69,11 +72,12 @@ export function Companion({ initialSession }: { initialSession: boolean }) {
     if (ready) return whenIdle(() => setKept(new Set(mapPages)));
   }, [ready]);
 
-  const loadBookings = useCallback(async () => {
-    try { setBookings(await getJson("/api/bookings", z.array(bookingSchema), "")); }
-    catch {}
-  }, []);
-  const account = useMemo(() => ({ bookings, changed: () => void loadBookings(), unlocked: (tripId: string | null) => watch.current?.follow(tripId) }), [bookings, loadBookings]);
+  const [loadBookings] = useState(() => createThrottle(async () => {
+    const stamp = session.current.stamp();
+    const list = await getJson("/api/bookings", z.array(bookingSchema), "", stamp.signal);
+    if (stamp.live()) setBookings(list);
+  }));
+  const account = useMemo(() => ({ bookings, changed: () => { forgetStats(); void loadBookings(); }, unlocked: (tripId: string | null) => watch.current?.follow(tripId) }), [bookings, loadBookings]);
 
   const loadStations = useCallback(async () => {
     if (stationsInFlight.current) return;
@@ -103,11 +107,14 @@ export function Companion({ initialSession }: { initialSession: boolean }) {
     if (dashboardInFlight.current) return null;
     dashboardInFlight.current = true;
     setRefreshing(true);
+    const stamp = session.current.stamp();
     try {
-      const data = await getJson("/api/dashboard", dashboardSchema, "Votre compte est momentanément indisponible.");
+      const data = await getJson("/api/dashboard", dashboardSchema, "Votre compte est momentanément indisponible.", stamp.signal);
+      if (!stamp.live()) return null;
       setState({ kind: "ready", data });
       return data;
     } catch (error) {
+      if (!stamp.live()) return null;
       if (error instanceof ApiError && error.status === 401) setState({ kind: "guest", message: "Votre session a expiré. Reconnectez-vous." });
       else setState({ kind: "error", message: error instanceof ApiError ? error.message : "Votre compte est momentanément indisponible." });
       return null;
@@ -119,12 +126,16 @@ export function Companion({ initialSession }: { initialSession: boolean }) {
 
   useEffect(() => {
     const current = createDockWatch({
-      check: () => getJson("/api/trips/current", tripCheckSchema, "").catch((error: unknown) => {
-        if (error instanceof ApiError && error.status === 401) setState({ kind: "guest", message: "Session expirée. Reconnectez-vous." });
-        throw error;
-      }),
+      check: () => {
+        const stamp = session.current.stamp();
+        return getJson("/api/trips/current", tripCheckSchema, "", stamp.signal).catch((error: unknown) => {
+          if (stamp.live() && error instanceof ApiError && error.status === 401) setState({ kind: "guest", message: "Session expirée. Reconnectez-vous." });
+          throw error;
+        });
+      },
       docked: (tripId, latest) => {
         dockedTrips.current.add(tripId);
+        forgetStats();
         void loadDashboard().then((data) => {
           const trip = data?.trips?.find((item) => item.id === tripId) ?? (latest?.id === tripId ? latest : null);
           if (trip) setEnded(trip);
@@ -158,6 +169,8 @@ export function Companion({ initialSession }: { initialSession: boolean }) {
   }, [initialSession, loadDashboard, loadStations, loadBookings]);
 
   function connected() {
+    session.current.end();
+    forgetStats();
     setState({ kind: "loading" });
     void loadDashboard();
     void loadStations();
@@ -172,6 +185,7 @@ export function Companion({ initialSession }: { initialSession: boolean }) {
   function openLogout() { setLogoutError(null); setLogoutOpen(true); }
 
   async function logout() {
+    session.current.end();
     setLoggingOut(true);
     setLogoutError(null);
     try {
@@ -180,6 +194,7 @@ export function Companion({ initialSession }: { initialSession: boolean }) {
       const answer = logoutSchema.safeParse(await response.json().catch(() => null));
       setLogoutOpen(false);
       setBookings([]);
+      forgetStats();
       setState({ kind: "guest", message: answer.success && answer.data.remoteLogout === false ? remoteLogoutUnconfirmed : null });
       window.location.hash = "";
     } catch {
@@ -257,7 +272,7 @@ export function Companion({ initialSession }: { initialSession: boolean }) {
                 {kept.has("stations") ? <div className="page-slot" hidden={page !== "stations"}><StationsPage resource={stations} reload={reloadStations} reloading={stationsPending} favorites={state.data.profile.favorites} account={state.data.profile.email} onFavorite={setFavorite}/></div> : null}
                 {page === "trips" ? <TripsPage data={state.data}/>
                     : page === "stats" ? <StatsPage account={state.data.profile.email}/>
-                    : page === "points" ? <PointsPage data={state.data} onAutoSpend={setAutoSpend} onChanged={() => void loadDashboard()}/>
+                    : page === "points" ? <PointsPage data={state.data} onAutoSpend={setAutoSpend} onChanged={() => { forgetStats(); void loadDashboard(); }}/>
                       : page === "account" ? <AccountPage data={state.data} onLogout={openLogout} onSaved={() => void loadDashboard()}/> : null}
               </>
             )}

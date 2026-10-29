@@ -6,7 +6,7 @@ import { Button, CardTag, EmptyState, Ghost, SelectField, SelectSkeleton } from 
 import { BikeDrawer } from "./station-bikes";
 import { ApiError, getJson } from "./get-json";
 import { capitalize, formatDate, formatPrice } from "@/lib/models";
-import { type Period, type PeriodStats, type Stats, statsSchema } from "@/lib/stats";
+import { type Period, type PeriodStats, type Stats, createStatsCache, statsSchema } from "@/lib/stats";
 
 const unavailable = "Vos statistiques sont momentanément indisponibles.";
 const periods: { value: Period; label: string }[] = [
@@ -28,21 +28,25 @@ function kilometres(metres: number) {
   return (metres / 1000).toLocaleString("fr-FR", { maximumFractionDigits: metres < 100_000 ? 1 : 0 });
 }
 
-let cached: { account: string; stats: Stats } | null = null;
+const cache = createStatsCache();
+export const forgetStats = () => cache.clear();
 
 export function StatsPage({ account }: { account: string }) {
-  const [state, setState] = useState<{ kind: "loading" } | { kind: "ready"; stats: Stats } | { kind: "error"; message: string }>(() => cached?.account === account ? { kind: "ready", stats: cached.stats } : { kind: "loading" });
+  const [state, setState] = useState<{ kind: "loading" } | { kind: "ready"; stats: Stats } | { kind: "error"; message: string }>(() => {
+    const stats = cache.get(account);
+    return stats ? { kind: "ready", stats } : { kind: "loading" };
+  });
   const load = useCallback(async () => {
     setState({ kind: "loading" });
     try {
       const stats = await getJson("/api/stats", statsSchema, unavailable);
-      cached = stats.complete ? { account, stats } : null;
+      if (stats.complete) cache.set(account, stats); else cache.clear();
       setState({ kind: "ready", stats });
     } catch (error) {
       setState({ kind: "error", message: error instanceof ApiError ? error.message : unavailable });
     }
   }, [account]);
-  useEffect(() => { if (cached?.account !== account) void load(); }, [account, load]);
+  useEffect(() => { if (!cache.get(account)) void load(); }, [account, load]);
 
   if (state.kind === "loading") return <StatsSkeleton/>;
   if (state.kind === "error") return <div className="dashboard-error"><p role="alert">{state.message}</p><Button variant="secondary" onClick={() => void load()}>Réessayer</Button></div>;

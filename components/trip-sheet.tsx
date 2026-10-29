@@ -2,16 +2,17 @@
 
 import { useEffect, useState } from "react";
 import { BicycleIcon, CaretDownIcon, CaretRightIcon, CheckIcon, CopyIcon, LightningIcon, StarIcon, XIcon } from "./icons";
-import { type Outcome, type Trip, canRate, formatDate, formatPrice } from "@/lib/models";
+import { type Outcome, type Trip, canRate, formatCount, formatDate, formatDuration, formatPrice } from "@/lib/models";
 import { type Stars, dismissTrip, sendStars, starLabels } from "@/lib/trip-end";
 import { UNCERTAIN, isUncertain } from "@/lib/outcome";
 import { ratingCheck } from "@/lib/checks";
-import { BUSY, UNSAVED, runOnce, settleHeld } from "@/lib/operations";
+import { blockedMessage, runOnce, settleHeld } from "@/lib/operations";
 import { readDashboard } from "./get-json";
 import { operations, useOperation, useSending } from "./operations";
 import { formatDistance } from "@/lib/geo";
 import { Button, Eyebrow, Modal, TextButton } from "./ui";
 import { BikeDrawer } from "./station-bikes";
+import { forgetStats } from "./stats";
 
 const statuses: Record<string, string> = { REQUESTED: "Demandé", STARTED: "En cours", PAUSED: "En pause", FINISHED: "Terminé", AUTO_FINISHED: "Terminé automatiquement", REJECTED: "Refusé", TIMEOUT: "Expiré", ERROR: "En erreur", WARNING: "Avertissement", REVERSED: "Annulé" };
 const ratedHere = new Set<string>();
@@ -23,8 +24,8 @@ function tripTimes(trip: Trip) {
 }
 
 function pointsLine({ pointsEarned: earned, pointsSpent: spent }: Trip) {
-  const points = (count: number) => `${count} point${count > 1 ? "s" : ""}`;
-  if (earned > 0 && spent > 0) return `+${points(earned)} gagné${earned > 1 ? "s" : ""} · ${spent} dépensé${spent > 1 ? "s" : ""}`;
+  const points = (count: number) => `${formatCount(count)} point${count > 1 ? "s" : ""}`;
+  if (earned > 0 && spent > 0) return `+${points(earned)} gagné${earned > 1 ? "s" : ""} · ${formatCount(spent)} dépensé${spent > 1 ? "s" : ""}`;
   if (earned > 0) return `+${points(earned)} gagné${earned > 1 ? "s" : ""}`;
   if (spent > 0) return `${points(spent)} dépensé${spent > 1 ? "s" : ""}`;
   return null;
@@ -53,7 +54,7 @@ function RateBike({ trip, bikeNumber, onLater, onRated }: { trip: Trip; bikeNumb
     setRefused(null);
     setNotice(null);
     const outcome = await runOnce(operations, `rate:${trip.id}`, () => sendStars(trip.id, bikeNumber, picked), { keep: true, meta: { stars: picked } });
-    if (outcome === "busy" || outcome === "unsaved") { if (outcome === "unsaved" || !operations.get(`rate:${trip.id}`)) setNotice(outcome === "unsaved" ? UNSAVED : BUSY); return; }
+    if (typeof outcome === "string") { const message = blockedMessage(outcome, operations.get(`rate:${trip.id}`) !== null); if (message) setNotice(message); return; }
     if (outcome.ok) return rated();
     if (!isUncertain(outcome)) return setRefused(outcome);
     await verify();
@@ -61,6 +62,7 @@ function RateBike({ trip, bikeNumber, onLater, onRated }: { trip: Trip; bikeNumb
 
   function rated() {
     ratedHere.add(trip.id);
+    forgetStats();
     onRated();
   }
 
@@ -118,7 +120,7 @@ export function TripSheet({ trip, onClose }: { trip: Trip; onClose: () => void }
   const rated = trip.isRated === true || ratedHere.has(trip.id) || ratedNow === trip.id;
   const sameStation = trip.startStationNumber != null && trip.startStationNumber === trip.endStationNumber;
   const subject = `Trajet litigieux${trip.token ? ` ${trip.token}` : ""}`;
-  useEffect(() => { if (trip.isRated === true && operations.get(`rate:${trip.id}`)) operations.clear(`rate:${trip.id}`); }, [trip.id, trip.isRated]);
+  useEffect(() => { const held = operations.get(`rate:${trip.id}`); if (trip.isRated === true && held) void operations.clear(`rate:${trip.id}`, held.id); }, [trip.id, trip.isRated]);
   return (
     <>
       <Modal titleId="trip-detail-title" onClose={sending ? () => {} : onClose}>
@@ -132,7 +134,7 @@ export function TripSheet({ trip, onClose }: { trip: Trip; onClose: () => void }
           <Stop label="Arrivée" station={trip.endStation} stand={trip.endStand}/>
         </div>
         <div className="trip-detail-facts">
-          <span><small>Durée</small><strong>{trip.duration != null ? `${trip.duration} min` : "—"}</strong></span>
+          <span><small>Durée</small><strong>{trip.duration != null ? formatDuration(trip.duration) : "—"}</strong></span>
           <span><small>Distance</small><strong>{trip.distance != null && !sameStation ? `≈ ${formatDistance(trip.distance)}` : "—"}</strong></span>
           <span><small>Payé</small><strong>{trip.price != null ? formatPrice(trip.price) : "—"}</strong>{trip.discount > 0 && trip.fullPrice != null ? <span className="trip-fact-note">Prix {formatPrice(trip.fullPrice)} · Remise {formatPrice(trip.discount)}</span> : null}</span>
         </div>
@@ -177,7 +179,7 @@ export function TripEndedSheet({ trip, onClose }: { trip: Trip; onClose: () => v
         <Stop label="Station d’arrivée" station={trip.endStation} stand={trip.endStand}/>
       </div>
       <div className="trip-detail-facts trip-ended-facts">
-        <span><small>Durée</small><strong>{trip.duration != null ? `${trip.duration} min` : "—"}</strong></span>
+        <span><small>Durée</small><strong>{trip.duration != null ? formatDuration(trip.duration) : "—"}</strong></span>
         <span><small>Prix</small><strong>{trip.price != null ? formatPrice(trip.price) : "—"}</strong></span>
       </div>
       {rateable && trip.bikeNumber != null ? <RateBike trip={trip} bikeNumber={trip.bikeNumber} onLater={close} onRated={close}/>

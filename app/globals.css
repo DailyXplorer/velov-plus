@@ -246,7 +246,7 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
 .account-section > .text-link { margin-top: 16px; }
 .account-logout { margin-top: 32px; }
 .account-logout > .button { margin-left: -16px; }
-.data-notice { margin-bottom: 24px; color: #9c7856; font-size: 13px; }
+.data-notice { margin-bottom: 24px; color: var(--ink-soft); font-size: 13px; }
 .data-notice summary { display: flex; align-items: center; gap: 8px; width: fit-content; padding: 8px 0; font-size: 13px; cursor: pointer; }
 .data-notice ul { padding-left: 23px; }
 .dashboard-error { display: flex; flex-direction: column; align-items: center; gap: 24px; padding: 100px 20px; color: var(--ink-soft); text-align: center; }
@@ -681,6 +681,7 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
 .station-distance,
 .map-explore > span,
 .stat-records dt { text-transform: uppercase; letter-spacing: .02em; }
+h3.metric-label, h3.trip-rate-title { font-family: var(--font); font-weight: 500; }
 
 .skeleton, .skeleton-text, .points-summary > .skeleton, .account-logout > .skeleton { color: transparent; background: var(--mist) linear-gradient(90deg, transparent 25%, rgba(255, 255, 255, .7) 50%, transparent 75%) 0 0 / 200% 100%; box-shadow: none; animation: loading 1.6s linear infinite; }
 .skeleton::before { content: none; }

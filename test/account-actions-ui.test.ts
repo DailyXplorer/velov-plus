@@ -59,13 +59,13 @@ test("after a failure whose outcome is uncertain, the dialog says so and offers 
     assert.match(source(`components/${file}.tsx`), new RegExp(`\\{failure && isUncertain\\(failure\\) \\? <><Button variant="ghost" onClick=\\{\\w+\\}>Fermer<\\/Button><Button variant="secondary" onClick=\\{\\w+\\}>${again}<\\/Button><\\/> : <>[\\s\\S]*?>Confirmer<\\/Button><\\/>\\}`), file);
   }
   const bike = source("components/bike-actions.tsx");
-  assert.match(bike, /\{uncertain \? <Button variant="ghost" onClick=\{onClose\}>Fermer<\/Button> : <>[\s\S]*?>Confirmer<\/Button>\s*<\/>\}/);
+  assert.match(bike, /\{uncertain \? <><Button variant="ghost" onClick=\{onClose\}>Fermer<\/Button><Button variant="secondary" pending=\{checking\} onClick=\{onVerify\}>Vérifier<\/Button><\/> : <>[\s\S]*?>Confirmer<\/Button>\s*<\/>\}/);
   assert.match(bike, /uncertain=\{failure !== null && isUncertain\(failure\)\}/);
   assert.match(bike, /step\.action === "unlock" \? UNCERTAIN_UNLOCK : UNCERTAIN/);
   assert.match(bike, /if \(action === "book" && isUncertain\(outcome\)\) account\?\.changed\(\);/);
   const invite = source("components/invite-friend.tsx");
   assert.match(invite, /const settled = shown !== null && \(shown\.ok \|\| isUncertain\(shown\)\)/);
-  assert.match(invite, /: uncertain \? <Button variant="secondary"[^\n]*>Vérifier mon solde<\/Button>\n\s+: !settled \? <Button[^\n]*>Confirmer</);
+  assert.match(invite, /: uncertain \? <Button variant="secondary"[^\n]*>Vérifier mes points<\/Button>\n\s+: !settled \? <Button[^\n]*>Confirmer</);
 });
 
 test("the invite code keeps its result with Copier and Fermer", () => {
@@ -77,7 +77,7 @@ test("the invite code keeps its result with Copier and Fermer", () => {
 test("a successful rating shows nothing: the trip-ended sheet closes and the detail sheet drops the rating card", () => {
   const rating = source("components/trip-sheet.tsx");
   assert.doesNotMatch(rating, /Merci|trip-rate-done|kind: "done" \}/);
-  assert.match(rating, /function rated\(\) \{\n\s+ratedHere\.add\(trip\.id\);\n\s+onRated\(\);\n\s+\}/);
+  assert.match(rating, /function rated\(\) \{\n\s+ratedHere\.add\(trip\.id\);\n\s+forgetStats\(\);\n\s+onRated\(\);\n\s+\}/);
   assert.match(rating, /<RateBike trip=\{trip\} bikeNumber=\{trip\.bikeNumber\} onLater=\{close\} onRated=\{close\}\/>/);
   assert.match(rating, /const rated = trip\.isRated === true \|\| ratedHere\.has\(trip\.id\) \|\| ratedNow === trip\.id;/);
   assert.match(rating, /\{!rated && [^\n]*<RateBike [^\n]*onRated=\{\(\) => setRatedNow\(trip\.id\)\}\/>/);
@@ -93,12 +93,12 @@ test("the unlock instruction is given before confirming, since the sheet closes 
 
 test("F1: unlock and booking go through the shared operation store, and the drawers cannot close while sending", () => {
   const bike = source("components/bike-actions.tsx");
-  assert.match(bike, /await runOnce\(operations, key, \(\) => sendBikeAction\(action, place\)\)/);
+  assert.match(bike, /await runOnce\(operations, key, \(\) => sendBikeAction\(action, place\), \{ meta: \{ stationNumber: place\.stationNumber, standNumber: place\.standNumber, bikeNumber: place\.bikeNumber \} \}\)/);
   assert.match(bike, /useOperation\(`unlock:\$\{place\.bikeNumber\}`\)/);
   assert.match(bike, /useOperation\(`book:\$\{place\.bikeNumber\}`\)/);
   assert.doesNotMatch(bike, /inFlight/);
   assert.match(bike, /reserving && !wantsUnlock \?/);
-  assert.match(bike, /useEffect\(\(\) => \{ if \(bookedNow\) \{ operations\.clear\(`book:\$\{place\.bikeNumber\}`\); setFailure\(null\); setStep\(\{ kind: "start" \}\); \} \}/);
+  assert.match(bike, /useEffect\(\(\) => \{ if \(bookedNow\) \{ void operations\.clear\(`book:\$\{place\.bikeNumber\}`, reservingId\); setFailure\(null\); setStep\(\{ kind: "start" \}\); \} \}/);
   assert.match(bike, /<Modal titleId="booking-unlock-title" onClose=\{sending \? \(\) => \{\} : onClose\}>/);
   const drawer = source("components/station-bikes.tsx");
   assert.match(drawer, /function back\(\) \{\n\s+if \(sending\) return;/);
@@ -108,19 +108,22 @@ test("F1: unlock and booking go through the shared operation store, and the draw
   assert.match(source("components/operations.ts"), /addEventListener\("storage"/);
 });
 
-test("F2: the invite state lives in the store, Obtenir un code keeps it, and a retry needs the balance check first", () => {
+test("F2: the invite state lives in the store, Obtenir un code keeps it, and a retry needs a complete history first", () => {
   const invite = source("components/invite-friend.tsx");
   assert.match(invite, /runOnce\(operations, operationKey, [\s\S]*?\{ keep: true, meta: \{ cost, balance: balance \?\? -1 \} \}\)/);
   assert.match(invite, /function open\(\) \{\n\s+if \(!operation\) setOutcome\(null\);/);
-  assert.match(invite, /uncertain && verification\?\.kind === "not-debited" \? <Button onClick=\{retry\}>Réessayer<\/Button>/);
-  assert.doesNotMatch(invite, /débité, réessayer/);
-  assert.match(invite, /function retry\(\) \{\n\s+if \(!operationKey \|\| verification\?\.kind !== "not-debited"\) return;/);
+  assert.match(invite, /uncertain && verification\?\.kind === "not-debited" \? <Button onClick=\{\(\) => void retry\(\)\}>Je n’ai pas été débité, réessayer<\/Button>/);
+  assert.equal(invite.match(/débité, réessayer/g)?.length, 1);
+  assert.match(invite, /async function retry\(\) \{\n\s+if \(!operationKey \|\| !operation \|\| verification\?\.kind !== "not-debited"\) return;/);
+  assert.match(invite, /\{uncertain \|\| verification\?\.kind === "debited" \? <a className="text-link" href="#account">Contacter le service client<\/a> : null\}/);
   assert.doesNotMatch(invite, /pendingAccounts|finally \{/);
-  assert.match(invite, /inviteDebit\(before, \{ balance: data\.rewards\.balance, movements: data\.rewards\.movements \}, Date\.now\(\)\)/);
+  assert.match(invite, /getJson\(`\/api\/account\/rewards\?since=\$\{held\.at - DEBIT_SLACK\}`, rewardsHistorySchema, /);
+  assert.match(invite, /inviteDebit\(\{ at: held\.at, cost: Number\(held\.meta\.cost\) \}, history, Date\.now\(\)\)/);
+  assert.doesNotMatch(invite, /readDashboard|rewards\.balance/);
 });
 
 test("confirmation titles keep a non-breaking space before the question mark", () => {
-  assert.match(source("components/invite-friend.tsx"), /<h2 id=\{titleId\}>Échanger \{cost\} points\u00a0\?<\/h2>/);
+  assert.match(source("components/invite-friend.tsx"), /<h2 id=\{titleId\}>Échanger \{costLabel\} points\u00a0\?<\/h2>/);
   assert.match(source("components/contact-support.tsx"), /<h2 id=\{titleId\}>Envoyer au service client\u00a0\?<\/h2>/);
 });
 
@@ -141,7 +144,7 @@ test("F4: contact and extra time keep their state per account outside the dialog
   const contact = source("components/contact-support.tsx");
   assert.match(contact, /runOnce\(operations, operationKey, [\s\S]*?\{ keep: true \}\)/);
   assert.match(contact, /onClick=\{\(\) => operation \? setStatus\(true\) : setOpen\(true\)\}/);
-  assert.match(contact, /function writeAgain\(\) \{[\s\S]*?operations\.clear\(operationKey\);\n\s+setMessage\(""\);/);
+  assert.match(contact, /async function writeAgain\(\) \{[\s\S]*?await operations\.clear\(operationKey, operation\.id\);\n\s+setMessage\(""\);/);
   const via = source("components/via-action.tsx");
   assert.match(via, /const operationKey = digest \? `via:\$\{digest\}:\$\{tripId\}` : null;/);
   assert.match(via, /\{ keep: true, meta: \{ number: station\.number, name: station\.name \} \}/);
@@ -152,10 +155,12 @@ test("F4: contact and extra time keep their state per account outside the dialog
 test("a booking confirmed by the bookings reread leaves the uncertain message for the booked sheet", () => {
   const bike = source("components/bike-actions.tsx");
   assert.match(bike, /const bookedNow = booking !== null && reserving\?\.status === "uncertain";/);
-  assert.match(bike, /if \(bookedNow\) \{ operations\.clear\([^)]*\); setFailure\(null\); setStep\(\{ kind: "start" \}\);/);
+  assert.match(bike, /if \(bookedNow\) \{ void operations\.clear\([^)]*\); setFailure\(null\); setStep\(\{ kind: "start" \}\);/);
   assert.match(bike, /\{booking \? <p className="bike-action-mine"><BookedUntil endsAt=\{booking\.endsAt\}\/><\/p> : null\}/);
 });
 
-test("the README says unlock and booking come back two minutes after an uncertain result", () => {
-  assert.match(source("README.md"), /Le déverrouillage et la réservation font exception\. Une fois passé le délai de soixante secondes pour retirer le vélo, ils sont de nouveau proposés deux minutes après un résultat incertain, même si aucune relecture ne l’a vérifié\./);
+test("the README says time alone never frees an uncertain unlock, booking or invite", () => {
+  const readme = source("README.md");
+  assert.match(readme, /Le temps qui passe ne prouve rien : un déverrouillage incertain reste bloqué jusqu’à ce que la relecture des trajets montre un trajet avec ce vélo/);
+  assert.doesNotMatch(readme, /deux minutes après un résultat incertain/);
 });

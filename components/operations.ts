@@ -1,7 +1,7 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { OPERATIONS_KEY, accountDigest, createOperations } from "@/lib/operations";
 
-export const operations = createOperations(() => typeof localStorage === "undefined" ? null : localStorage);
+export const operations = createOperations(() => typeof localStorage === "undefined" ? null : localStorage, Date.now, () => typeof navigator === "undefined" || !navigator.locks ? null : { request: <T,>(name: string, run: () => Promise<T>) => navigator.locks.request(name, run) as Promise<T> });
 
 if (typeof window !== "undefined") window.addEventListener("storage", (event) => { if (event.key === OPERATIONS_KEY || event.key === null) operations.changed(); });
 

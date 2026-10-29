@@ -3,29 +3,39 @@ import { type Outcome, outcomeSchema } from "./models.ts";
 import { type Check, type Settled, HISTORY_LAG, isUncertain, noAnswer, settle } from "./outcome.ts";
 
 type Store = Pick<Storage, "getItem" | "setItem" | "removeItem">;
+export type Locks = { request<T>(name: string, run: () => Promise<T>): Promise<T> };
 
 export const OPERATIONS_KEY = "velov:operations:v1";
+export const OPERATIONS_LOCK = "velov:operations";
 export const SENDING_LIMIT = 2 * 60_000;
-export const UNCERTAIN_HOLD = 2 * 60_000;
 export const ACTION_TIMEOUT = 65_000;
 export const BUSY = "Une autre action est en cours. Attendez sa réponse avant de recommencer.";
 export const UNSAVED = "Ce navigateur ne peut pas suivre cette action. Rien n’a été envoyé.";
+export const UNSHARED = "Ce navigateur ne peut pas empêcher un double envoi depuis un autre onglet. Rien n’a été envoyé.";
 const LOST = "La page a été fermée avant la réponse. L’action a peut-être abouti.";
+const COSTLY = /^(invite|book|unlock):/;
 
 const operationSchema = z.object({
-  status: z.enum(["sending", "uncertain"]), at: z.number(), keep: z.boolean(),
+  id: z.string().default(""), status: z.enum(["sending", "uncertain"]), at: z.number(), keep: z.boolean(),
   outcome: outcomeSchema.nullable(), meta: z.record(z.string(), z.union([z.string(), z.number()]))
 });
 export type Operation = z.infer<typeof operationSchema>;
+export type Blocked = "busy" | "unsaved" | "unshared";
 type Meta = Operation["meta"];
+
+export function blockedMessage(blocked: Blocked, held: boolean): string | null {
+  if (blocked === "unsaved") return UNSAVED;
+  if (blocked === "unshared") return UNSHARED;
+  return held ? null : BUSY;
+}
 
 export async function accountDigest(account: string): Promise<string> {
   const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(account.trim().toLowerCase()));
   return Array.from(new Uint8Array(hash), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
-export function createOperations(storage: () => Store | null, now: () => number = Date.now) {
-  const running = new Set<string>();
+export function createOperations(storage: () => Store | null, now: () => number = Date.now, locks: () => Locks | null = () => null) {
+  const running = new Map<string, string>();
   const memory = new Map<string, Operation>();
   const listeners = new Set<() => void>();
   let version = 0;
@@ -39,10 +49,11 @@ export function createOperations(storage: () => Store | null, now: () => number 
   }
   function live(entry: Operation | undefined): Operation | null {
     if (!entry) return null;
-    const age = now() - entry.at;
-    if (entry.status === "sending" && age > SENDING_LIMIT) return entry.keep || age <= SENDING_LIMIT + UNCERTAIN_HOLD ? { ...entry, status: "uncertain", outcome: entry.outcome ?? noAnswer(LOST) } : null;
-    if (entry.status === "uncertain" && !entry.keep && age > UNCERTAIN_HOLD) return null;
+    if (entry.status === "sending" && now() - entry.at > SENDING_LIMIT) return { ...entry, status: "uncertain", outcome: entry.outcome ?? noAnswer(LOST) };
     return entry;
+  }
+  function stored(key: string) {
+    return saved()?.[key] ?? memory.get(key);
   }
   function changed() {
     version += 1;
@@ -61,11 +72,15 @@ export function createOperations(storage: () => Store | null, now: () => number 
       if (entry) memory.set(key, entry); else memory.delete(key);
     }
   }
+  function locked<T>(run: () => T): Promise<T> {
+    const manager = locks();
+    return manager ? manager.request(OPERATIONS_LOCK, async () => run()) : Promise.resolve().then(run);
+  }
 
   function get(key: string): Operation | null {
-    const all = saved();
-    const entry = live((all ? all[key] : undefined) ?? memory.get(key));
-    if (running.has(key) && entry?.status !== "sending") return { status: "sending", at: now(), keep: false, outcome: null, meta: {} };
+    const entry = live(stored(key));
+    const id = running.get(key);
+    if (id !== undefined && entry?.status !== "sending") return { id, status: "sending", at: now(), keep: false, outcome: null, meta: {} };
     return entry;
   }
   function busy() {
@@ -83,23 +98,36 @@ export function createOperations(storage: () => Store | null, now: () => number 
       listeners.add(listener);
       return () => { listeners.delete(listener); };
     },
-    begin(key: string, { keep = false, meta = {} }: { keep?: boolean; meta?: Meta } = {}): "started" | "busy" | "unsaved" {
-      if (busy() || get(key)) return "busy";
-      try { write(key, { status: "sending", at: now(), keep, outcome: null, meta }, keep); }
-      catch { return "unsaved"; }
-      running.add(key);
-      changed();
-      return "started";
+    async begin(key: string, { keep = false, meta = {} }: { keep?: boolean; meta?: Meta } = {}): Promise<"started" | Blocked> {
+      if (COSTLY.test(key) && !locks()) return "unshared";
+      const id = crypto.randomUUID();
+      let result: "started" | Blocked;
+      try {
+        result = await locked((): "started" | Blocked => {
+          if (busy() || get(key)) return "busy";
+          try { write(key, { id, status: "sending", at: now(), keep, outcome: null, meta }, keep); }
+          catch { return "unsaved"; }
+          running.set(key, id);
+          return "started";
+        });
+      } catch { return "unshared"; }
+      if (result === "started") changed();
+      return result;
     },
-    finish(key: string, outcome: Outcome) {
+    async finish(key: string, outcome: Outcome) {
+      const id = running.get(key);
+      const record = () => {
+        const entry = stored(key);
+        if (entry && entry.id !== id) return;
+        write(key, outcome.ok || !isUncertain(outcome) ? null : { id: id ?? "", status: "uncertain", at: now(), keep: entry?.keep ?? false, outcome, meta: entry?.meta ?? {} }, false);
+      };
+      await locked(record).catch(record);
       running.delete(key);
-      const entry = memory.get(key) ?? saved()?.[key];
-      write(key, outcome.ok || !isUncertain(outcome) ? null : { status: "uncertain", at: now(), keep: entry?.keep ?? false, outcome, meta: entry?.meta ?? {} }, false);
       changed();
     },
-    clear(key: string) {
+    async clear(key: string, id: string) {
       if (running.has(key)) return;
-      write(key, null, false);
+      await locked(() => { if (stored(key)?.id === id) write(key, null, false); });
       changed();
     }
   };
@@ -107,8 +135,8 @@ export function createOperations(storage: () => Store | null, now: () => number 
 
 export type Operations = ReturnType<typeof createOperations>;
 
-export async function runOnce<T extends Outcome>(operations: Operations, key: string, send: () => Promise<T>, options?: { keep?: boolean; meta?: Meta }): Promise<T | Outcome | "busy" | "unsaved"> {
-  const started = operations.begin(key, options);
+export async function runOnce<T extends Outcome>(operations: Operations, key: string, send: () => Promise<T>, options?: { keep?: boolean; meta?: Meta }): Promise<T | Outcome | Blocked> {
+  const started = await operations.begin(key, options);
   if (started !== "started") return started;
   let timer: ReturnType<typeof setTimeout> | undefined;
   const late = new Promise<Outcome>((resolve) => { timer = setTimeout(() => resolve(noAnswer("Le serveur ne répond pas.")), ACTION_TIMEOUT); });
@@ -116,25 +144,43 @@ export async function runOnce<T extends Outcome>(operations: Operations, key: st
   try { outcome = await Promise.race([send(), late]); }
   catch { outcome = noAnswer("Le serveur ne répond pas."); }
   finally { clearTimeout(timer); }
-  operations.finish(key, outcome);
+  await operations.finish(key, outcome);
   return outcome;
 }
 
-export async function settleHeld(operations: Operations, key: string, check: () => Promise<Check>, now: () => number = Date.now): Promise<Settled | null> {
+export async function settleHeld(operations: Operations, key: string, check: (held: Operation) => Promise<Check>, now: () => number = Date.now): Promise<Settled | null> {
   const held = operations.get(key);
   if (held?.status !== "uncertain") return null;
-  const settled = await settle(held.outcome ?? noAnswer(LOST), check, held.at, now);
-  if (settled.kind !== "uncertain") operations.clear(key);
+  const settled = await settle(held.outcome ?? noAnswer(LOST), () => check(held), held.at, now);
+  if (settled.kind !== "uncertain") await operations.clear(key, held.id);
   return settled;
 }
 
 export type DebitCheck = "debited" | "not-debited" | "unknown";
+export const rewardsHistorySchema = z.object({ complete: z.boolean(), movements: z.array(z.object({ date: z.string().nullable(), amount: z.number() })) });
+export type RewardsHistory = z.infer<typeof rewardsHistorySchema>;
+export const DEBIT_SLACK = 5 * 60_000;
+export const HISTORY_PAGES = 5;
 
-export function inviteDebit(before: { at: number; balance: number | null; cost: number }, after: { balance: number | null; movements: { date: string | null; amount: number }[] }, now: number): DebitCheck {
-  const since = before.at - 5 * 60_000;
-  const dropped = before.balance !== null && after.balance !== null && after.balance < before.balance;
-  const debit = after.movements.some(({ date, amount }) => amount === -before.cost && date !== null && (date.length === 10 ? dropped && Date.parse(`${date}T23:59:59Z`) >= since : Date.parse(date) >= since));
-  if (debit) return "debited";
-  if (now - before.at < HISTORY_LAG) return "unknown";
-  return before.balance !== null && after.balance !== null && before.balance - after.balance < before.cost ? "not-debited" : "unknown";
+const endOfDay = (date: string) => Date.parse(date.length === 10 ? `${date}T23:59:59Z` : date);
+
+export async function historySince(fetchPage: (page: number) => Promise<{ last: boolean; movements: ({ id: string } & RewardsHistory["movements"][number])[] }>, since: number, maxPages = HISTORY_PAGES): Promise<RewardsHistory> {
+  const movements: RewardsHistory["movements"] = [];
+  const seen = new Set<string>();
+  for (let page = 0; page < maxPages; page++) {
+    const batch = await fetchPage(page);
+    const fresh = batch.movements.filter((movement) => !seen.has(movement.id));
+    if (batch.movements.length && !fresh.length) return { complete: false, movements };
+    for (const movement of fresh) { seen.add(movement.id); movements.push({ date: movement.date, amount: movement.amount }); }
+    if (batch.last || !batch.movements.length || fresh.some((movement) => movement.date !== null && endOfDay(movement.date) < since)) return { complete: true, movements };
+  }
+  return { complete: false, movements };
+}
+
+export function inviteDebit(before: { at: number; cost: number }, history: RewardsHistory, now: number): DebitCheck {
+  const since = before.at - DEBIT_SLACK;
+  const debits = history.movements.filter(({ amount }) => amount === -before.cost);
+  if (debits.some(({ date }) => date !== null && date.length > 10 && Date.parse(date) >= since)) return "debited";
+  if (now - before.at < HISTORY_LAG || !history.complete) return "unknown";
+  return debits.some(({ date }) => date === null || !Number.isFinite(endOfDay(date)) || endOfDay(date) >= since) ? "unknown" : "not-debited";
 }

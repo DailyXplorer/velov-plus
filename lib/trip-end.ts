@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { type Outcome, type RateBody, type Trip, canRate, tripSchema } from "./models.ts";
+import { type Outcome, type RateBody, type Trip, canRate, outcomeSchema, tripSchema } from "./models.ts";
 import { noAnswer, routeFailure } from "./outcome.ts";
 
 export type Stars = 1 | 2 | 3 | 4 | 5;
@@ -23,6 +23,8 @@ export async function sendStars(tripId: string, bikeNumber: number, stars: Stars
   }
   const body: unknown = await response.json().catch(() => null);
   if (response.ok && z.object({ rated: z.literal(true) }).safeParse(body).success) return { ok: true, httpStatus: response.status, transactionState: null, code: null, message: null, detail: null };
+  const upstream = outcomeSchema.safeParse(body);
+  if (response.ok && upstream.success && !upstream.data.ok) return upstream.data;
   return routeFailure(response.status, body, notSent);
 }
 

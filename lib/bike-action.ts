@@ -1,5 +1,6 @@
-import { type Outcome, bookResultSchema, unlockResultSchema } from "./models.ts";
-import { noAnswer, routeFailure } from "./outcome.ts";
+import { type Booking, type Outcome, bookResultSchema, unlockResultSchema } from "./models.ts";
+import { type Check, noAnswer, routeFailure } from "./outcome.ts";
+import type { TripCheck } from "./trip-end.ts";
 
 export const BIKE_ACTION_TIMEOUT = 60_000;
 
@@ -16,4 +17,21 @@ export async function sendBikeAction(action: BikeAction, target: Target, send: t
   } catch {
     return noAnswer("Le serveur ne répond pas.");
   }
+}
+
+export const START_SLACK = 5 * 60_000;
+
+export function unlockCheck(trips: TripCheck, bikeNumber: number, at: number): { check: Check; tripId: string | null } {
+  if (trips.ongoing === null) return { check: "unknown", tripId: null };
+  const riding = trips.ongoing.find((trip) => trip.bikeNumber === bikeNumber);
+  if (riding) return { check: "applied", tripId: riding.id };
+  const latest = trips.latest;
+  if (!trips.ongoing.length && latest?.bikeNumber === bikeNumber && latest.startedAt && Date.parse(latest.startedAt) >= at - START_SLACK) return { check: "applied", tripId: null };
+  return { check: "unchanged", tripId: null };
+}
+
+export function bookingCheck(bookings: Booking[] | null, bikeNumber: number): Check {
+  if (bookings === null) return "unknown";
+  if (bookings.some((booking) => booking.bikeNumber === bikeNumber)) return "applied";
+  return bookings.some((booking) => booking.bikeNumber === null) ? "unknown" : "unchanged";
 }

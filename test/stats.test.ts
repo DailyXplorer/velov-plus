@@ -199,6 +199,6 @@ test("F6: the server keeps an incomplete history one minute only, a complete one
 
 test("F6: the page says Historique partiel under the period and never keeps a partial result in the tab", () => {
   const page = readFileSync(new URL("../components/stats.tsx", import.meta.url), "utf8");
-  assert.match(page, /cached = stats\.complete \? \{ account, stats \} : null;/);
+  assert.match(page, /if \(stats\.complete\) cache\.set\(account, stats\); else cache\.clear\(\);/);
   assert.match(page, /<\/div>\n\s+\{!stats\.complete \? <small className="soon-note" role="status">Historique partiel<\/small> : null\}/);
 });

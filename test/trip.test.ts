@@ -4,6 +4,8 @@ import { normalizeTrip, postRating, rawTrip, utcDate } from "../lib/cyclocity.ts
 import { haversine } from "../lib/geo.ts";
 import { type Station, canRate, rateBodySchema, stationTitle } from "../lib/models.ts";
 import { VelovError } from "../lib/auth-protocol.ts";
+import { isUncertain } from "../lib/outcome.ts";
+import { sendStars } from "../lib/trip-end.ts";
 
 const station = (number: number, name: string, lat: number, lon: number): Station => ({ id: String(number), number, name, address: "", lat, lon, mechanical: 0, electrical: 0, stands: 0, open: true });
 const bellecour = station(2002, "Bellecour / St Exupéry", 45.7578, 4.8320);
@@ -133,15 +135,35 @@ test("a recommendation sends an explicit null rating", async () => {
 test("any 2xx answer records the rating", async () => {
   for (const status of [200, 201, 202]) {
     const { calls, send } = recorder(status);
-    await postRating({ ...rating, body: { bikeNumber: 20449, recommended: true, rating: null } }, send);
+    assert.equal((await postRating({ ...rating, body: { bikeNumber: 20449, recommended: true, rating: null } }, send)).ok, true);
     assert.equal(calls.length, 1);
   }
 });
 
-test("a refused rating fails without retrying", async () => {
-  for (const [status, code] of [[401, "expired"], [404, "unavailable"], [500, "unavailable"], [502, "unavailable"]] as const) {
+test("a rating never follows a redirect and a 3xx stays uncertain", async () => {
+  const { calls, send } = recorder(307);
+  const outcome = await postRating({ ...rating, body: { bikeNumber: 20449, recommended: true, rating: null } }, send);
+  assert.equal(calls[0].init.redirect, "manual");
+  assert.equal(outcome.ok, false);
+  assert.equal(isUncertain(outcome), true);
+});
+
+test("F12: an upstream refusal keeps its status, code and message; only transport, 5xx and unknown answers stay uncertain", async () => {
+  const refusedSend = (async () => new Response(JSON.stringify({ code: "trips.exception.already.rated", message: "Trip already rated" }), { status: 400 })) as typeof fetch;
+  const refused = await postRating({ ...rating, body: { bikeNumber: 20449, recommended: true, rating: null } }, refusedSend);
+  assert.deepEqual(refused, { ok: false, httpStatus: 400, transactionState: null, code: "trips.exception.already.rated", message: "Vélo’v a refusé cette note.", detail: "Trip already rated" });
+  assert.equal(isUncertain(refused), false);
+  for (const status of [400, 404, 500, 502]) {
     const { calls, send } = recorder(status);
-    await assert.rejects(postRating({ ...rating, body: { bikeNumber: 20449, recommended: true, rating: null } }, send), (error) => error instanceof VelovError && error.code === code && (code === "expired" || error.message === "Vélo’v n’a pas confirmé la note."));
+    const outcome = await postRating({ ...rating, body: { bikeNumber: 20449, recommended: true, rating: null } }, send);
+    assert.equal(outcome.httpStatus, status);
+    assert.equal(isUncertain(outcome), true, `${status} without a code`);
     assert.equal(calls.length, 1);
   }
+  const offline = await postRating({ ...rating, body: { bikeNumber: 20449, recommended: true, rating: null } }, (async () => { throw new TypeError("offline"); }) as typeof fetch);
+  assert.equal(isUncertain(offline), true);
+  const { send } = recorder(401);
+  await assert.rejects(postRating({ ...rating, body: { bikeNumber: 20449, recommended: true, rating: null } }, send), (error) => error instanceof VelovError && error.code === "expired");
+  const route = (async () => Response.json(refused)) as typeof fetch;
+  assert.deepEqual(await sendStars("trip-1", 20449, 5, route), refused, "the browser gets the refusal, not an uncertain 503");
 });

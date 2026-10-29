@@ -4,8 +4,8 @@ import { useId, useState } from "react";
 import { EnvelopeSimpleIcon, XIcon } from "./icons";
 import { type Outcome, type Trip, capitalize, formatDate, outcomeSchema } from "@/lib/models";
 import { UNCERTAIN, isUncertain, noAnswer, routeFailure } from "@/lib/outcome";
-import { BUSY, UNSAVED, runOnce } from "@/lib/operations";
-import { contactBodySchema, type ContactBody } from "@/lib/contact-models";
+import { blockedMessage, runOnce } from "@/lib/operations";
+import { contactBodySchema, contactFits, type ContactBody } from "@/lib/contact-models";
 import { MAIL_COMPLAINT_TYPES } from "@/lib/guesses";
 import { operations, useAccountKey, useOperation, useSending } from "./operations";
 import { Button, Modal, SelectField } from "./ui";
@@ -35,7 +35,7 @@ export function ContactSupport({ trips, account }: { trips: Trip[] | null; accou
 
   function review() {
     const parsed = contactBodySchema.safeParse(body);
-    if (!parsed.success || new TextEncoder().encode(JSON.stringify(body)).length > 4096) {
+    if (!parsed.success || !contactFits(parsed.data)) {
       setError("Votre message est vide ou trop long.");
       return;
     }
@@ -55,7 +55,7 @@ export function ContactSupport({ trips, account }: { trips: Trip[] | null; accou
         return noAnswer("Pas de réponse. Votre message a peut-être déjà été envoyé.");
       }
     }, { keep: true });
-    if (outcome === "unsaved" || outcome === "busy") { if (outcome === "unsaved" || !operations.get(operationKey)) setError(outcome === "unsaved" ? UNSAVED : BUSY); return; }
+    if (typeof outcome === "string") { const message = blockedMessage(outcome, operations.get(operationKey) !== null); if (message) setError(message); return; }
     if (!outcome.ok) { if (!isUncertain(outcome)) setFailure(outcome); return; }
     setMessage(""); setTripId("none"); setDraft(null); setOpen(false);
   }
@@ -65,9 +65,9 @@ export function ContactSupport({ trips, account }: { trips: Trip[] | null; accou
     setDraft(null); setStatus(false);
   }
 
-  function writeAgain() {
-    if (!operationKey) return;
-    operations.clear(operationKey);
+  async function writeAgain() {
+    if (!operationKey || !operation) return;
+    await operations.clear(operationKey, operation.id);
     setMessage(""); setTripId("none"); setDraft(null); setStatus(false); setFailure(null); setOpen(true);
   }
 

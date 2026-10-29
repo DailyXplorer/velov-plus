@@ -15,6 +15,7 @@ import { VelovError } from "./auth-protocol";
 import { memo } from "./memo";
 import { type TripCheck, latestFinished } from "./trip-end";
 import { buildStats, collectPages, statsTtl, type Stats } from "./stats";
+import { type RewardsHistory, historySince } from "./operations";
 import { appToken, fetchTransient, getStations, getWithAppToken } from "./upstream";
 import type { Session } from "./session";
 
@@ -159,9 +160,9 @@ export async function getTripCheck(session: Session): Promise<TripCheck> {
   return { ongoing: [], latest: latestFinished(history.map((trip) => normalizeTrip(trip, stations))) };
 }
 
-export async function rateTrip(session: Session, tripId: string, body: RateBody) {
+export async function rateTrip(session: Session, tripId: string, body: RateBody): Promise<Outcome> {
   const accountId = await accountIdOf(session);
-  await postRating({ accountId, tripId, body, token: await publicToken.get(), identity: session.accessToken });
+  return postRating({ accountId, tripId, body, token: await publicToken.get(), identity: session.accessToken });
 }
 
 async function writer(session: Session) {
@@ -259,6 +260,14 @@ export async function requestExtraTime(session: Session, body: ViaBody): Promise
 
 export async function contactSupport(session: Session, body: import("./contact-models").ContactBody): Promise<Outcome> {
   return postContactMail({ ...(await writer(session)), body });
+}
+
+export async function getRewardsSince(session: Session, since: number): Promise<RewardsHistory> {
+  const account = `/accounts/${await accountIdOf(session)}`;
+  return historySince(async (page) => {
+    const value = await read(`${account}/rewards/history?page=${page}`, z.object({ content: z.array(rawMovement), last: lenient(z.boolean()) }), session, "application/vnd.rewards.v5+json");
+    return { last: value.last === true, movements: value.content.map((movement) => ({ id: movement.id, date: utcDate(movement.createdAt), amount: movement.amount * (movement.direction === "DEBIT" ? -1 : 1) })) };
+  }, since);
 }
 
 export async function consumePromoCode(session: Session, expectedCost: number) {

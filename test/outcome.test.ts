@@ -63,7 +63,7 @@ test("a refusal by our own server before anything was sent is clear; success is 
   assert.equal(isUncertain(refusal("local.promo.price.changed", "L’offre a changé.")), false);
   assert.equal(isUncertain(routeFailure(400, { error: "Cette réservation n’est pas valide.", code: "invalid" }, "")), false);
   assert.equal(isUncertain(routeFailure(403, { error: "Cette action n’est possible que depuis ce site.", code: "origin" }, "")), false);
-  assert.equal(isUncertain(await book({ status: 201, body: { id: "b-1" } })), false);
+  assert.equal(isUncertain(await book({ status: 201, body: { id: "b-1", stationNumber: 2002, bikeId: "bike" } })), false);
 });
 
 test("our route failing after the confirmation is uncertain: its 503, a platform timeout page, an unreadable 200", () => {

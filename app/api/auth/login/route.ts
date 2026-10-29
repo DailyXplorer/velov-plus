@@ -3,14 +3,22 @@ import { randomUUID } from "node:crypto";
 import { loginSchema } from "@/lib/models";
 import { login, readJsonBody, requireSameOrigin } from "@/lib/auth-protocol";
 import { deviceOf, errorResponse, jsonResponse, setDeviceCookie, setSessionCookies } from "@/lib/session";
+import { LOGIN_WINDOW, RATE_LIMITED, clientAddress, createRateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
+const allowed = createRateLimit();
+
 export async function POST(request: NextRequest) {
   let device: string | undefined;
   try {
     requireSameOrigin(request);
+    if (!allowed(clientAddress(request))) {
+      const response = jsonResponse({ error: RATE_LIMITED, code: "rate" }, null, 429);
+      response.headers.set("Retry-After", String(LOGIN_WINDOW / 1000));
+      return response;
+    }
     const body = await readJsonBody(request);
     if (body === undefined) return jsonResponse({ error: "Vérifiez votre adresse e-mail et votre code secret." }, null, 400);
     const credentials = loginSchema.safeParse(body);

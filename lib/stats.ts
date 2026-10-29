@@ -179,3 +179,18 @@ export function buildStats(input: StatsInput): Stats {
 export function statsTtl(stats: Stats) {
   return stats.complete ? COMPLETE_TTL : PARTIAL_TTL;
 }
+
+export function createStatsCache(now: () => number = Date.now) {
+  let entry: { account: string; stats: Stats; expiresAt: number } | null = null;
+  return {
+    get(account: string) {
+      return entry && entry.account === account && entry.expiresAt > now() ? entry.stats : null;
+    },
+    set(account: string, stats: Stats) {
+      entry = { account, stats, expiresAt: now() + statsTtl(stats) };
+    },
+    clear() {
+      entry = null;
+    }
+  };
+}

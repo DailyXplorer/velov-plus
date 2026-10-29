@@ -6,7 +6,7 @@ import { type Outcome, type Station, capitalize, outcomeSchema } from "@/lib/mod
 import { fullStations } from "@/lib/via-models";
 import { UNCERTAIN, isUncertain, noAnswer, routeFailure } from "@/lib/outcome";
 import { describeLocationFailure, findPosition, formatDistance, haversine, type Point } from "@/lib/geo";
-import { BUSY, UNSAVED, runOnce } from "@/lib/operations";
+import { blockedMessage, runOnce } from "@/lib/operations";
 import { operations, useAccountKey, useOperation, useSending } from "./operations";
 import { Button, Modal, SelectField } from "./ui";
 
@@ -52,7 +52,7 @@ export function ViaAction({ stations, account, tripId }: { stations: Station[]; 
         return noAnswer("Vélo’v ne répond pas. Les 15 minutes ont peut-être été ajoutées.");
       }
     }, { keep: true, meta: { number: station.number, name: station.name } });
-    if (outcome === "unsaved" || outcome === "busy") { if (outcome === "unsaved" || !operations.get(operationKey)) setNotice(outcome === "unsaved" ? UNSAVED : BUSY); return; }
+    if (typeof outcome === "string") { const message = blockedMessage(outcome, operations.get(operationKey) !== null); if (message) setNotice(message); return; }
     if (!outcome.ok) { if (!isUncertain(outcome)) setFailure(outcome); return; }
     setOpen(false); setReviewing(false); setSelected(""); setQuery("");
   }

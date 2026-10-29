@@ -6,7 +6,7 @@ import { DownloadSimpleIcon, StarIcon, XIcon } from "./icons";
 import { ADDRESS_MAX, NAME_MAX, type Dashboard, type Outcome, type ProfileBody, type Receipt, type Station, type Trip, autoSpendResultSchema, capitalize, formatDate, outcomeSchema, profileBodySchema } from "@/lib/models";
 import { type Draft, changesOf, countries, countryName, draftOf } from "@/lib/profile-draft";
 import { type Check, UNCERTAIN, UNVERIFIED, isUncertain } from "@/lib/outcome";
-import { BUSY, type Operation, UNSAVED, runOnce, settleHeld } from "@/lib/operations";
+import { type Operation, blockedMessage, runOnce, settleHeld } from "@/lib/operations";
 import { autoSpendCheck, favoriteCheck, profileCheck } from "@/lib/checks";
 import { readDashboard } from "./get-json";
 import { operations, useAccountKey, useOperation, useSending } from "./operations";
@@ -62,7 +62,7 @@ function ConfirmDialog({ title, children, operationKey, meta, run, check, onDone
     if (!operationKey) return;
     setStep({ kind: "confirm" });
     const outcome = await runOnce(operations, operationKey, run, { keep: true, meta });
-    if (outcome === "busy" || outcome === "unsaved") { if (outcome === "unsaved" || !operations.get(operationKey)) setStep({ kind: "notice", message: outcome === "unsaved" ? UNSAVED : BUSY }); return; }
+    if (typeof outcome === "string") { const message = blockedMessage(outcome, operations.get(operationKey) !== null); if (message) setStep({ kind: "notice", message }); return; }
     if (outcome.ok) { onDone(); onClose(); }
     else if (isUncertain(outcome)) await verify();
     else setStep({ kind: "failed", outcome });
