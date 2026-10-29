@@ -698,3 +698,6 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
 .points-balance, .points-total { font-size: clamp(28px, 30cqi, 64px) !important; white-space: nowrap; }
 .points-summary > div { container-type: inline-size; }
 .station-numbers.station-numbers-compact { justify-content: start; column-gap: 18px; }
+.booking-banner .booking-clock { display: grid; flex: none; place-items: center; width: 34px; height: 34px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px var(--white); }
+.booking-banner .button-on-red, .booking-banner .button-on-red:hover { gap: 10px; padding: 0 18px 0 5px; color: var(--ink); background: var(--white); box-shadow: none; }
+.booking-banner .button-on-red .eyebrow-icon { width: 32px; height: 32px; }

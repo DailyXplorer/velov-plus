@@ -145,8 +145,8 @@ export function BookingBanner({ booking, onUnlock }: { booking: Booking; onUnloc
   if (left === 0) return null;
   return (
     <div className="booking-banner" role="status" aria-label={left != null ? `Vélo réservé, ${Math.floor(left / 60)} min ${String(left % 60).padStart(2, "0")} restantes` : "Vélo réservé"}>
-      <span className="booking-left"><ClockIcon size={18} weight="bold" aria-hidden="true"/>{left != null ? <span className="booking-time">{clock(left)}</span> : null}</span>
-      {place ? <Button className="button-on-red" onClick={onUnlock}><LockOpenIcon size={16} weight="bold" aria-hidden="true"/>Déverrouiller</Button> : null}
+      <span className="booking-left"><span className="booking-clock"><ClockIcon size={17} weight="light" aria-hidden="true"/></span>{left != null ? <span className="booking-time">{clock(left)}</span> : null}</span>
+      {place ? <Button className="button-on-red" onClick={onUnlock}><span className="eyebrow-icon"><LockOpenIcon size={15} weight="light" aria-hidden="true"/></span>Déverrouiller</Button> : null}
     </div>
   );
 }

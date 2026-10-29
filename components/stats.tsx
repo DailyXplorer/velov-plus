@@ -354,13 +354,15 @@ function Records({ data }: { data: PeriodStats }) {
   const { longestMinutes, busiestDayTrips, streakDays, bike } = data.records;
   const [bikeOpen, setBikeOpen] = useState(false);
   return (
+    <>
     <dl className="stat-records">
       <div><dt>Plus long trajet</dt><dd>{longestMinutes != null ? hours(longestMinutes) : "—"}</dd></div>
       <div><dt>Jour record</dt><dd>{busiestDayTrips ? plural(busiestDayTrips, "trajet") : "—"}</dd></div>
       <div><dt>Série</dt><dd>{streakDays ? plural(streakDays, "jour") : "—"}</dd></div>
       <div><dt>Vélo favori</dt><dd>{bike ? <button className="stat-bike" onClick={() => setBikeOpen(true)} aria-label={`Voir la fiche du vélo ${bike}`}>N° {bike}</button> : "—"}</dd></div>
-      {bikeOpen && bike ? <BikeDrawer number={bike} onClose={() => setBikeOpen(false)}/> : null}
     </dl>
+    {bikeOpen && bike ? <BikeDrawer number={bike} onClose={() => setBikeOpen(false)}/> : null}
+    </>
   );
 }
 
