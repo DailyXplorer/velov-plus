@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, test } from "node:test";
 import { ACTION_TIMEOUT, HISTORY_LAG, OPERATIONS_KEY, SENDING_LIMIT, UNCERTAIN_HOLD, accountDigest, createOperations, inviteDebit, runOnce } from "../lib/operations.ts";
 import { type Outcome, outcomeSchema } from "../lib/models.ts";
@@ -204,4 +205,42 @@ test("F4: contact and extra-time states are kept per account and per trip, indep
   assert.equal(reopened.get(`contact:${mine}`), null);
   assert.equal(reopened.get(`via:${mine}:trip-1`)?.status, "uncertain");
   assert.equal(route.calls.length, 2);
+});
+
+test("R2: unlock and booking stay locked until their route can no longer answer", () => {
+  for (const route of ["app/api/unlock/route.ts", "app/api/bookings/route.ts"]) {
+    const maxDuration = Number(/export const maxDuration = (\d+);/.exec(readFileSync(route, "utf8"))?.[1]);
+    assert.ok(ACTION_TIMEOUT > maxDuration * 1000, `${route}: ${ACTION_TIMEOUT} ms vs maxDuration ${maxDuration} s`);
+  }
+  assert.equal(ACTION_TIMEOUT, 65_000);
+  assert.ok(ACTION_TIMEOUT < SENDING_LIMIT);
+});
+
+test("R3: another debit after the invite no longer blocks it forever once the history had time to show the invite", () => {
+  const at = Date.parse("2026-10-29T12:00:00Z");
+  const before = { at, cost: 50, balance: 120 };
+  const booking = { balance: 110, movements: [{ date: "2026-10-29T12:01:00Z", amount: -10 }] };
+  assert.equal(inviteDebit(before, booking, at + HISTORY_LAG - 1), "unknown");
+  assert.equal(inviteDebit(before, booking, at + HISTORY_LAG), "not-debited");
+  assert.equal(inviteDebit(before, { balance: 71, movements: [] }, at + HISTORY_LAG), "not-debited");
+  assert.equal(inviteDebit(before, { balance: 70, movements: [] }, at + HISTORY_LAG), "unknown");
+  assert.equal(inviteDebit(before, { balance: 60, movements: [{ date: "2026-10-29T12:01:00Z", amount: -10 }] }, at + HISTORY_LAG), "unknown");
+});
+
+test("R4: an uncertain extra-time request is never offered again for that trip, and the next trip starts free", async () => {
+  const storage = memoryStore();
+  const mine = await accountDigest("me@example.test");
+  const tab = createOperations(() => storage);
+  const route = slowRoute();
+  const sent = runOnce(tab, `via:${mine}:trip-1`, route.post("/api/account/via", { stationNumber: 2002 }), { keep: true, meta: { number: 2002, name: "Bellecour" } });
+  await route.answer({ status: 504, body: null });
+  await sent;
+  assert.equal(await runOnce(tab, `via:${mine}:trip-1`, route.post("/api/account/via", { stationNumber: 2002 }), { keep: true }), "busy");
+  const next = runOnce(tab, `via:${mine}:trip-2`, route.post("/api/account/via", { stationNumber: 2002 }), { keep: true });
+  await route.answer({ status: 200, body: ok });
+  assert.deepEqual(await next, ok);
+  assert.equal(route.calls.length, 2);
+  const via = readFileSync("components/via-action.tsx", "utf8");
+  assert.doesNotMatch(via, /Nouvelle demande|operations\.clear/);
+  assert.match(via, /\{failure && isUncertain\(failure\) \? <Button variant="ghost" onClick=\{close\}>Fermer<\/Button> : <>/);
 });

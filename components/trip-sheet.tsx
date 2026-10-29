@@ -1,12 +1,14 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { BicycleIcon, CaretDownIcon, CaretRightIcon, CheckIcon, CopyIcon, LightningIcon, StarIcon, XIcon } from "./icons";
 import { type Outcome, type Trip, canRate, formatDate, formatPrice } from "@/lib/models";
 import { type Stars, dismissTrip, sendStars, starLabels } from "@/lib/trip-end";
 import { UNCERTAIN, isUncertain, settle } from "@/lib/outcome";
 import { ratingCheck } from "@/lib/checks";
+import { BUSY, UNSAVED, runOnce } from "@/lib/operations";
 import { readDashboard } from "./get-json";
+import { operations, useOperation, useSending } from "./operations";
 import { formatDistance } from "@/lib/geo";
 import { Button, Eyebrow, Modal, TextButton } from "./ui";
 import { BikeDrawer } from "./station-bikes";
@@ -32,22 +34,28 @@ function Stop({ label, station, stand }: { label: string; station: string | null
   return <div><small>{label}</small><span>{station ?? "Non renseignée"}{stand != null ? <span className="trip-stand">Borne {stand}</span> : null}</span></div>;
 }
 
-type RatingStep = { kind: "choose"; failure?: Outcome } | { kind: "sending" } | { kind: "uncertain"; failure: Outcome; checking: boolean };
 const starNumbers: Stars[] = [1, 2, 3, 4, 5];
 
 function RateBike({ trip, bikeNumber, onLater, onRated }: { trip: Trip; bikeNumber: number; onLater: () => void; onRated: () => void }) {
-  const [stars, setStars] = useState<Stars | null>(null);
-  const [step, setStep] = useState<RatingStep>({ kind: "choose" });
-  const inFlight = useRef(false);
+  const operation = useOperation(`rate:${trip.id}`);
+  const sendingHere = useSending();
+  const [chosen, setStars] = useState<Stars | null>(null);
+  const [refused, setRefused] = useState<Outcome | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [checking, setChecking] = useState(false);
+  const held = starNumbers.find((value) => value === operation?.meta.stars);
+  const stars = operation ? held ?? null : chosen;
+  const failure = operation ? operation.outcome : refused;
+  const sending = operation?.status === "sending";
+  const uncertain = operation?.status === "uncertain";
 
-  async function submit(chosen: Stars) {
-    if (inFlight.current) return;
-    inFlight.current = true;
-    setStep({ kind: "sending" });
-    const outcome = await sendStars(trip.id, bikeNumber, chosen);
-    inFlight.current = false;
+  async function submit(picked: Stars) {
+    setRefused(null);
+    setNotice(null);
+    const outcome = await runOnce(operations, `rate:${trip.id}`, () => sendStars(trip.id, bikeNumber, picked), { keep: true, meta: { stars: picked } });
+    if (outcome === "busy" || outcome === "unsaved") { if (outcome === "unsaved" || !operations.get(`rate:${trip.id}`)) setNotice(outcome === "unsaved" ? UNSAVED : BUSY); return; }
     if (outcome.ok) return rated();
-    if (!isUncertain(outcome)) return setStep({ kind: "choose", failure: outcome });
+    if (!isUncertain(outcome)) return setRefused(outcome);
     await verify(outcome);
   }
 
@@ -56,36 +64,36 @@ function RateBike({ trip, bikeNumber, onLater, onRated }: { trip: Trip; bikeNumb
     onRated();
   }
 
-  async function verify(failure: Outcome) {
-    if (inFlight.current) return;
-    inFlight.current = true;
-    setStep({ kind: "uncertain", failure, checking: true });
-    const settled = await settle(failure, async () => ratingCheck(await readDashboard(), trip.id));
-    inFlight.current = false;
+  async function verify(pending: Outcome) {
+    setChecking(true);
+    const settled = await settle(pending, async () => ratingCheck(await readDashboard(), trip.id));
+    setChecking(false);
+    if (settled.kind === "uncertain") return;
+    operations.clear(`rate:${trip.id}`);
     if (settled.kind === "done") rated();
-    else setStep(settled.kind === "refused" ? { kind: "choose", failure: settled.outcome } : { kind: "uncertain", failure, checking: false });
+    else setRefused(settled.outcome);
   }
 
-  const sending = step.kind === "sending" || step.kind === "uncertain";
   return (
     <section className="trip-rate" aria-labelledby="trip-rate-title">
       <h3 id="trip-rate-title" className="trip-rate-title">Noter ce vélo</h3>
       <div className="trip-rate-stars" role="radiogroup" aria-labelledby="trip-rate-title">
         {starNumbers.map((value) => (
           <button key={value} type="button" role="radio" aria-checked={stars === value} aria-label={`${value} étoile${value > 1 ? "s" : ""} sur 5 · ${starLabels[value]}`}
-            className={`trip-rate-star${stars != null && value <= stars ? " is-on" : ""}`} disabled={sending} onClick={() => { setStars(value); setStep({ kind: "choose" }); }}>
+            className={`trip-rate-star${stars != null && value <= stars ? " is-on" : ""}`} disabled={operation !== null} onClick={() => { setStars(value); setRefused(null); setNotice(null); }}>
             <StarIcon size={34} weight={stars != null && value <= stars ? "fill" : "light"} aria-hidden="true"/>
           </button>
         ))}
       </div>
       <p className={`trip-rate-label${stars == null ? " is-empty" : ""}`} aria-live="polite">{stars != null ? starLabels[stars] : "Touchez une étoile"}</p>
-      {(step.kind === "choose" || step.kind === "uncertain") && step.failure ? (
-        <div className="trip-rate-failure" role="alert"><p className="form-error">{step.failure.message}</p><p className="bike-action-raw">{[`HTTP ${step.failure.httpStatus || "aucune réponse"}`, step.failure.code && !step.failure.code.startsWith("local.") && step.failure.code !== "network" ? `Code ${step.failure.code}` : null].filter(Boolean).join(" · ")}</p>{step.kind === "uncertain" ? <p className="uncertain-note">{UNCERTAIN}</p> : null}</div>
+      {failure ? (
+        <div className="trip-rate-failure" role="alert"><p className="form-error">{failure.message}</p><p className="bike-action-raw">{[`HTTP ${failure.httpStatus || "aucune réponse"}`, failure.code && !failure.code.startsWith("local.") && failure.code !== "network" ? `Code ${failure.code}` : null].filter(Boolean).join(" · ")}</p>{uncertain ? <p className="uncertain-note">{UNCERTAIN}</p> : null}</div>
       ) : null}
+      {notice ? <p className="form-error" role="alert">{notice}</p> : null}
       <div className="trip-rate-actions">
-        {step.kind === "uncertain" ? <><TextButton onClick={onLater}>Plus tard</TextButton><Button variant="secondary" pending={step.checking} onClick={() => void verify(step.failure)}>Vérifier</Button></> : <>
-          {!sending ? <TextButton onClick={onLater}>Plus tard</TextButton> : null}
-          <Button pending={sending} disabled={stars == null} onClick={() => { if (stars != null) void submit(stars); }}>Envoyer · +5 points</Button>
+        {operation ? <>{!sendingHere ? <TextButton onClick={onLater}>Plus tard</TextButton> : null}<Button variant="secondary" pending={sending || checking} onClick={() => { if (failure) void verify(failure); }}>Vérifier</Button></> : <>
+          {!sendingHere ? <TextButton onClick={onLater}>Plus tard</TextButton> : null}
+          <Button disabled={stars == null} onClick={() => { if (stars != null) void submit(stars); }}>Envoyer · +5 points</Button>
         </>}
       </div>
     </section>
@@ -107,16 +115,18 @@ function CopyCode({ token }: { token: string }) {
 export function TripSheet({ trip, onClose }: { trip: Trip; onClose: () => void }) {
   const [bikeOpen, setBikeOpen] = useState(false);
   const [ratedNow, setRatedNow] = useState<string | null>(null);
+  const sending = useSending();
   const points = pointsLine(trip);
   const rated = trip.isRated === true || ratedHere.has(trip.id) || ratedNow === trip.id;
   const sameStation = trip.startStationNumber != null && trip.startStationNumber === trip.endStationNumber;
   const subject = `Trajet litigieux${trip.token ? ` ${trip.token}` : ""}`;
+  useEffect(() => { if (trip.isRated === true && operations.get(`rate:${trip.id}`)) operations.clear(`rate:${trip.id}`); }, [trip.id, trip.isRated]);
   return (
     <>
-      <Modal titleId="trip-detail-title" onClose={onClose}>
+      <Modal titleId="trip-detail-title" onClose={sending ? () => {} : onClose}>
         <div className="modal-heading">
           <h2 id="trip-detail-title">Trajet</h2>
-          <button className="icon-button" aria-label="Fermer les détails" onClick={onClose}><XIcon size={20} weight="light"/></button>
+          <button className="icon-button" aria-label="Fermer les détails" disabled={sending} onClick={onClose}><XIcon size={20} weight="light"/></button>
         </div>
         <p className="detail-date">{tripTimes(trip)}</p>
         <div className="trip-detail-route">
@@ -155,13 +165,14 @@ export function TripSheet({ trip, onClose }: { trip: Trip; onClose: () => void }
 }
 
 export function TripEndedSheet({ trip, onClose }: { trip: Trip; onClose: () => void }) {
+  const sending = useSending();
   const close = () => { dismissTrip(localStorage, trip.id); onClose(); };
   const [rateable] = useState(() => trip.isRated !== true && !ratedHere.has(trip.id) && canRate(trip));
   return (
-    <Modal titleId="trip-ended-title" onClose={close}>
+    <Modal titleId="trip-ended-title" onClose={sending ? () => {} : close}>
       <div className="modal-heading">
         <h2 id="trip-ended-title">Trajet terminé</h2>
-        <button className="icon-button" aria-label="Fermer" onClick={close}><XIcon size={20} weight="light"/></button>
+        <button className="icon-button" aria-label="Fermer" disabled={sending} onClick={close}><XIcon size={20} weight="light"/></button>
       </div>
       <p className="detail-date">{tripTimes(trip)}</p>
       <div className="trip-detail-route">

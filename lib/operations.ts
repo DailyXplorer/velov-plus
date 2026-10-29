@@ -7,7 +7,7 @@ type Store = Pick<Storage, "getItem" | "setItem" | "removeItem">;
 export const OPERATIONS_KEY = "velov:operations:v1";
 export const SENDING_LIMIT = 2 * 60_000;
 export const UNCERTAIN_HOLD = 2 * 60_000;
-export const ACTION_TIMEOUT = 45_000;
+export const ACTION_TIMEOUT = 65_000;
 export const HISTORY_LAG = 2 * 60_000;
 export const BUSY = "Une autre action est en cours. Attendez sa réponse avant de recommencer.";
 export const UNSAVED = "Ce navigateur ne peut pas suivre cette action. Rien n’a été envoyé.";
@@ -128,5 +128,5 @@ export function inviteDebit(before: { at: number; balance: number | null; cost: 
   const debit = after.movements.some(({ date, amount }) => amount === -before.cost && date !== null && (date.length === 10 ? dropped && Date.parse(`${date}T23:59:59Z`) >= since : Date.parse(date) >= since));
   if (debit) return "debited";
   if (now - before.at < HISTORY_LAG) return "unknown";
-  return before.balance !== null && after.balance !== null && after.balance >= before.balance ? "not-debited" : "unknown";
+  return before.balance !== null && after.balance !== null && before.balance - after.balance < before.cost ? "not-debited" : "unknown";
 }

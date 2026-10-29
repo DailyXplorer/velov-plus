@@ -55,7 +55,7 @@ test("after a failure whose outcome is uncertain, the dialog says so and offers 
     const component = source(`components/${file}.tsx`);
     assert.match(component, /isUncertain\(\w+\) \? <p className="uncertain-note">\{[^}]*UNCERTAIN/, file);
   }
-  for (const [file, again] of [["contact-support", "Écrire un nouveau message"], ["via-action", "Nouvelle demande"]]) {
+  for (const [file, again] of [["contact-support", "Écrire un nouveau message"]]) {
     assert.match(source(`components/${file}.tsx`), new RegExp(`\\{failure && isUncertain\\(failure\\) \\? <><Button variant="ghost" onClick=\\{\\w+\\}>Fermer<\\/Button><Button variant="secondary" onClick=\\{\\w+\\}>${again}<\\/Button><\\/> : <>[\\s\\S]*?>Confirmer<\\/Button><\\/>\\}`), file);
   }
   const bike = source("components/bike-actions.tsx");
@@ -132,8 +132,8 @@ test("F3: profile, favourites, auto-spend, renewal and rating check the real sta
   assert.match(renewal, /if \(isUncertain\(outcome\)\) \{ setUncertain\(true\); await resolve\(outcome\); \}/);
   assert.match(renewal, /\{uncertain && failure \? <><Button[^\n]*?>Fermer<\/Button><Button[^\n]*?>Vérifier<\/Button><\/>/);
   const rating = source("components/trip-sheet.tsx");
-  assert.match(rating, /if \(!isUncertain\(outcome\)\) return setStep\(\{ kind: "choose", failure: outcome \}\);\n\s+await verify\(outcome\);/);
-  assert.match(rating, /\{step\.kind === "uncertain" \? <><TextButton onClick=\{onLater\}>Plus tard<\/TextButton><Button variant="secondary"[^\n]*?>Vérifier<\/Button><\/> : <>/);
+  assert.match(rating, /if \(!isUncertain\(outcome\)\) return setRefused\(outcome\);\n\s+await verify\(outcome\);/);
+  assert.match(rating, /\{operation \? <>\{!sendingHere \? <TextButton onClick=\{onLater\}>Plus tard<\/TextButton> : null\}<Button variant="secondary"[^\n]*?>Vérifier<\/Button><\/> : <>/);
 });
 
 test("F4: contact and extra time keep their state per account outside the dialog", () => {

@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { type Trip, rateBodySchema } from "../lib/models.ts";
 import { type Stars, type TripCheck, UNLOCK_GRACE, WATCH_BACKOFF_CAP, WATCH_CAP, WATCH_INTERVAL, createDockWatch, dismissTrip, sendStars, starLabels, tripToGreet, wasDismissed } from "../lib/trip-end.ts";
-import { isUncertain } from "../lib/outcome.ts";
+import { isUncertain, settle } from "../lib/outcome.ts";
+import { SENDING_LIMIT, UNCERTAIN_HOLD, createOperations, runOnce } from "../lib/operations.ts";
 
 const now = Date.parse("2026-10-29T12:00:00Z");
 const trip = (id: string, endedAt: string | null, extra: Partial<Trip> = {}): Trip => ({
@@ -299,4 +301,38 @@ test("F7: stopping and following again during a slow check still leaves exactly 
   assert.equal(h.checks, 2);
   await h.answer(none());
   assert.deepEqual(h.docked.map((item) => item.tripId), ["next"]);
+});
+
+test("R1: a rating is sent once per trip, even when the sheet is reopened during the send or after an uncertain answer", async () => {
+  let clock = now;
+  const values = new Map<string, string>();
+  const storage = { getItem: (key: string) => values.get(key) ?? null, setItem: (key: string, value: string) => { values.set(key, value); }, removeItem: (key: string) => { values.delete(key); } };
+  const tab = createOperations(() => storage, () => clock);
+  const answers: ((response: Response) => void)[] = [];
+  const posts: string[] = [];
+  const send = ((url: string) => { posts.push(url); return new Promise<Response>((resolve) => answers.push(resolve)); }) as unknown as typeof fetch;
+  const rate = () => runOnce(tab, "rate:trip-1", () => sendStars("trip-1", 20449, 5, send), { keep: true, meta: { stars: 5 } });
+  const first = rate();
+  assert.equal(await rate(), "busy", "sheet reopened while sending");
+  answers.shift()!(Response.json(null, { status: 504 }));
+  const outcome = await first;
+  assert.ok(outcome !== "busy" && outcome !== "unsaved" && isUncertain(outcome));
+  clock += SENDING_LIMIT + UNCERTAIN_HOLD + 3_600_000;
+  const held = createOperations(() => storage, () => clock).get("rate:trip-1");
+  assert.equal(held?.status, "uncertain", "Plus tard then reopening still asks for Vérifier");
+  assert.equal(held?.meta.stars, 5);
+  assert.equal(await rate(), "busy");
+  assert.equal(posts.length, 1);
+  assert.deepEqual(await settle(held!.outcome!, async () => "applied"), { kind: "done" });
+
+  const sheet = readFileSync(new URL("../components/trip-sheet.tsx", import.meta.url), "utf8");
+  assert.doesNotMatch(sheet, /inFlight/);
+  assert.match(sheet, /const operation = useOperation\(`rate:\$\{trip\.id\}`\);/);
+  assert.match(sheet, /runOnce\(operations, `rate:\$\{trip\.id\}`, \(\) => sendStars\(trip\.id, bikeNumber, picked\), \{ keep: true, meta: \{ stars: picked \} \}\)/);
+  assert.match(sheet, /\{operation \? <>[^\n]*>Vérifier<\/Button><\/> : <>[\s\S]*?Envoyer · \+5 points<\/Button>\n\s+<\/>\}/);
+  assert.equal(sheet.match(/Envoyer · \+5 points/g)?.length, 1);
+  assert.match(sheet, /<Modal titleId="trip-detail-title" onClose=\{sending \? \(\) => \{\} : onClose\}>/);
+  assert.match(sheet, /aria-label="Fermer les détails" disabled=\{sending\} onClick=\{onClose\}/);
+  assert.match(sheet, /<Modal titleId="trip-ended-title" onClose=\{sending \? \(\) => \{\} : close\}>/);
+  assert.match(sheet, /aria-label="Fermer" disabled=\{sending\} onClick=\{close\}/);
 });

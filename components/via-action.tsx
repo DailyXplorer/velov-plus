@@ -32,11 +32,6 @@ export function ViaAction({ stations, account, tripId }: { stations: Station[]; 
   const pending = operation?.status === "sending";
 
   function close() { if (!operations.sending()) { setOpen(false); setReviewing(false); setFailure(null); setNotice(null); } }
-  function startOver() {
-    if (!operationKey) return;
-    operations.clear(operationKey);
-    setFailure(null); setNotice(null); setReviewing(false); setSelected(""); setQuery("");
-  }
   function locate() {
     if (!navigator.geolocation) { setLocationError({ message: "Localisation indisponible. Recherchez une station par son nom." }); return; }
     setLocating(true);
@@ -70,7 +65,7 @@ export function ViaAction({ stations, account, tripId }: { stations: Station[]; 
           <p className="write-question">La station <strong>{station.name} (n° {station.number})</strong> est pleine. Demander 15 minutes de plus pour rejoindre une autre station ?</p>
           {failure ? <><p className="form-error" role="alert">{failure.message}</p><p className="bike-action-raw">HTTP {failure.httpStatus || "aucune réponse"} · Code {failure.code ?? "—"} · {capitalize(failure.detail ?? failure.message ?? "")}</p>{isUncertain(failure) ? <p className="uncertain-note">{UNCERTAIN}</p> : null}</> : null}
           {notice ? <p className="form-error" role="alert">{notice}</p> : null}
-          <div className="modal-actions">{failure && isUncertain(failure) ? <><Button variant="ghost" onClick={close}>Fermer</Button><Button variant="secondary" onClick={startOver}>Nouvelle demande</Button></> : <><Button variant="ghost" disabled={pending} onClick={() => { setFailure(null); setNotice(null); setReviewing(false); }}>Retour</Button><Button pending={pending} disabled={!operationKey} onClick={() => void confirm()}>Confirmer</Button></>}</div>
+          <div className="modal-actions">{failure && isUncertain(failure) ? <Button variant="ghost" onClick={close}>Fermer</Button> : <><Button variant="ghost" disabled={pending} onClick={() => { setFailure(null); setNotice(null); setReviewing(false); }}>Retour</Button><Button pending={pending} disabled={!operationKey} onClick={() => void confirm()}>Confirmer</Button></>}</div>
         </> : <>
           <p>Choisissez la station pleine où vous vouliez rendre votre vélo.</p>
           <label className="field"><span className="metric-label">Rechercher une station pleine</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Nom, adresse ou numéro"/></label>
