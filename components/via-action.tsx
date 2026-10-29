@@ -4,10 +4,11 @@ import { useId, useRef, useState } from "react";
 import { TimerIcon } from "./icons";
 import { type Outcome, type Station, capitalize, outcomeSchema } from "@/lib/models";
 import { fullStations } from "@/lib/via-models";
+import { UNCERTAIN, isUncertain, noAnswer, routeFailure } from "@/lib/outcome";
 import { formatDistance, haversine, type Point } from "@/lib/geo";
 import { Button, Modal, SelectField } from "./ui";
 
-/** Mounted only during an ongoing trip. Every confirmation is one request; success closes the dialog, a failure stays with its raw status. */
+/** Mounted only during an ongoing trip. Every confirmation is one request; success closes the dialog, a failure stays with its raw status, and only a sure refusal may be confirmed again. */
 export function ViaAction({ stations }: { stations: Station[] }) {
   const titleId = useId();
   const [open, setOpen] = useState(false);
@@ -23,7 +24,7 @@ export function ViaAction({ stations }: { stations: Station[] }) {
   const choices = fullStations(stations, query, position);
   const station = choices.find((item) => String(item.number) === selected);
 
-  function close() { if (!inFlight.current) { setOpen(false); setFailure(null); } }
+  function close() { if (!inFlight.current) { setOpen(false); setReviewing(false); setFailure(null); } }
   function locate() {
     if (!navigator.geolocation) { setLocationError("Localisation indisponible. Recherchez une station par son nom."); return; }
     setLocating(true);
@@ -39,10 +40,9 @@ export function ViaAction({ stations }: { stations: Station[] }) {
       const response = await fetch("/api/account/via", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ stationNumber: station.number }), signal: AbortSignal.timeout(40_000) });
       const body: unknown = await response.json().catch(() => null);
       const parsed = outcomeSchema.safeParse(body);
-      const error = body && typeof body === "object" ? body as Record<string, unknown> : {};
-      outcome = parsed.success ? parsed.data : { ok: false, httpStatus: response.status, transactionState: null, code: typeof error.code === "string" ? error.code : null, message: typeof error.error === "string" ? error.error : "Réponse inattendue. Vérifiez votre trajet dans l’app Vélo’v avant de réessayer.", detail: null };
+      outcome = parsed.success ? parsed.data : routeFailure(response.status, body, "Réponse inattendue. Les 15 minutes ont peut-être été ajoutées.");
     } catch {
-      outcome = { ok: false, httpStatus: 0, transactionState: null, code: "network", message: "Vélo’v ne répond pas. Vérifiez dans l’app si les 15 minutes ont été ajoutées avant de réessayer.", detail: null };
+      outcome = noAnswer("Vélo’v ne répond pas. Les 15 minutes ont peut-être été ajoutées.");
     } finally { inFlight.current = false; setPending(false); }
     if (!outcome.ok) { setFailure(outcome); return; }
     setOpen(false); setReviewing(false); setSelected(""); setQuery("");
@@ -54,8 +54,8 @@ export function ViaAction({ stations }: { stations: Station[] }) {
         <div className="modal-heading"><h2 id={titleId}>15 minutes de plus</h2></div>
         {reviewing && station ? <>
           <p className="write-question">La station <strong>{station.name} (n° {station.number})</strong> est pleine. Demander 15 minutes de plus pour rejoindre une autre station ?</p>
-          {failure ? <><p className="form-error" role="alert">{failure.message}</p><p className="bike-action-raw">HTTP {failure.httpStatus || "aucune réponse"} · Code {failure.code ?? "—"} · {capitalize(failure.detail ?? failure.message ?? "")}</p></> : null}
-          <div className="modal-actions"><Button variant="ghost" disabled={pending} onClick={() => { setFailure(null); setReviewing(false); }}>Retour</Button><Button pending={pending} onClick={() => void confirm()}>Confirmer</Button></div>
+          {failure ? <><p className="form-error" role="alert">{failure.message}</p><p className="bike-action-raw">HTTP {failure.httpStatus || "aucune réponse"} · Code {failure.code ?? "—"} · {capitalize(failure.detail ?? failure.message ?? "")}</p>{isUncertain(failure) ? <p className="uncertain-note">{UNCERTAIN}</p> : null}</> : null}
+          <div className="modal-actions">{failure && isUncertain(failure) ? <Button variant="ghost" onClick={close}>Fermer</Button> : <><Button variant="ghost" disabled={pending} onClick={() => { setFailure(null); setReviewing(false); }}>Retour</Button><Button pending={pending} onClick={() => void confirm()}>Confirmer</Button></>}</div>
         </> : <>
           <p>Choisissez la station pleine où vous vouliez rendre votre vélo.</p>
           <label className="field"><span className="metric-label">Rechercher une station pleine</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Nom, adresse ou numéro"/></label>

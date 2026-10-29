@@ -32,8 +32,8 @@ test("a confirmed action closes its dialog: no success panel, no second button t
   for (const file of dialogs) {
     const component = source(`components/${file}.tsx`);
     assert.doesNotMatch(component, success, file);
-    // Only the invite code is information worth a "Fermer" button.
-    if (file !== "invite-friend") assert.doesNotMatch(component, />Fermer<|"Fermer" :/, file);
+    // Only the invite code is information worth a "Fermer" button; elsewhere it appears only after an uncertain failure.
+    if (file !== "invite-friend") assert.doesNotMatch(component.replace(/(?:isUncertain\(failure\)|uncertain) \? <Button variant="ghost" onClick=\{\w+\}>Fermer</g, ""), />Fermer<|"Fermer" :/, file);
   }
 });
 
@@ -51,9 +51,28 @@ test("failures stay in the dialog with the raw status, and Confirmer stays avail
   }
 });
 
+test("after a failure whose outcome is uncertain, the dialog says so and offers Fermer alone, never Confirmer again", () => {
+  for (const file of ["bike-actions", "invite-friend", "contact-support", "via-action"]) {
+    const component = source(`components/${file}.tsx`);
+    assert.match(component, /isUncertain\(\w+\) \? <p className="uncertain-note">\{[^}]*UNCERTAIN/, file);
+  }
+  for (const file of ["contact-support", "via-action"]) {
+    assert.match(source(`components/${file}.tsx`), /\{failure && isUncertain\(failure\) \? <Button variant="ghost" onClick=\{\w+\}>Fermer<\/Button> : <>[\s\S]*?>Confirmer<\/Button><\/>\}/, file);
+  }
+  const bike = source("components/bike-actions.tsx");
+  assert.match(bike, /\{uncertain \? <Button variant="ghost" onClick=\{onClose\}>Fermer<\/Button> : <>[\s\S]*?>Confirmer<\/Button>\s*<\/>\}/);
+  assert.match(bike, /uncertain=\{failure !== null && isUncertain\(failure\)\}/);
+  assert.match(bike, /step\.action === "unlock" \? UNCERTAIN_UNLOCK : UNCERTAIN/);
+  // A booking that may have gone through is read back once, through the bookings refresh that feeds the banner.
+  assert.match(bike, /if \(action === "book" && isUncertain\(outcome\)\) account\?\.changed\(\);/);
+  const invite = source("components/invite-friend.tsx");
+  assert.match(invite, /const settled = outcome !== null && \(outcome\.ok \|\| isUncertain\(outcome\)\);/);
+  assert.match(invite, /\{!settled \? <Button[\s\S]*?>Confirmer</);
+});
+
 test("the exceptions keep their result: the invite code with Copier and Fermer, the inline rating thanks", () => {
   const invite = source("components/invite-friend.tsx");
-  assert.match(invite, /outcome\?\.ok \? "Fermer" : "Annuler"/);
+  assert.match(invite, /settled \? "Fermer" : "Annuler"/);
   assert.match(invite, /"Copié" : "Copier"/);
   const rating = source("components/trip-sheet.tsx");
   assert.match(rating, /Merci ! \+5 points<\/p>/);

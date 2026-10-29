@@ -495,6 +495,7 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
 .bike-action-mine strong { display: block; font-family: var(--font-title); font-size: 20px; font-weight: 400; line-height: 1.3; letter-spacing: -.03em; }
 .bike-action-countdown { display: inline-flex; align-items: center; gap: 6px; margin-top: 4px; color: var(--red-deep); font-size: 12px; text-transform: uppercase; }
 .bike-action-raw { margin-top: 12px; color: var(--ink-soft); font-size: 11px; overflow-wrap: anywhere; }
+.uncertain-note { margin-top: 10px; color: var(--red-deep); font-size: 13px; font-weight: 600; line-height: 1.5; }
 .bike-action-mine { margin-bottom: 12px; }
 .bike-action .form-error { margin-top: 10px; }
 .bike-action-signin { margin-top: 18px; color: var(--ink-soft); font-size: 12px; text-transform: uppercase; }

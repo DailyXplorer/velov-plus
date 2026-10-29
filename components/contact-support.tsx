@@ -3,13 +3,13 @@
 import { useId, useRef, useState } from "react";
 import { EnvelopeSimpleIcon, XIcon } from "./icons";
 import { type Outcome, type Trip, capitalize, formatDate, outcomeSchema } from "@/lib/models";
+import { UNCERTAIN, isUncertain, noAnswer, routeFailure } from "@/lib/outcome";
 import { contactBodySchema, type ContactBody } from "@/lib/contact-models";
 import { MAIL_COMPLAINT_TYPES } from "@/lib/guesses";
 import { Button, Modal, SelectField } from "./ui";
 
 const labels = ["Un trajet", "Mon abonnement", "Mes paiements", "Un parking"];
 const subjects = MAIL_COMPLAINT_TYPES.map((value, index) => ({ value, label: labels[index] }));
-const failed = (httpStatus: number, code: string | null, message: string): Outcome => ({ ok: false, httpStatus, code, message, detail: message, transactionState: null });
 
 export function ContactSupport({ trips }: { trips: Trip[] | null }) {
   const titleId = useId();
@@ -43,10 +43,9 @@ export function ContactSupport({ trips }: { trips: Trip[] | null }) {
       const response = await fetch("/api/account/contact", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(draft), signal: AbortSignal.timeout(40_000) });
       const data: unknown = await response.json().catch(() => null);
       const parsed = outcomeSchema.safeParse(data);
-      const value = data && typeof data === "object" ? data as Record<string, unknown> : {};
-      outcome = parsed.success ? parsed.data : failed(response.status, typeof value.code === "string" ? value.code : "local.unreadable", typeof value.error === "string" ? value.error : "Réponse inattendue. Votre message a peut-être déjà été envoyé.");
+      outcome = parsed.success ? parsed.data : routeFailure(response.status, data, "Réponse inattendue. Votre message a peut-être déjà été envoyé.");
     } catch {
-      outcome = failed(0, "network", "Pas de réponse. Votre message a peut-être déjà été envoyé.");
+      outcome = noAnswer("Pas de réponse. Votre message a peut-être déjà été envoyé.");
     } finally { setSending(false); inFlight.current = false; }
     if (!outcome.ok) { setFailure(outcome); return; }
     setMessage(""); setTripId("none"); setDraft(null); setOpen(false);
@@ -66,8 +65,8 @@ export function ContactSupport({ trips }: { trips: Trip[] | null }) {
     </div>}
     {draft ? <Modal titleId={titleId} onClose={closeConfirmation}>
       <div className="modal-heading"><h2 id={titleId}>Envoyer au service client ?</h2><button className="icon-button" aria-label="Fermer" disabled={sending} onClick={closeConfirmation}><XIcon size={20}/></button></div>
-      {failure ? <><p role="alert" className="form-error">{failure.message}</p><p className="bike-action-raw">HTTP {failure.httpStatus || "aucune réponse"} · Code {failure.code ?? "—"} · {capitalize(failure.detail ?? failure.message ?? "—")}</p></> : null}
-      <div className="modal-actions"><Button variant="ghost" disabled={sending} onClick={closeConfirmation}>Annuler</Button><Button pending={sending} onClick={() => void send()}>Confirmer</Button></div>
+      {failure ? <><p role="alert" className="form-error">{failure.message}</p><p className="bike-action-raw">HTTP {failure.httpStatus || "aucune réponse"} · Code {failure.code ?? "—"} · {capitalize(failure.detail ?? failure.message ?? "—")}</p>{isUncertain(failure) ? <p className="uncertain-note">{UNCERTAIN}</p> : null}</> : null}
+      <div className="modal-actions">{failure && isUncertain(failure) ? <Button variant="ghost" onClick={closeConfirmation}>Fermer</Button> : <><Button variant="ghost" disabled={sending} onClick={closeConfirmation}>Annuler</Button><Button pending={sending} onClick={() => void send()}>Confirmer</Button></>}</div>
     </Modal> : null}
   </>;
 }
