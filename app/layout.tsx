@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
-import { DM_Sans, Faculty_Glyphic } from "next/font/google";
+import { DM_Sans } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 
-const serif = Faculty_Glyphic({ weight: "400", subsets: ["latin"], variable: "--font-serif", display: "swap" });
+const serif = localFont({ src: "./fonts/VelovGlyphic-Regular.woff2", weight: "400", variable: "--font-serif", display: "swap" });
 const sans = DM_Sans({ subsets: ["latin"], variable: "--font-sans", display: "swap" });
 
 export const metadata: Metadata = {
