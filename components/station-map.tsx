@@ -5,6 +5,7 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import type { Point } from "@/lib/geo";
 import type { Station } from "@/lib/models";
+import { whenIdle } from "@/lib/idle";
 
 export type UserPosition = Point & { accuracy: number };
 
@@ -19,6 +20,8 @@ type StationMapProps = {
 
 const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+type Pin = { station: Station; total: number; marker: L.Marker | null };
+
 const icons = new Map<string, L.DivIcon>();
 function pinIcon(total: number, selected: boolean) {
   const key = `${total}:${selected}`;
@@ -30,16 +33,21 @@ function pinIcon(total: number, selected: boolean) {
   return icon;
 }
 
+function pinTitle(station: Station, total: number) {
+  return `${station.name}, ${total} vélo${total > 1 ? "s" : ""}`;
+}
+
 export default function StationMap({ stations, selected, onSelect, onClear, userPosition, fit }: StationMapProps) {
   const element = useRef<HTMLDivElement>(null);
   const map = useRef<L.Map | null>(null);
-  const markers = useRef<Map<string, { marker: L.Marker; total: number }>>(new Map());
+  const pins = useRef(new Map<string, Pin>());
+  const place = useRef(() => {});
   const select = useRef(onSelect);
   select.current = onSelect;
   const clear = useRef(onClear);
   clear.current = onClear;
-  const current = useRef({ stations, selected });
-  current.current = { stations, selected };
+  const current = useRef(stations);
+  current.current = stations;
   const shown = useRef<string | null>(null);
 
   useEffect(() => {
@@ -49,6 +57,30 @@ export default function StationMap({ stations, selected, onSelect, onClear, user
     L.control.zoom({ position: "topright" }).addTo(instance);
     instance.on("click", () => clear.current?.());
     map.current = instance;
+    const show = (margin: number) => {
+      const size = instance.getSize();
+      if (!size.x || !size.y) return;
+      const bounds = instance.getBounds();
+      const near = bounds.pad(margin);
+      const kept = bounds.pad(1);
+      for (const [id, pin] of pins.current) {
+        const at: L.LatLngTuple = [pin.station.lat, pin.station.lon];
+        if (!pin.marker && near.contains(at)) {
+          pin.marker = L.marker(at, { icon: pinIcon(pin.total, shown.current === id), title: pinTitle(pin.station, pin.total), keyboard: true })
+            .on("click", () => select.current(id)).addTo(instance);
+        } else if (pin.marker && !kept.contains(at)) {
+          pin.marker.remove();
+          pin.marker = null;
+        }
+      }
+    };
+    let cancelIdle = () => {};
+    place.current = () => {
+      cancelIdle();
+      show(0);
+      cancelIdle = whenIdle(() => show(.5));
+    };
+    instance.on("moveend", () => place.current());
     const host = element.current;
     const hint = document.createElement("div");
     hint.className = "map-wheel-hint";
@@ -65,36 +97,50 @@ export default function StationMap({ stations, selected, onSelect, onClear, user
     const wheelHost = host.parentElement ?? host;
     wheelHost.addEventListener("wheel", onWheel, { capture: true });
     let frame = 0;
-    const observer = new ResizeObserver(() => {
-      if (frame) return;
+    const observer = new ResizeObserver(([entry]) => {
+      if (frame || !entry.contentRect.width || !entry.contentRect.height) return;
       frame = requestAnimationFrame(() => { frame = 0; instance.invalidateSize(); });
     });
     observer.observe(element.current);
-    return () => { observer.disconnect(); cancelAnimationFrame(frame); window.clearTimeout(hide); wheelHost.removeEventListener("wheel", onWheel, { capture: true }); hint.remove(); instance.remove(); map.current = null; };
+    return () => {
+      observer.disconnect(); cancelAnimationFrame(frame); cancelIdle(); window.clearTimeout(hide); wheelHost.removeEventListener("wheel", onWheel, { capture: true }); hint.remove();
+      for (const pin of pins.current.values()) pin.marker = null;
+      place.current = () => {};
+      instance.remove(); map.current = null;
+    };
   }, []);
 
   useEffect(() => {
-    const instance = map.current;
-    if (!instance) return;
-    for (const { marker } of markers.current.values()) marker.remove();
-    markers.current.clear();
-    const chosen = current.current.selected;
-    for (const station of stations) {
-      if (!station.open) continue;
-      const total = station.mechanical + station.electrical;
-      const marker = L.marker([station.lat, station.lon], { icon: pinIcon(total, chosen === station.id), title: `${station.name}, ${total} vélo${total > 1 ? "s" : ""}`, keyboard: true }).addTo(instance);
-      marker.on("click", () => select.current(station.id));
-      markers.current.set(station.id, { marker, total });
+    const open = new Map<string, Station>();
+    for (const station of stations) if (station.open) open.set(station.id, station);
+    for (const [id, pin] of pins.current) {
+      if (open.has(id)) continue;
+      pin.marker?.remove();
+      pins.current.delete(id);
     }
-    shown.current = chosen;
+    for (const [id, station] of open) {
+      const total = station.mechanical + station.electrical;
+      const pin = pins.current.get(id);
+      if (!pin) { pins.current.set(id, { station, total, marker: null }); continue; }
+      const previous = pin.station;
+      pin.station = station;
+      pin.total = total;
+      if (!pin.marker) continue;
+      if (previous.lat !== station.lat || previous.lon !== station.lon) pin.marker.setLatLng([station.lat, station.lon]);
+      if (previous.mechanical + previous.electrical !== total || previous.name !== station.name) {
+        pin.marker.options.title = pinTitle(station, total);
+        pin.marker.setIcon(pinIcon(total, shown.current === id));
+      }
+    }
+    place.current();
   }, [stations]);
 
   useEffect(() => {
     if (shown.current === selected) return;
-    const previous = shown.current ? markers.current.get(shown.current) : undefined;
-    previous?.marker.setIcon(pinIcon(previous.total, false));
-    const next = selected ? markers.current.get(selected) : undefined;
-    next?.marker.setIcon(pinIcon(next.total, true));
+    const previous = shown.current ? pins.current.get(shown.current) : undefined;
+    previous?.marker?.setIcon(pinIcon(previous.total, false));
+    const next = selected ? pins.current.get(selected) : undefined;
+    next?.marker?.setIcon(pinIcon(next.total, true));
     shown.current = selected;
   }, [selected]);
 
@@ -108,7 +154,7 @@ export default function StationMap({ stations, selected, onSelect, onClear, user
   }, [userPosition]);
 
   useEffect(function panOnNewSelectionOnly() {
-    const station = current.current.stations.find((station) => station.id === selected);
+    const station = current.current.find((station) => station.id === selected);
     if (station && map.current) map.current.panTo([station.lat, station.lon], { animate: !reducedMotion(), duration: 0.5 });
   }, [selected]);
 

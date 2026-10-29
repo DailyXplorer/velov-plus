@@ -1,12 +1,13 @@
 "use client";
 
-import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { memo, type ReactNode, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { z } from "zod";
 import { ArrowClockwiseIcon, BicycleIcon, ChartIcon, HouseIcon, MapPinIcon, SignOutIcon, StarFourIcon, UserCircleIcon, WarningCircleIcon, XIcon } from "./icons";
 import { bookingSchema, dashboardSchema, stationsSchema, type Booking, type Dashboard, type Page, type Resource, type Trip, formatDate, formatName } from "@/lib/models";
 import { createDockWatch, tripCheckSchema, tripToGreet } from "@/lib/trip-end";
 import { createRefreshGate } from "@/lib/refresh-gate";
-import { AccountPage, AccountSkeleton, Overview, OverviewSkeleton, PointsPage, PointsSkeleton, StationsPage, StationsSkeleton, TripsPage, TripsSkeleton } from "./dashboard";
+import { whenIdle } from "@/lib/idle";
+import { AccountPage, AccountSkeleton, Overview as OverviewPage, OverviewSkeleton, PointsPage, PointsSkeleton, StationsPage as StationsMapPage, StationsSkeleton, TripsPage, TripsSkeleton } from "./dashboard";
 import { Button, Modal } from "./ui";
 import { Login } from "./login";
 import { StatsPage, StatsSkeleton } from "./stats";
@@ -22,6 +23,9 @@ const navigation = [
   { id: "stations", label: "Stations", mobile: "Stations", icon: MapPinIcon },
   { id: "account", label: "Compte", mobile: "Compte", icon: UserCircleIcon }
 ] satisfies { id: Page; label: string; mobile: string; icon: typeof HouseIcon }[];
+const Overview = memo(OverviewPage);
+const StationsPage = memo(StationsMapPage);
+const mapPages: ReadonlySet<Page> = new Set(["overview", "stations"]);
 const skeletons: Record<Page, () => ReactNode> = { overview: OverviewSkeleton, trips: TripsSkeleton, stats: StatsSkeleton, points: PointsSkeleton, stations: StationsSkeleton, account: AccountSkeleton };
 const logoutSchema = z.object({ remoteLogout: z.boolean().optional() });
 const remoteLogoutUnconfirmed = "Déconnexion effectuée. Vélo’v ne l’a pas encore confirmée.";
@@ -30,6 +34,10 @@ type StationData = z.infer<typeof stationsSchema>;
 
 function pageFromHash(): Page {
   return navigation.find((item) => item.id === window.location.hash.slice(1))?.id ?? "overview";
+}
+function navigate(next: Page) {
+  window.location.hash = next;
+  window.scrollTo({ top: 0, behavior: "auto" });
 }
 function subscribeHash(changed: () => void) {
   window.addEventListener("hashchange", changed);
@@ -54,6 +62,12 @@ export function Companion({ initialSession }: { initialSession: boolean }) {
   const dockedTrips = useRef(new Set<string>());
   const greeted = useRef(false);
   const refreshGate = useRef(createRefreshGate());
+  const [kept, setKept] = useState(new Set<Page>());
+  if (page && mapPages.has(page) && !kept.has(page)) setKept(new Set(kept).add(page));
+  const ready = state.kind === "ready";
+  useEffect(() => {
+    if (ready) return whenIdle(() => setKept(new Set(mapPages)));
+  }, [ready]);
 
   const loadBookings = useCallback(async () => {
     try { setBookings(await getJson("/api/bookings", z.array(bookingSchema), "")); }
@@ -74,6 +88,7 @@ export function Companion({ initialSession }: { initialSession: boolean }) {
       setStationsPending(false);
     }
   }, []);
+  const reloadStations = useCallback(() => void loadStations(), [loadStations]);
 
   const patchData = useCallback((change: (data: Dashboard) => Dashboard) => {
     setState((current) => current.kind === "ready" ? { kind: "ready", data: change(current.data) } : current);
@@ -141,11 +156,6 @@ export function Companion({ initialSession }: { initialSession: boolean }) {
     if (initialSession) { void loadDashboard(); void loadStations(); void loadBookings(); }
     return () => window.removeEventListener("hashchange", changed);
   }, [initialSession, loadDashboard, loadStations, loadBookings]);
-
-  function navigate(next: Page) {
-    window.location.hash = next;
-    window.scrollTo({ top: 0, behavior: "auto" });
-  }
 
   function connected() {
     setState({ kind: "loading" });
@@ -243,12 +253,12 @@ export function Companion({ initialSession }: { initialSession: boolean }) {
                     <ul>{state.data.warnings.map((warning) => <li key={warning}>{warning}</li>)}</ul>
                   </details>
                 ) : null}
-                {page === "overview" ? <Overview data={state.data} stations={stations} navigate={navigate} reload={() => void loadStations()} reloading={stationsPending}/>
-                  : page === "trips" ? <TripsPage data={state.data}/>
+                {kept.has("overview") ? <div className="page-slot" hidden={page !== "overview"}><Overview data={state.data} stations={stations} navigate={navigate} reload={reloadStations} reloading={stationsPending}/></div> : null}
+                {kept.has("stations") ? <div className="page-slot" hidden={page !== "stations"}><StationsPage resource={stations} reload={reloadStations} reloading={stationsPending} favorites={state.data.profile.favorites} account={state.data.profile.email} onFavorite={setFavorite}/></div> : null}
+                {page === "trips" ? <TripsPage data={state.data}/>
                     : page === "stats" ? <StatsPage account={state.data.profile.email}/>
                     : page === "points" ? <PointsPage data={state.data} onAutoSpend={setAutoSpend} onChanged={() => void loadDashboard()}/>
-                      : page === "stations" ? <StationsPage resource={stations} reload={() => void loadStations()} reloading={stationsPending} favorites={state.data.profile.favorites} account={state.data.profile.email} onFavorite={setFavorite}/>
-                        : page === "account" ? <AccountPage data={state.data} onLogout={openLogout} onSaved={() => void loadDashboard()}/> : null}
+                      : page === "account" ? <AccountPage data={state.data} onLogout={openLogout} onSaved={() => void loadDashboard()}/> : null}
               </>
             )}
           </main>

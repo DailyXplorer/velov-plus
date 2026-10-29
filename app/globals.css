@@ -104,6 +104,8 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
 .user-avatar:hover { color: var(--white); background: var(--ink); }
 .main-content { padding-bottom: 56px; }
 .page-content { width: 100%; }
+.page-slot { display: contents; }
+.page-slot[hidden] { display: none; }
 .summary-grid { display: grid; grid-template-columns: 1fr 1fr 1.17fr; gap: 16px; }
 .summary-card { position: relative; isolation: isolate; display: flex; flex-direction: column; align-items: flex-start; min-width: 0; min-height: 210px; padding: 18px 20px 20px; overflow: hidden; border: 0; border-radius: var(--radius); color: var(--white); background: var(--ink); text-align: left; }
 .summary-card::before { position: absolute; inset: 0; z-index: -1; content: ""; background-image: radial-gradient(rgba(223, 37, 55, .22) 1.2px, transparent 1.7px); background-size: 10px 10px; mask-image: linear-gradient(to top, #000, transparent 75%); }
@@ -503,8 +505,8 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
   .overview-map .leaflet-control-zoom { display: none; }
   .map-explore { position: absolute; inset: 0; z-index: 3; display: flex; align-items: center; justify-content: center; padding: 12px; border: 0; background: transparent; }
   .map-explore > span { display: inline-flex; align-items: center; min-height: 40px; padding: 0 18px; border-radius: 999px; color: var(--red-deep); background: var(--white); box-shadow: var(--shadow-ring); font-size: 14px; font-weight: 500; }
-  .app-main:has(.stations-page) { display: flex; flex-direction: column; height: 100dvh; min-height: 0; }
-  .app-main:has(.stations-page) > .main-content { display: flex; flex: 1; flex-direction: column; min-height: 0; padding-bottom: calc(77px + env(safe-area-inset-bottom)); }
+  .app-main:has(.page-slot:not([hidden]) > .stations-page) { display: flex; flex-direction: column; height: 100dvh; min-height: 0; }
+  .app-main:has(.page-slot:not([hidden]) > .stations-page) > .main-content { display: flex; flex: 1; flex-direction: column; min-height: 0; padding-bottom: calc(77px + env(safe-area-inset-bottom)); }
   .stations-page { display: flex; flex: 1; flex-direction: column; min-height: 0; }
   .stations-page .stations-toolbar, .stations-page .inline-notice { margin-bottom: 12px; }
   .stations-page .stations-explorer { flex: 1; height: auto; min-height: 0; }
