@@ -141,8 +141,8 @@ export function TripsPage({ data }: { data: Dashboard }) {
   return (
     <div className="page-content">
       <div className="filter-line">
-        <SelectField label="Type de vélo" value={filter} onChange={(value) => { setFilter(value); setLimit(10); }}
-          options={[{ value: "all", label: "Tous" }, { value: "mechanical", label: "Mécaniques" }, { value: "electrical", label: "Électriques" }]}/>
+        <SelectField label="Type de vélo" hideLabel value={filter} onChange={(value) => { setFilter(value); setLimit(10); }}
+          options={[{ value: "all", label: "Tous les vélos" }, { value: "mechanical", label: "Vélos mécaniques" }, { value: "electrical", label: "Vélos électriques" }]}/>
         <span className="result-count">{trips.length} trajet{trips.length > 1 ? "s" : ""}</span>
       </div>
       <TripsTable trips={trips.slice(0, limit)}/>
@@ -259,13 +259,11 @@ export function StationsPage({ resource, reload, reloading, favorites: favoriteL
           <input aria-label="Rechercher une station" placeholder="Rechercher une station" value={query} onChange={(event) => { setQuery(event.target.value); }}/>
           {query ? <button className="icon-button" aria-label="Effacer la recherche" onClick={() => setQuery("")}><XIcon size={16} weight="light"/></button> : null}
         </label>
+        <SelectField label="Afficher" hideLabel value={filter} onChange={(value) => { setFilter(value); }}
+          options={[{ value: "all", label: "Toutes les stations" }, { value: "favorites", label: "Favorites" }, { value: "available", label: "Vélos disponibles" }, { value: "electrical", label: "Vélos électriques" }, { value: "stands", label: "Places libres" }]}/>
         <Button variant="secondary" pending={locating} onClick={locate} aria-label="Stations autour de moi" title="Autour de moi"><NavigationArrowIcon size={18} weight="light"/><span className="location-label">Autour de moi</span></Button>
       </div>
       {locationError ? <p className="inline-notice" role="status">{locationError}</p> : null}
-      <div className="filter-line">
-        <SelectField label="Afficher" value={filter} onChange={(value) => { setFilter(value); }}
-          options={[{ value: "all", label: "Toutes les stations" }, { value: "favorites", label: "Favorites" }, { value: "available", label: "Vélos disponibles" }, { value: "electrical", label: "Vélos électriques" }, { value: "stands", label: "Places libres" }]}/>
-      </div>
       {resource.kind === "error" ? <div className="notice-error" role="status">{resource.message}<Button variant="secondary" pending={reloading} onClick={reload}>Réessayer</Button></div> : null}
       <div className="stations-explorer">
         {query && resource.kind === "ready" ? (

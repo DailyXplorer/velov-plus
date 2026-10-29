@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState, type ButtonHTMLAttributes, type KeyboardEvent, type ReactNode } from "react";
-import { ArrowRightIcon, ArrowUpRightIcon, CaretDownIcon, CheckIcon, type Icon, SpinnerGapIcon } from "./icons";
+import { ArrowRightIcon, ArrowUpRightIcon, CheckIcon, type Icon, SpinnerGapIcon } from "./icons";
 
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: "primary" | "secondary" | "ghost";
@@ -35,7 +35,8 @@ export function CardTag({ icon: TagIcon, children }: { icon: Icon; children: Rea
   return <span className="card-tag"><span className="card-tag-icon"><TagIcon size={13} weight="bold" aria-hidden="true"/></span>{children}</span>;
 }
 
-export function SelectField<T extends string>({ label, value, options, onChange }: { label: string; value: T; options: { value: T; label: string }[]; onChange: (value: T) => void }) {
+/** `hideLabel` keeps the label for screen readers only, when the selected value already says what the control is. */
+export function SelectField<T extends string>({ label, hideLabel = false, value, options, onChange }: { label: string; hideLabel?: boolean; value: T; options: { value: T; label: string }[]; onChange: (value: T) => void }) {
   const id = useId();
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
@@ -97,7 +98,7 @@ export function SelectField<T extends string>({ label, value, options, onChange 
 
   return (
     <div className="select-field">
-      <span className="select-label" id={`${id}-label`}>{label}</span>
+      <span className={hideLabel ? "sr-only" : "select-label"} id={`${id}-label`}>{label}</span>
       <div className="select-control" ref={root}>
         <button ref={trigger} type="button" className="select-trigger" aria-haspopup="listbox" aria-expanded={open}
           aria-controls={open ? `${id}-list` : undefined} aria-labelledby={`${id}-label ${id}-value`}
@@ -105,7 +106,7 @@ export function SelectField<T extends string>({ label, value, options, onChange 
           <span className="select-value" id={`${id}-value`}>
             {options.map((option, index) => <span key={option.value} aria-hidden={index !== selected || undefined}>{option.label}</span>)}
           </span>
-          <CaretDownIcon size={14} weight="light" aria-hidden="true"/>
+          <span className="select-chevron"><ArrowRightIcon size={13} weight="bold" aria-hidden="true"/></span>
         </button>
         {open ? (
           <ul ref={listbox} id={`${id}-list`} className="select-popover" role="listbox" tabIndex={-1} aria-labelledby={`${id}-label`}
