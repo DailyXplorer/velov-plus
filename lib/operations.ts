@@ -49,21 +49,22 @@ export function createOperations(storage: () => Store | null, now: () => number 
     for (const listener of listeners) listener();
   }
   function write(key: string, entry: Operation | null, required: boolean) {
-    if (entry) memory.set(key, entry); else memory.delete(key);
     try {
       const store = storage();
       const all = saved();
       if (!store || !all) throw new Error("storage unavailable");
       if (entry) all[key] = entry; else delete all[key];
       if (Object.keys(all).length) store.setItem(OPERATIONS_KEY, JSON.stringify(all)); else store.removeItem(OPERATIONS_KEY);
+      memory.delete(key);
     } catch (error) {
       if (required) throw error;
+      if (entry) memory.set(key, entry); else memory.delete(key);
     }
   }
 
   function get(key: string): Operation | null {
     const all = saved();
-    const entry = live(all ? all[key] : memory.get(key));
+    const entry = live((all ? all[key] : undefined) ?? memory.get(key));
     if (running.has(key) && entry?.status !== "sending") return { status: "sending", at: now(), keep: false, outcome: null, meta: {} };
     return entry;
   }

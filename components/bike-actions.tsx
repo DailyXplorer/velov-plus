@@ -2,9 +2,10 @@
 
 import { createContext, useContext, useEffect, useState } from "react";
 import { ClockIcon, LockOpenIcon, TimerIcon, WarningIcon, XIcon } from "./icons";
-import { BOOKING_MINUTES, BOOKING_POINTS, RELEASE_DISTANCE, type Booking, type Outcome, bookResultSchema, capitalize, formatDate, unlockResultSchema } from "@/lib/models";
+import { BOOKING_MINUTES, BOOKING_POINTS, RELEASE_DISTANCE, type Booking, type Outcome, capitalize, formatDate } from "@/lib/models";
 import { formatDistance, haversine } from "@/lib/geo";
-import { UNCERTAIN, UNCERTAIN_UNLOCK, isUncertain, noAnswer, routeFailure } from "@/lib/outcome";
+import { UNCERTAIN, UNCERTAIN_UNLOCK, isUncertain } from "@/lib/outcome";
+import { sendBikeAction } from "@/lib/bike-action";
 import { BUSY, runOnce } from "@/lib/operations";
 import { operations, useOperation, useSending } from "./operations";
 import { Button, CardTag, Modal } from "./ui";
@@ -78,18 +79,6 @@ function BookedUntil({ endsAt }: { endsAt: string | null }) {
   return <><strong>Vélo réservé jusqu’à <span className="clock">{formatDate(endsAt, { hour: "2-digit", minute: "2-digit" })}</span></strong><span className="bike-action-countdown"><ClockIcon size={15} weight="bold" aria-hidden="true"/>{left > 0 ? <>Il reste <span className="clock">{clock(left)}</span></> : "Réservation expirée"}</span></>;
 }
 
-async function post(action: Action, place: Place): Promise<Outcome & { ongoing?: { id: string }[] | null }> {
-  const body = action === "book" ? { stationNumber: place.stationNumber, bikeNumber: place.bikeNumber } : { stationNumber: place.stationNumber, standNumber: place.standNumber, bikeNumber: place.bikeNumber };
-  try {
-    const response = await fetch(action === "book" ? "/api/bookings" : "/api/unlock", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-    const raw: unknown = await response.json().catch(() => null);
-    const parsed = action === "book" ? bookResultSchema.safeParse(raw) : unlockResultSchema.safeParse(raw);
-    return response.ok && parsed.success ? parsed.data : routeFailure(response.status, raw, "Réponse inattendue.");
-  } catch {
-    return noAnswer("Le serveur ne répond pas.");
-  }
-}
-
 export function BikeActions({ place, booking = null, initial, onDone }: { place: Place; booking?: Booking | null; initial?: Action; onDone: () => void }) {
   const account = useContext(BookingsContext);
   const [chosen, setStep] = useState<Step>(initial ? { kind: "confirm", action: initial } : { kind: "start" });
@@ -111,7 +100,7 @@ export function BikeActions({ place, booking = null, initial, onDone }: { place:
     setFailure(null);
     setNotice(null);
     const key = `${action}:${place.bikeNumber}`;
-    const outcome = await runOnce(operations, key, () => post(action, place));
+    const outcome = await runOnce(operations, key, () => sendBikeAction(action, place));
     if (outcome === "busy" || outcome === "unsaved") { if (!operations.get(key)) setNotice(BUSY); return; }
     if (outcome.httpStatus === 401) { setStep({ kind: "expired" }); return; }
     if (outcome.ok) {

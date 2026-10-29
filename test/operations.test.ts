@@ -244,3 +244,15 @@ test("R4: an uncertain extra-time request is never offered again for that trip, 
   assert.doesNotMatch(via, /Nouvelle demande|operations\.clear/);
   assert.match(via, /\{failure && isUncertain\(failure\) \? <Button variant="ghost" onClick=\{close\}>Fermer<\/Button> : <>/);
 });
+
+test("an uncertain unlock stays held in memory when the browser can read storage but cannot write it", async () => {
+  const store = { ...memoryStore(), setItem: () => { throw new DOMException("quota", "QuotaExceededError"); } };
+  const tab = createOperations(() => store);
+  let posts = 0;
+  const send = async (): Promise<Outcome> => { posts += 1; return routeFailure(504, null, "Réponse inattendue."); };
+  const first = await runOnce(tab, "unlock:1", send);
+  assert.ok(first !== "busy" && first !== "unsaved" && isUncertain(first));
+  assert.equal(tab.get("unlock:1")?.status, "uncertain");
+  assert.equal(await runOnce(tab, "unlock:1", send), "busy");
+  assert.equal(posts, 1);
+});

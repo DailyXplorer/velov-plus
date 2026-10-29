@@ -93,7 +93,7 @@ test("the unlock instruction is given before confirming, since the sheet closes 
 
 test("F1: unlock and booking go through the shared operation store, and the drawers cannot close while sending", () => {
   const bike = source("components/bike-actions.tsx");
-  assert.match(bike, /await runOnce\(operations, key, \(\) => post\(action, place\)\)/);
+  assert.match(bike, /await runOnce\(operations, key, \(\) => sendBikeAction\(action, place\)\)/);
   assert.match(bike, /useOperation\(`unlock:\$\{place\.bikeNumber\}`\)/);
   assert.match(bike, /useOperation\(`book:\$\{place\.bikeNumber\}`\)/);
   assert.doesNotMatch(bike, /inFlight/);
