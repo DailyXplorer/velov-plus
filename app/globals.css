@@ -607,3 +607,6 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
   .points-balance, .points-total { font-size: 40px; }
 }
 .brand-plus { color: var(--red); }
+/* Logout: filled red, white text and icon (owner request). */
+.account-logout > .button, .account-logout > .button:hover { color: var(--white); background: var(--red); box-shadow: none; }
+.account-logout > .button:hover { background: var(--red-deep); }
