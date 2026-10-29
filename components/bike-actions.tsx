@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { z } from "zod";
-import { CheckIcon, ClockIcon, LockOpenIcon, WarningIcon, XIcon } from "./icons";
+import { CheckIcon, ClockIcon, LockOpenIcon, TimerIcon, WarningIcon, XIcon } from "./icons";
 import { BOOKING_MINUTES, BOOKING_POINTS, RELEASE_DISTANCE, type BookResult, type Booking, type Outcome, type UnlockResult, bookResultSchema, capitalize, formatDate, unlockResultSchema } from "@/lib/models";
 import { formatDistance, haversine } from "@/lib/geo";
 import { Button, CardTag, Modal } from "./ui";
@@ -166,7 +166,7 @@ export function BikeActions({ place, booking = null, initial }: { place: Place; 
         <>
           {booking ? <p className="bike-action-mine"><BookedUntil endsAt={booking.endsAt}/></p> : null}
           <div className="bike-action-buttons">
-            {!booking ? <Button variant="secondary" onClick={() => setStep({ kind: "confirm", action: "book" })}>Réserver ({BOOKING_MINUTES} min · {BOOKING_POINTS} points)</Button> : null}
+            {!booking ? <Button variant="secondary" onClick={() => setStep({ kind: "confirm", action: "book" })}><TimerIcon size={17} weight="light" aria-hidden="true"/>Réserver</Button> : null}
             <Button onClick={() => setStep({ kind: "confirm", action: "unlock" })}><LockOpenIcon size={17} weight="light" aria-hidden="true"/>Déverrouiller</Button>
           </div>
         </>
