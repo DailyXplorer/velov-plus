@@ -57,7 +57,7 @@ export type Bike = z.infer<typeof bikeSchema>;
 export type Page = "overview" | "trips" | "points" | "stations" | "account";
 export type Resource<T> = { kind: "loading" } | { kind: "ready"; data: T } | { kind: "error"; message: string };
 
-/** "Je déconseille" carries the rating of the chosen defect: 30 for a serious one, 60 otherwise. */
+/** Vélo’v keeps three levels: recommended (100), or not with 60 for a minor problem and 30 for a serious one. */
 export const rateBodySchema = z.discriminatedUnion("recommended", [
   z.object({ bikeNumber: z.number().int().positive(), recommended: z.literal(true), rating: z.null() }).strict(),
   z.object({ bikeNumber: z.number().int().positive(), recommended: z.literal(false), rating: z.union([z.literal(30), z.literal(60)]) }).strict()

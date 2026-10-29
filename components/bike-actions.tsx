@@ -7,8 +7,8 @@ import { BOOKING_MINUTES, BOOKING_POINTS, RELEASE_DISTANCE, type BookResult, typ
 import { formatDistance, haversine } from "@/lib/geo";
 import { Button, CardTag, Modal } from "./ui";
 
-/** Present only while signed in: the bookings and a way to reload them (and the account) after a booking or a release. */
-export const BookingsContext = createContext<{ bookings: Booking[]; changed: () => void } | null>(null);
+/** Present only while signed in: the bookings, a way to reload them after a booking or a release, and the start of the dock watch after a release. */
+export const BookingsContext = createContext<{ bookings: Booking[]; changed: () => void; unlocked: (tripId: string | null) => void } | null>(null);
 
 export type Place = { stationNumber: number; stationName: string; standNumber: number; bikeNumber: number; lat: number | null; lon: number | null };
 type Action = "book" | "unlock";
@@ -152,6 +152,7 @@ export function BikeActions({ place, booking = null, initial }: { place: Place; 
       if (!result) { setFailure("Réponse inattendue. Vérifiez la borne et vos réservations avant de réessayer."); setStep({ kind: "confirm", action }); return; }
       setStep({ kind: "done", result });
       if (result.value.ok) account?.changed();
+      if (result.action === "unlock" && result.value.ok) account?.unlocked(result.value.ongoing?.[0]?.id ?? null);
     } catch {
       setFailure("Le serveur ne répond pas. Vérifiez la borne et vos réservations avant de réessayer.");
       setStep({ kind: "confirm", action });

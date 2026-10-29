@@ -13,6 +13,7 @@ import { type AutoSpendResult, type BookBody, type BookResult, type Bike, type B
 import { API, BASE, BROWSER_AGENT, lenient, normalizeTrip, patchAutoRenewal, patchAutoSpend, patchProfile, postBooking, postPeriodReport, postRating, postRelease, putStationBookmark, rawBooking, rawTrip, refusal, utcDate } from "./cyclocity";
 import { VelovError } from "./auth-protocol";
 import { memo } from "./memo";
+import { type TripCheck, latestFinished } from "./trip-end";
 import { appToken, fetchTransient, getStations, getWithAppToken } from "./upstream";
 import type { Session } from "./session";
 
@@ -150,6 +151,19 @@ export async function unlockBike(session: Session, body: UnlockBody): Promise<Un
   await new Promise((resolve) => setTimeout(resolve, 2_000));
   const [ongoing, stations] = await Promise.all([read(`${account}/trips/ongoing`, z.array(rawTrip), session, "application/vnd.trip.v6+json").catch(() => null), stationsByNumber()]);
   return { ...outcome, ongoing: ongoing?.map((trip) => normalizeTrip(trip, stations)) ?? null };
+}
+
+/** The dock watch's poll: the ongoing trips, and only once none is left the latest finished one (two small reads, no dashboard). */
+export async function getTripCheck(session: Session): Promise<TripCheck> {
+  const account = `/accounts/${await accountIdOf(session)}`;
+  const trips = (path: string) => read(`${account}/${path}`, z.array(rawTrip), session, "application/vnd.trip.v6+json");
+  const ongoing = await trips("trips/ongoing").catch((error) => { if (error instanceof VelovError && error.code === "expired") throw error; return null; });
+  if (ongoing === null || ongoing.length) {
+    const stations = ongoing?.length ? await stationsByNumber() : new Map<number, Station>();
+    return { ongoing: ongoing?.map((trip) => normalizeTrip(trip, stations)) ?? null, latest: null };
+  }
+  const [history, stations] = await Promise.all([trips("trips?status=FINISHED").catch(() => []), stationsByNumber()]);
+  return { ongoing: [], latest: latestFinished(history.map((trip) => normalizeTrip(trip, stations))) };
 }
 
 export async function rateTrip(session: Session, tripId: string, body: RateBody) {

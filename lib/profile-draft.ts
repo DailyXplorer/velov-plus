@@ -1,5 +1,5 @@
 // The "Modifier mes coordonnées" form without React: what the user typed, and the PATCH body it becomes.
-import { ADDRESS_MAX, NAME_MAX, type Dashboard, type ProfileBody, normalizePhone, profileBodySchema } from "./models.ts";
+import { ADDRESS_MAX, NAME_MAX, type Dashboard, type ProfileBody, formatName, normalizePhone, profileBodySchema } from "./models.ts";
 
 export const countries = [
   { value: "FR", label: "France" }, { value: "BE", label: "Belgique" }, { value: "CH", label: "Suisse" }, { value: "LU", label: "Luxembourg" },
@@ -10,9 +10,9 @@ type Profile = Dashboard["profile"];
 export type Draft = { firstName: string; lastName: string; address: string; complement: string; zipCode: string; city: string; country: string; phone: string };
 export type Change = { label: string; before: string; after: string };
 
-/** The current values as Vélo’v stores them: a name is never reformatted unless the user edits it. */
+/** The current values; names are shown capitalised (Vélo’v stores them in lower case) and only sent if the user edits them. */
 export function draftOf(profile: Profile): Draft {
-  return { firstName: profile.firstName, lastName: profile.lastName, address: profile.address ?? "", complement: profile.addressComplement ?? "", zipCode: profile.zipCode ?? "", city: profile.city ?? "", country: profile.country ?? "FR", phone: profile.phoneNumber ?? "" };
+  return { firstName: formatName(profile.firstName), lastName: formatName(profile.lastName), address: profile.address ?? "", complement: profile.addressComplement ?? "", zipCode: profile.zipCode ?? "", city: profile.city ?? "", country: profile.country ?? "FR", phone: profile.phoneNumber ?? "" };
 }
 
 const nameError = (field: unknown) => `${field === "firstName" ? "Prénom" : "Nom"} invalide : lettres, espaces, apostrophes et traits d’union uniquement, ${NAME_MAX} caractères au plus.`;
@@ -25,7 +25,7 @@ export function changesOf(profile: Profile, draft: Draft): { body: ProfileBody; 
   const changed = (value: string, before: string | null) => value !== (before ?? "");
   for (const [key, label, empty] of [["firstName", "Prénom", "Saisissez votre prénom."], ["lastName", "Nom", "Saisissez votre nom."]] as const) {
     const value = draft[key].trim().replace(/ {2,}/g, " ");
-    if (!changed(draft[key], profile[key]) || !changed(value, profile[key])) continue;
+    if (!changed(value, profile[key]) || value === formatName(profile[key])) continue;
     if (!value) return { error: empty };
     body[key] = value;
     changes.push({ label, before: profile[key] || "—", after: value });
