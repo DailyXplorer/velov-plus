@@ -12,7 +12,7 @@ import { whenIdle } from "@/lib/idle";
 import { AccountPage, AccountSkeleton, Overview as OverviewPage, OverviewSkeleton, PointsPage, PointsSkeleton, StationsPage as StationsMapPage, StationsSkeleton, TripsPage, TripsSkeleton } from "./dashboard";
 import { Button, Modal } from "./ui";
 import { Login } from "./login";
-import { StatsPage, StatsSkeleton, forgetStats } from "./stats";
+import { StatsPage, StatsSkeleton, dropStats, forgetStats } from "./stats";
 import { BookingBanner, BookingsContext, UnlockModal } from "./bike-actions";
 import { ApiError, getJson } from "./get-json";
 import { TripEndedSheet } from "./trip-sheet";
@@ -105,9 +105,10 @@ export function Companion({ initialSession }: { initialSession: boolean }) {
 
   const loadDashboard = useCallback(async (): Promise<Dashboard | null> => {
     if (dashboardInFlight.current) return null;
+    const stamp = session.current.stamp();
+    if (!stamp.live()) return null;
     dashboardInFlight.current = true;
     setRefreshing(true);
-    const stamp = session.current.stamp();
     try {
       const data = await getJson("/api/dashboard", dashboardSchema, "Votre compte est momentanément indisponible.", stamp.signal);
       if (!stamp.live()) return null;
@@ -180,26 +181,32 @@ export function Companion({ initialSession }: { initialSession: boolean }) {
 
   function refreshAll() {
     if (!refreshGate.current(dashboardInFlight.current || stationsInFlight.current)) return;
+    forgetStats();
     void loadDashboard(); void loadStations(); void loadBookings();
   }
 
   function openLogout() { setLogoutError(null); setLogoutOpen(true); }
 
   async function logout() {
-    session.current.end();
+    session.current.close();
+    watch.current?.stop();
     setLoggingOut(true);
     setLogoutError(null);
     try {
       const response = await fetch("/api/auth/logout", { method: "POST", signal: AbortSignal.timeout(25_000) });
       if (!response.ok) throw new Error("Déconnexion impossible.");
       const answer = logoutSchema.safeParse(await response.json().catch(() => null));
+      session.current.close();
+      watch.current?.stop();
       setLogoutOpen(false);
       setBookings([]);
-      forgetStats();
+      dropStats();
       setState({ kind: "guest", message: answer.success && answer.data.remoteLogout === false ? remoteLogoutUnconfirmed : null });
       window.location.hash = "";
     } catch {
+      session.current.end();
       setLogoutError("Déconnexion impossible. Réessayez.");
+      void loadDashboard();
     } finally {
       setLoggingOut(false);
     }

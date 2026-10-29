@@ -4,7 +4,7 @@ import { useId, useState } from "react";
 import { z } from "zod";
 import { autoRenewalResultSchema, type AutoRenewalResult } from "@/lib/renewal-models";
 import { type Outcome, capitalize } from "@/lib/models";
-import { UNCERTAIN, isUncertain } from "@/lib/outcome";
+import { UNCERTAIN, isUncertain, networkFailure } from "@/lib/outcome";
 import { blockedMessage, runOnce, settleHeld } from "@/lib/operations";
 import { renewalCheck } from "@/lib/checks";
 import { readDashboard } from "./get-json";
@@ -38,14 +38,15 @@ export function AutoRenewal({ subscriptionId, account, value, allowed, onSaved }
     setFailure(null);
     setNotice(null);
     const outcome = await runOnce(operations, operationKey, async (): Promise<AutoRenewalResult> => {
+      const startedAt = Date.now();
       try {
         const response = await fetch("/api/account/auto-renewal", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ subscriptionId, autoRenewal: next }), signal: AbortSignal.timeout(40_000) });
         const data: unknown = await response.json().catch(() => null);
         const parsed = autoRenewalResultSchema.safeParse(data);
         const error = errorSchema.safeParse(data);
         return response.ok && parsed.success ? parsed.data : failed(response.status, error.success ? error.data.code ?? "unavailable" : "local.unreadable", error.success ? error.data.error : "Réponse inattendue. Actualisez la page avant de réessayer.");
-      } catch {
-        return failed(0, "network", "Vélo’v ne répond pas. Actualisez la page pour voir si le réglage a changé.");
+      } catch (error) {
+        return { ...networkFailure("Vélo’v ne répond pas. Actualisez la page pour voir si le réglage a changé.", error, startedAt), autoRenewal: null, autoRenewalAllowed: false, verified: false };
       }
     }, { keep: true, meta: { wanted: next ? 1 : 0 } });
     if (typeof outcome === "string") { const message = blockedMessage(outcome, operations.get(operationKey) !== null); if (message) setNotice(message); return; }

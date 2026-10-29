@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type PointerEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type PointerEvent, type ReactNode } from "react";
 import { BicycleIcon, ClockIcon, CoinsIcon, type Icon, LeafIcon, RouteIcon, StarFourIcon } from "./icons";
 import { Button, CardTag, EmptyState, Ghost, SelectField, SelectSkeleton } from "./ui";
 import { BikeDrawer } from "./station-bikes";
@@ -29,24 +29,29 @@ function kilometres(metres: number) {
 }
 
 const cache = createStatsCache();
-export const forgetStats = () => cache.clear();
+export const forgetStats = () => cache.invalidate();
+export const dropStats = () => cache.clear();
 
 export function StatsPage({ account }: { account: string }) {
   const [state, setState] = useState<{ kind: "loading" } | { kind: "ready"; stats: Stats } | { kind: "error"; message: string }>(() => {
     const stats = cache.get(account);
     return stats ? { kind: "ready", stats } : { kind: "loading" };
   });
+  const revision = useSyncExternalStore(cache.subscribe, cache.revision, () => 0);
   const load = useCallback(async () => {
+    const at = cache.revision();
     setState({ kind: "loading" });
     try {
       const stats = await getJson("/api/stats", statsSchema, unavailable);
+      if (at !== cache.revision()) return;
       if (stats.complete) cache.set(account, stats); else cache.clear();
       setState({ kind: "ready", stats });
     } catch (error) {
+      if (at !== cache.revision()) return;
       setState({ kind: "error", message: error instanceof ApiError ? error.message : unavailable });
     }
   }, [account]);
-  useEffect(() => { if (!cache.get(account)) void load(); }, [account, load]);
+  useEffect(() => { if (!cache.get(account)) void load(); }, [account, load, revision]);
 
   if (state.kind === "loading") return <StatsSkeleton/>;
   if (state.kind === "error") return <div className="dashboard-error"><p role="alert">{state.message}</p><Button variant="secondary" onClick={() => void load()}>Réessayer</Button></div>;

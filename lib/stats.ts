@@ -182,7 +182,19 @@ export function statsTtl(stats: Stats) {
 
 export function createStatsCache(now: () => number = Date.now) {
   let entry: { account: string; stats: Stats; expiresAt: number } | null = null;
+  let revision = 0;
+  const listeners = new Set<() => void>();
   return {
+    revision: () => revision,
+    subscribe(listener: () => void) {
+      listeners.add(listener);
+      return () => { listeners.delete(listener); };
+    },
+    invalidate() {
+      entry = null;
+      revision += 1;
+      for (const listener of listeners) listener();
+    },
     get(account: string) {
       return entry && entry.account === account && entry.expiresAt > now() ? entry.stats : null;
     },

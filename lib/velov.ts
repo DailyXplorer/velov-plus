@@ -10,12 +10,12 @@ import { postPromoCode } from "./promo";
 import { PROMOCODE_ACCEPT, PROMOCODE_REWARD } from "./guesses";
 import { z } from "zod";
 import { type AutoSpendResult, type BookBody, type BookResult, type Bike, type Booking, type Dashboard, type Outcome, type ProfileBody, type RateBody, type Receipt, type Station, type UnlockBody, type UnlockResult, dashboardSchema } from "./models";
-import { API, BASE, BROWSER_AGENT, lenient, normalizeTrip, patchAutoRenewal, patchAutoSpend, patchProfile, postBooking, postPeriodReport, postRating, postRelease, putStationBookmark, rawBooking, rawTrip, refusal, utcDate } from "./cyclocity";
+import { API, BASE, BROWSER_AGENT, bookingRows, lenient, normalizeTrip, patchAutoRenewal, patchAutoSpend, patchProfile, postBooking, postPeriodReport, postRating, postRelease, putStationBookmark, rawBooking, rawTrip, refusal, utcDate } from "./cyclocity";
 import { VelovError } from "./auth-protocol";
 import { memo } from "./memo";
 import { type TripCheck, latestFinished } from "./trip-end";
 import { buildStats, collectPages, statsTtl, type Stats } from "./stats";
-import { type RewardsHistory, historySince } from "./operations";
+import { type RewardsHistory, historySince, signedAmount } from "./operations";
 import { appToken, fetchTransient, getStations, getWithAppToken } from "./upstream";
 import type { Session } from "./session";
 
@@ -108,8 +108,7 @@ function toBooking(value: z.infer<typeof rawBooking>, stations: Map<number, Stat
 
 export async function getBookings(session: Session): Promise<Booking[]> {
   const accountId = await accountIdOf(session);
-  const value = await read(`/accounts/${accountId}/bookings`, z.array(z.unknown()).nullable(), session, "*/*");
-  const bookings = (value ?? []).flatMap((item) => { const booking = rawBooking.safeParse(item); return booking.success ? [booking.data] : []; });
+  const bookings = bookingRows(await read(`/accounts/${accountId}/bookings`, z.unknown(), session, "*/*"));
   if (!bookings.length) return [];
   const numbers = [...new Set(bookings.map((booking) => booking.stationNumber))];
   const [stations, ...bikes] = await Promise.all([stationsByNumber(), ...numbers.map((number) => getRawBikes(`stationNumber=${number}`, "").catch(() => []))]);
@@ -267,7 +266,7 @@ export async function getRewardsSince(session: Session, since: number): Promise<
   const account = `/accounts/${await accountIdOf(session)}`;
   return historySince(async (page) => {
     const value = await read(`${account}/rewards/history?page=${page}`, z.object({ content: z.array(rawMovement), last: lenient(z.boolean()) }), session, "application/vnd.rewards.v5+json");
-    return { last: value.last === true, movements: value.content.map((movement) => ({ id: movement.id, date: utcDate(movement.createdAt), amount: movement.amount * (movement.direction === "DEBIT" ? -1 : 1) })) };
+    return { last: value.last === true, movements: value.content.map((movement) => ({ id: movement.id, date: utcDate(movement.createdAt), amount: signedAmount(movement.direction, movement.amount) })) };
   }, since);
 }
 

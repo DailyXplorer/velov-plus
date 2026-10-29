@@ -4,7 +4,7 @@ import { type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, us
 import { z } from "zod";
 import { ArrowClockwiseIcon, ArrowLeftIcon, BatteryEmptyIcon, BatteryFullIcon, BatteryHighIcon, BatteryLowIcon, BatteryMediumIcon, BicycleIcon, CaretDownIcon, CaretRightIcon, type Icon, LightningIcon, StarHalfIcon, StarIcon, ThumbsUpIcon, WarningIcon, XIcon } from "./icons";
 import { type AssessedBike, assessBikes, isCheckOverdue } from "@/lib/bike-score";
-import { type Bike, type Resource, type Station, bikeSchema, capitalize, formatDate } from "@/lib/models";
+import { type Bike, type Resource, type Station, bikeSchema, capitalize, formatCountSans, formatDate } from "@/lib/models";
 import { Button, EmptyState, Eyebrow, Ghost, Modal } from "./ui";
 import { BikeActions, BookingsContext } from "./bike-actions";
 import { useSending } from "./operations";
@@ -146,7 +146,7 @@ function BikeSheet({ item, actions }: { item: AssessedBike; actions?: ReactNode 
       {actions}
       <dl className="account-details bike-details">
         <div><dt>Note</dt><dd>{bike.rating && rating != null ? (
-          <><span className="bike-rating"><Stars value={rating}/><span>{formatScore(rating)}<span className="bike-out-of">/5</span></span></span><small>{bike.rating.count} avis{fromNow(bike.rating.lastAt) ? ` · Dernier avis ${fromNow(bike.rating.lastAt)}` : ""}</small></>
+          <><span className="bike-rating"><Stars value={rating}/><span>{formatScore(rating)}<span className="bike-out-of">/5</span></span></span><small>{formatCountSans(bike.rating.count)} avis{fromNow(bike.rating.lastAt) ? ` · Dernier avis ${fromNow(bike.rating.lastAt)}` : ""}</small></>
         ) : "Pas encore d’avis"}</dd></div>
         {bike.type === "electrical" ? <div><dt>Batterie</dt><dd>{bike.batteryPercent != null ? <BatteryLevel percent={bike.batteryPercent}/> : "Non renseigné"}</dd></div> : null}
         <DateFact label="Dernier trajet" value={bike.lastTripAt} withAgo/>

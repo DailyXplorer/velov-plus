@@ -118,6 +118,7 @@ export function BikeActions({ place, booking = null, initial, dialog = false, on
     setFailure({ ...outcome, message: outcome.message ?? (action === "book" ? "Réservation impossible." : "Déverrouillage impossible.") });
     setStep({ kind: "confirm", action });
     if (action === "book" && isUncertain(outcome)) account?.changed();
+    if (action === "unlock" && isUncertain(outcome)) await verify(action);
   }
 
   async function verify(action: Action) {

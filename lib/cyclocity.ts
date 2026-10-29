@@ -102,6 +102,13 @@ const errorBody = z.object({ code: lenient(z.string()), message: lenient(z.strin
 
 export const rawBooking = z.object({ id: z.string(), stationNumber: z.number(), standNumber: lenient(z.number()), bikeId: lenient(z.string()), endTime: lenient(z.string()) });
 
+export function bookingRows(value: unknown): z.infer<typeof rawBooking>[] {
+  if (value === null) return [];
+  const rows = z.array(rawBooking).safeParse(value);
+  if (!rows.success) throw new VelovError("unavailable", "Vos réservations n’ont pas pu être lues.");
+  return rows.data;
+}
+
 export function refusal(code: string, message: string): Outcome {
   return { ok: false, httpStatus: 0, transactionState: null, code, message, detail: null };
 }

@@ -5,14 +5,13 @@ import { CopyIcon, XIcon } from "./icons";
 import { promoResultSchema, type PromoResult } from "@/lib/promo-models";
 import { preparePromoStorage, promoStorageKey, readPromoCodes, savePromoCode, type SavedPromo } from "@/lib/promo-storage";
 import { type Outcome, capitalize, formatCount, formatCountSans } from "@/lib/models";
-import { UNCERTAIN, isUncertain, noAnswer, routeFailure } from "@/lib/outcome";
-import { DEBIT_SLACK, type DebitCheck, blockedMessage, inviteDebit, rewardsHistorySchema, runOnce } from "@/lib/operations";
+import { UNCERTAIN, isUncertain, networkFailure, routeFailure } from "@/lib/outcome";
+import { DEBIT_SLACK, type Verification, blockedMessage, inviteDebit, retryVerified, rewardsHistorySchema, runOnce, verificationOf } from "@/lib/operations";
 import { getJson } from "./get-json";
 import { operations, useAccountKey, useOperation, useSending } from "./operations";
 import { Button, Modal } from "./ui";
 
 const storageWarning = "Ce navigateur ne peut pas garder le code. Copiez-le maintenant.";
-type Verification = { kind: "checking" } | { kind: DebitCheck } | { kind: "failed" };
 
 function RawLine({ outcome }: { outcome: Outcome }) {
   return <p className="bike-action-raw">HTTP {outcome.httpStatus || "aucune réponse"} · Code {outcome.code ?? "—"} · {capitalize(outcome.detail ?? outcome.message ?? "—")}</p>;
@@ -29,7 +28,8 @@ export function InviteFriend({ cost, balance, account, onChanged }: { onChanged:
   const [warning, setWarning] = useState<string | null>(null);
   const [asking, setAsking] = useState(false);
   const [outcome, setOutcome] = useState<PromoResult | null>(null);
-  const [verification, setVerification] = useState<Verification | null>(null);
+  const [checked, setVerification] = useState<Verification | null>(null);
+  const verification = verificationOf(operation, checked);
   const [copied, setCopied] = useState<string | null>(null);
 
   useEffect(() => {
@@ -49,6 +49,7 @@ export function InviteFriend({ cost, balance, account, onChanged }: { onChanged:
     setWarning(null);
     setVerification(null);
     const result = await runOnce(operations, operationKey, async (): Promise<PromoResult> => {
+      const startedAt = Date.now();
       try {
         const response = await fetch("/api/account/promocode", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ expectedCost: cost }), signal: AbortSignal.timeout(40_000) });
         const data: unknown = await response.json().catch(() => null);
@@ -61,8 +62,8 @@ export function InviteFriend({ cost, balance, account, onChanged }: { onChanged:
           catch { setWarning(storageWarning); }
         }
         return answer;
-      } catch {
-        return { ...noAnswer("Vélo’v ne répond pas. Vos points ont peut-être été débités."), promoCode: null };
+      } catch (error) {
+        return { ...networkFailure("Vélo’v ne répond pas. Vos points ont peut-être été débités.", error, startedAt), promoCode: null };
       }
     }, { keep: true, meta: { cost, balance: balance ?? -1 } });
     if (typeof result === "string") { const message = blockedMessage(result, operations.get(operationKey) !== null); if (message) setWarning(message); return; }
@@ -72,27 +73,27 @@ export function InviteFriend({ cost, balance, account, onChanged }: { onChanged:
   async function verify() {
     if (!operation || operation.status !== "uncertain" || !operationKey) return;
     const held = operation;
-    setVerification({ kind: "checking" });
+    setVerification({ id: held.id, kind: "checking" });
     try {
       const history = await getJson(`/api/account/rewards?since=${held.at - DEBIT_SLACK}`, rewardsHistorySchema, "Votre historique de points n’a pas pu être lu.");
       const check = inviteDebit({ at: held.at, cost: Number(held.meta.cost) }, history, Date.now());
       if (check === "debited") await operations.clear(operationKey, held.id);
-      setVerification({ kind: check });
+      setVerification({ id: held.id, kind: check });
     } catch {
-      setVerification({ kind: "failed" });
+      setVerification({ id: held.id, kind: "failed" });
     }
   }
 
   async function retry() {
-    if (!operationKey || !operation || verification?.kind !== "not-debited") return;
-    await operations.clear(operationKey, operation.id);
-    void confirm();
+    if (!operationKey) return;
+    const samePrice = cost !== null && cost === heldCost;
+    await retryVerified(operations, operationKey, verification, async () => { if (samePrice) await confirm(); });
   }
 
   function close() {
     if (operations.sending()) return;
     setAsking(false);
-    if (outcome || verification) onChanged();
+    if (outcome || checked) onChanged();
     setVerification(null);
   }
 
@@ -111,8 +112,10 @@ export function InviteFriend({ cost, balance, account, onChanged }: { onChanged:
   const uncertain = operation?.status === "uncertain" ? operation.outcome : null;
   const shown = uncertain ?? outcome;
   const settled = shown !== null && (shown.ok || isUncertain(shown)) || verification?.kind === "debited";
-  const costLabel = cost !== null ? formatCount(cost) : "—";
-  const costText = cost !== null ? formatCountSans(cost) : "—";
+  const heldCost = operation && Number.isSafeInteger(Number(operation.meta.cost)) ? Number(operation.meta.cost) : null;
+  const shownCost = heldCost ?? cost;
+  const costLabel = shownCost !== null ? formatCount(shownCost) : "—";
+  const costText = shownCost !== null ? formatCountSans(shownCost) : "—";
   const canObtain = cost !== null && storageKey !== null && operationKey !== null && balance !== null && balance >= cost && Number.isSafeInteger(cost) && cost >= 0;
   const codeList = codes.length ? <div className="promo-codes"><p className="metric-label">Code à transmettre à votre ami</p>{codes.map((entry) => <div className="promo-code" key={entry.code}><code>{entry.code}</code><Button variant="secondary" onClick={() => void copy(entry.code)}><CopyIcon size={16} aria-hidden="true"/>{copied === entry.code ? "Copié" : "Copier"}</Button></div>)}<small className="soon-note">Enregistré sur ce navigateur.</small></div> : null;
   return <>

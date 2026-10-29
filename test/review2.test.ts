@@ -198,7 +198,7 @@ test("F6: a dashboard or bookings answer that arrives after the logout started i
   assert.equal((await next).aborted, false);
   assert.deepEqual(shown, ["new account"]);
   const companion = source("components/companion.tsx");
-  assert.match(companion, /async function logout\(\) \{\n\s+session\.current\.end\(\);/);
+  assert.match(companion, /async function logout\(\) \{\n\s+session\.current\.close\(\);/);
   assert.match(companion, /function connected\(\) \{\n\s+session\.current\.end\(\);/);
   assert.match(companion, /const data = await getJson\("\/api\/dashboard", dashboardSchema, "[^"]+", stamp\.signal\);\n\s+if \(!stamp\.live\(\)\) return null;\n\s+setState/);
   assert.match(companion, /\} catch \(error\) \{\n\s+if \(!stamp\.live\(\)\) return null;/);
@@ -227,10 +227,10 @@ test("F7: the stats screen cache expires like the API cache and is forgotten on 
   const companion = source("components/companion.tsx");
   assert.match(companion, /dockedTrips\.current\.add\(tripId\);\n\s+forgetStats\(\);/);
   assert.match(companion, /function connected\(\) \{\n\s+session\.current\.end\(\);\n\s+forgetStats\(\);/);
-  assert.match(companion, /setBookings\(\[\]\);\n\s+forgetStats\(\);/);
+  assert.match(companion, /setBookings\(\[\]\);\n\s+dropStats\(\);/);
   assert.match(companion, /changed: \(\) => \{ forgetStats\(\); void loadBookings\(\); \}/);
   assert.match(companion, /onChanged=\{\(\) => \{ forgetStats\(\); void loadDashboard\(\); \}\}/);
-  assert.match(source("components/stats.tsx"), /useEffect\(\(\) => \{ if \(!cache\.get\(account\)\) void load\(\); \}, \[account, load\]\);/);
+  assert.match(source("components/stats.tsx"), /useEffect\(\(\) => \{ if \(!cache\.get\(account\)\) void load\(\); \}, \[account, load, revision\]\);/);
 });
 
 test("volume: bookings reads are single-flight, coalesced and at least five seconds apart", async () => {
@@ -318,7 +318,7 @@ test("parity: French thousands separators for quantities, whole minutes for dura
   assert.doesNotMatch(source("components/trip-sheet.tsx"), /\$\{trip\.duration\} min/);
   const invite = source("components/invite-friend.tsx");
   assert.match(invite, /Il vous manque \{formatCountSans\(cost - balance\)\} points\./);
-  assert.match(invite, /const costLabel = cost !== null \? formatCount\(cost\) : "—";/);
+  assert.match(invite, /const costLabel = shownCost !== null \? formatCount\(shownCost\) : "—";/);
   assert.doesNotMatch(invite, /\{cost\} points/);
 });
 

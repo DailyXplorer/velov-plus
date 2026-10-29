@@ -4,7 +4,7 @@ import { useId, useState } from "react";
 import { TimerIcon, XIcon } from "./icons";
 import { type Outcome, type Station, capitalize, outcomeSchema } from "@/lib/models";
 import { fullStations } from "@/lib/via-models";
-import { UNCERTAIN, isUncertain, noAnswer, routeFailure } from "@/lib/outcome";
+import { UNCERTAIN, isUncertain, networkFailure, routeFailure } from "@/lib/outcome";
 import { describeLocationFailure, findPosition, formatDistance, haversine, type Point } from "@/lib/geo";
 import { blockedMessage, runOnce } from "@/lib/operations";
 import { operations, useAccountKey, useOperation, useSending } from "./operations";
@@ -43,13 +43,14 @@ export function ViaAction({ stations, account, tripId }: { stations: Station[]; 
     setFailure(null);
     setNotice(null);
     const outcome = await runOnce(operations, operationKey, async () => {
+      const startedAt = Date.now();
       try {
         const response = await fetch("/api/account/via", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ stationNumber: station.number }), signal: AbortSignal.timeout(40_000) });
         const body: unknown = await response.json().catch(() => null);
         const parsed = outcomeSchema.safeParse(body);
         return parsed.success ? parsed.data : routeFailure(response.status, body, "Réponse inattendue. Les 15 minutes ont peut-être été ajoutées.");
-      } catch {
-        return noAnswer("Vélo’v ne répond pas. Les 15 minutes ont peut-être été ajoutées.");
+      } catch (error) {
+        return networkFailure("Vélo’v ne répond pas. Les 15 minutes ont peut-être été ajoutées.", error, startedAt);
       }
     }, { keep: true, meta: { number: station.number, name: station.name } });
     if (typeof outcome === "string") { const message = blockedMessage(outcome, operations.get(operationKey) !== null); if (message) setNotice(message); return; }

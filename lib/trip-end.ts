@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { type Outcome, type RateBody, type Trip, canRate, outcomeSchema, tripSchema } from "./models.ts";
-import { noAnswer, routeFailure } from "./outcome.ts";
+import { networkFailure, routeFailure } from "./outcome.ts";
 
 export type Stars = 1 | 2 | 3 | 4 | 5;
 export type Vote = Omit<RateBody, "bikeNumber">;
@@ -16,10 +16,11 @@ const notSent = "Vélo’v ne répond pas. La note a peut-être été enregistr�
 
 export async function sendStars(tripId: string, bikeNumber: number, stars: Stars, send: typeof fetch = fetch): Promise<Outcome> {
   let response: Response;
+  const startedAt = Date.now();
   try {
     response = await send(`/api/trips/${encodeURIComponent(tripId)}/rate`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ bikeNumber, ...starVote(stars) }), signal: AbortSignal.timeout(35_000) });
-  } catch {
-    return noAnswer(notSent);
+  } catch (error) {
+    return networkFailure(notSent, error, startedAt);
   }
   const body: unknown = await response.json().catch(() => null);
   if (response.ok && z.object({ rated: z.literal(true) }).safeParse(body).success) return { ok: true, httpStatus: response.status, transactionState: null, code: null, message: null, detail: null };

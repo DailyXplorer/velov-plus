@@ -3,7 +3,7 @@
 import { useId, useState } from "react";
 import { EnvelopeSimpleIcon, XIcon } from "./icons";
 import { type Outcome, type Trip, capitalize, formatDate, outcomeSchema } from "@/lib/models";
-import { UNCERTAIN, isUncertain, noAnswer, routeFailure } from "@/lib/outcome";
+import { UNCERTAIN, isUncertain, networkFailure, routeFailure } from "@/lib/outcome";
 import { blockedMessage, runOnce } from "@/lib/operations";
 import { contactBodySchema, contactFits, type ContactBody } from "@/lib/contact-models";
 import { MAIL_COMPLAINT_TYPES } from "@/lib/guesses";
@@ -46,13 +46,14 @@ export function ContactSupport({ trips, account }: { trips: Trip[] | null; accou
     if (!draft || !operationKey) return;
     setFailure(null); setError(null);
     const outcome = await runOnce(operations, operationKey, async () => {
+      const startedAt = Date.now();
       try {
         const response = await fetch("/api/account/contact", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(draft), signal: AbortSignal.timeout(40_000) });
         const data: unknown = await response.json().catch(() => null);
         const parsed = outcomeSchema.safeParse(data);
         return parsed.success ? parsed.data : routeFailure(response.status, data, "Réponse inattendue. Votre message a peut-être déjà été envoyé.");
-      } catch {
-        return noAnswer("Pas de réponse. Votre message a peut-être déjà été envoyé.");
+      } catch (error) {
+        return networkFailure("Pas de réponse. Votre message a peut-être déjà été envoyé.", error, startedAt);
       }
     }, { keep: true });
     if (typeof outcome === "string") { const message = blockedMessage(outcome, operations.get(operationKey) !== null); if (message) setError(message); return; }

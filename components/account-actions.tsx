@@ -5,7 +5,7 @@ import { z } from "zod";
 import { DownloadSimpleIcon, StarIcon, XIcon } from "./icons";
 import { ADDRESS_MAX, NAME_MAX, type Dashboard, type Outcome, type ProfileBody, type Receipt, type Station, type Trip, autoSpendResultSchema, capitalize, formatDate, formatPhone, outcomeSchema, profileBodySchema } from "@/lib/models";
 import { type Draft, changesOf, countries, countryName, draftOf } from "@/lib/profile-draft";
-import { type Check, UNCERTAIN, UNVERIFIED, isUncertain } from "@/lib/outcome";
+import { type Check, UNCERTAIN, UNVERIFIED, isUncertain, networkFailure } from "@/lib/outcome";
 import { type Operation, blockedMessage, runOnce, settleHeld } from "@/lib/operations";
 import { autoSpendCheck, favoriteCheck, profileCheck } from "@/lib/checks";
 import { readDashboard } from "./get-json";
@@ -18,10 +18,11 @@ export const SOON = "Bientôt disponible";
 
 async function sendWrite(url: string, method: "POST" | "PATCH" | "DELETE", body?: unknown): Promise<{ outcome: Outcome; data: unknown }> {
   let response: Response;
+  const startedAt = Date.now();
   try {
     response = await fetch(url, { method, headers: body === undefined ? undefined : { "Content-Type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body), signal: AbortSignal.timeout(40_000) });
-  } catch {
-    return { outcome: failure(0, "network", "Le serveur ne répond pas. Actualisez la page avant de réessayer."), data: null };
+  } catch (error) {
+    return { outcome: networkFailure("Le serveur ne répond pas. Actualisez la page avant de réessayer.", error, startedAt), data: null };
   }
   const data: unknown = await response.json().catch(() => null);
   if (!response.ok) {
@@ -160,10 +161,11 @@ function ReceiptRow({ receipt }: { receipt: Receipt }) {
     setFailed(null);
     try {
       let response: Response;
+      const startedAt = Date.now();
       try {
         response = await fetch("/api/account/receipts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ subscriptionId: receipt.subscriptionId, periodId: receipt.periodId }), signal: AbortSignal.timeout(40_000) });
-      } catch {
-        setFailed(failure(0, "network", "Le serveur ne répond pas. Réessayez dans un instant."));
+      } catch (error) {
+        setFailed(networkFailure("Le serveur ne répond pas. Réessayez dans un instant.", error, startedAt));
         return;
       }
       if (response.ok && response.headers.get("content-type")?.startsWith("application/pdf")) {

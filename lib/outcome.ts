@@ -17,6 +17,24 @@ export function noAnswer(message: string): Outcome {
   return { ok: false, httpStatus: 0, transactionState: null, code: "network", message, detail: null };
 }
 
+function seconds(ms: number) {
+  const value = Math.max(0, ms) / 1000;
+  return `${value.toLocaleString("fr-FR", { maximumFractionDigits: value < 10 ? 1 : 0 })}\u00a0s`;
+}
+
+export function networkDetail(error: unknown, elapsed: number): string {
+  const name = error instanceof Error || error instanceof DOMException ? error.name : typeof error;
+  const message = error instanceof Error && error.message ? ` (${error.message})` : "";
+  if (name === "TimeoutError") return `Délai dépassé après ${seconds(elapsed)} · TimeoutError`;
+  if (name === "AbortError") return `Requête interrompue après ${seconds(elapsed)} · AbortError`;
+  if (name === "TypeError") return `Pas de réponse après ${seconds(elapsed)} · TypeError${message}`;
+  return `Échec après ${seconds(elapsed)} · ${name}${message}`;
+}
+
+export function networkFailure(message: string, error: unknown, startedAt: number, now: number = Date.now()): Outcome {
+  return { ...noAnswer(message), detail: networkDetail(error, now - startedAt) };
+}
+
 export function routeFailure(status: number, body: unknown, message: string): Outcome {
   const error = body && typeof body === "object" ? body as Record<string, unknown> : {};
   return { ok: false, httpStatus: status, transactionState: null, code: typeof error.code === "string" ? error.code : "local.unreadable", message: typeof error.error === "string" ? error.error : message, detail: null };

@@ -1,5 +1,5 @@
 import { type Booking, type Outcome, bookResultSchema, unlockResultSchema } from "./models.ts";
-import { type Check, noAnswer, routeFailure } from "./outcome.ts";
+import { type Check, networkFailure, routeFailure } from "./outcome.ts";
 import type { TripCheck } from "./trip-end.ts";
 
 export const BIKE_ACTION_TIMEOUT = 60_000;
@@ -11,15 +11,16 @@ const MAYBE: Record<BikeAction, string> = {
 export type BikeAction = "book" | "unlock";
 type Target = { stationNumber: number; standNumber: number; bikeNumber: number };
 
-export async function sendBikeAction(action: BikeAction, target: Target, send: typeof fetch = fetch): Promise<Outcome & { ongoing?: { id: string }[] | null }> {
+export async function sendBikeAction(action: BikeAction, target: Target, send: typeof fetch = fetch, now: () => number = Date.now): Promise<Outcome & { ongoing?: { id: string }[] | null }> {
   const body = action === "book" ? { stationNumber: target.stationNumber, bikeNumber: target.bikeNumber } : { stationNumber: target.stationNumber, standNumber: target.standNumber, bikeNumber: target.bikeNumber };
+  const startedAt = now();
   try {
     const response = await send(action === "book" ? "/api/bookings" : "/api/unlock", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), signal: AbortSignal.timeout(BIKE_ACTION_TIMEOUT) });
     const raw: unknown = await response.json().catch(() => null);
     const parsed = action === "book" ? bookResultSchema.safeParse(raw) : unlockResultSchema.safeParse(raw);
     return response.ok && parsed.success ? parsed.data : routeFailure(response.status, raw, `Réponse inattendue. ${MAYBE[action]}`);
-  } catch {
-    return noAnswer(`Le serveur ne répond pas. ${MAYBE[action]}`);
+  } catch (error) {
+    return networkFailure(`Le serveur ne répond pas. ${MAYBE[action]}`, error, startedAt, now());
   }
 }
 

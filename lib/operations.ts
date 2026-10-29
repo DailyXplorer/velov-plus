@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { type Outcome, outcomeSchema } from "./models.ts";
-import { type Check, type Settled, HISTORY_LAG, isUncertain, noAnswer, settle } from "./outcome.ts";
+import { type Check, type Settled, HISTORY_LAG, isUncertain, networkFailure, noAnswer, settle } from "./outcome.ts";
 
 type Store = Pick<Storage, "getItem" | "setItem" | "removeItem">;
 export type Locks = { request<T>(name: string, run: () => Promise<T>): Promise<T> };
@@ -125,10 +125,15 @@ export function createOperations(storage: () => Store | null, now: () => number 
       running.delete(key);
       changed();
     },
-    async clear(key: string, id: string) {
-      if (running.has(key)) return;
-      await locked(() => { if (stored(key)?.id === id) write(key, null, false); });
+    async clear(key: string, id: string): Promise<boolean> {
+      if (running.has(key)) return false;
+      const cleared = await locked(() => {
+        if (stored(key)?.id !== id) return false;
+        write(key, null, false);
+        return stored(key) === undefined;
+      }).catch(() => false);
       changed();
+      return cleared;
     }
   };
 }
@@ -139,10 +144,11 @@ export async function runOnce<T extends Outcome>(operations: Operations, key: st
   const started = await operations.begin(key, options);
   if (started !== "started") return started;
   let timer: ReturnType<typeof setTimeout> | undefined;
-  const late = new Promise<Outcome>((resolve) => { timer = setTimeout(() => resolve(noAnswer("Le serveur ne répond pas.")), ACTION_TIMEOUT); });
+  const startedAt = Date.now();
+  const late = new Promise<Outcome>((resolve) => { timer = setTimeout(() => resolve(networkFailure("Le serveur ne répond pas.", new DOMException("", "TimeoutError"), startedAt)), ACTION_TIMEOUT); });
   let outcome: T | Outcome;
   try { outcome = await Promise.race([send(), late]); }
-  catch { outcome = noAnswer("Le serveur ne répond pas."); }
+  catch (error) { outcome = networkFailure("Le serveur ne répond pas.", error, startedAt); }
   finally { clearTimeout(timer); }
   await operations.finish(key, outcome);
   return outcome;
@@ -157,7 +163,27 @@ export async function settleHeld(operations: Operations, key: string, check: (he
 }
 
 export type DebitCheck = "debited" | "not-debited" | "unknown";
-export const rewardsHistorySchema = z.object({ complete: z.boolean(), movements: z.array(z.object({ date: z.string().nullable(), amount: z.number() })) });
+export type Verification = { id: string; kind: "checking" | DebitCheck | "failed" };
+
+export function verificationOf(operation: Operation | null, verification: Verification | null): Verification | null {
+  if (operation) return verification?.id === operation.id ? verification : null;
+  return verification?.kind === "debited" ? verification : null;
+}
+
+export async function retryVerified(operations: Operations, key: string, verification: Verification | null, start: () => Promise<unknown>): Promise<boolean> {
+  const held = operations.get(key);
+  if (held?.status !== "uncertain" || verificationOf(held, verification)?.kind !== "not-debited") return false;
+  if (!await operations.clear(key, held.id)) return false;
+  await start();
+  return true;
+}
+
+export function signedAmount(direction: string | null | undefined, amount: number): number | null {
+  if (!Number.isFinite(amount) || amount < 0) return null;
+  return direction === "DEBIT" ? -amount : direction === "CREDIT" ? amount : null;
+}
+
+export const rewardsHistorySchema = z.object({ complete: z.boolean(), movements: z.array(z.object({ date: z.string().nullable(), amount: z.number().nullable() })) });
 export type RewardsHistory = z.infer<typeof rewardsHistorySchema>;
 export const DEBIT_SLACK = 5 * 60_000;
 export const HISTORY_PAGES = 5;
@@ -182,5 +208,6 @@ export function inviteDebit(before: { at: number; cost: number }, history: Rewar
   const debits = history.movements.filter(({ amount }) => amount === -before.cost);
   if (debits.some(({ date }) => date !== null && date.length > 10 && Date.parse(date) >= since)) return "debited";
   if (now - before.at < HISTORY_LAG || !history.complete) return "unknown";
+  if (history.movements.some(({ amount, date }) => amount === null && (date === null || !Number.isFinite(endOfDay(date)) || endOfDay(date) >= since))) return "unknown";
   return debits.some(({ date }) => date === null || !Number.isFinite(endOfDay(date)) || endOfDay(date) >= since) ? "unknown" : "not-debited";
 }
