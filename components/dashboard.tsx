@@ -162,7 +162,7 @@ export function PointsPage({ data, onAutoSpend, onChanged }: { onChanged: () => 
   return (
     <div className="page-content">
       <div className="points-summary">
-        <div><Eyebrow icon={StarFourIcon}>Solde</Eyebrow><strong className="points-balance">{data.rewards.balance ?? "—"}<span>points</span></strong></div>
+        <div><Eyebrow icon={StarFourIcon}>Solde actuel</Eyebrow><strong className="points-balance">{data.rewards.balance ?? "—"}<span>points</span></strong></div>
         <div><Eyebrow icon={TrendUpIcon}>Total gagné</Eyebrow><strong className="points-total">{data.rewards.total?.toLocaleString("fr-FR") ?? "—"}<span>points</span></strong></div>
       </div>
       <AutoSpendSetting value={data.rewards.autoSpend} onChanged={onAutoSpend}/>

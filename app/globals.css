@@ -181,7 +181,7 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
 .load-more { display: flex; justify-content: center; padding: 24px 0; }
 .points-summary { display: flex; align-items: flex-start; gap: 90px; padding: 8px 0 36px; }
 .points-summary .eyebrow { margin-bottom: 18px; }
-.points-balance { display: block; color: var(--red); font-size: 64px; line-height: 1; letter-spacing: -.04em; }
+.points-balance { display: block; color: var(--ink); font-size: 64px; line-height: 1; letter-spacing: -.04em; }
 .points-balance > span, .points-total > span { margin-left: 10px; color: var(--ink-soft); font-size: 12px; }
 .points-total { display: block; font-size: 64px; line-height: 1; letter-spacing: -.04em; }
 .setting-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 22px 22px 22px 26px; border-radius: var(--radius); background: var(--mist); }
