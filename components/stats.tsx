@@ -19,6 +19,8 @@ const number = (value: number) => value.toLocaleString("fr-FR");
 const plural = (count: number, word: string) => `${number(count)} ${word}${count > 1 ? "s" : ""}`;
 const dayLabel = (day: string, options: Intl.DateTimeFormatOptions = { day: "numeric", month: "short" }) => formatDate(`${day}T12:00:00Z`, options);
 const monthLabel = (month: string, options: Intl.DateTimeFormatOptions = { month: "short" }) => formatDate(`${month}-15T12:00:00Z`, options);
+/** Axis label for a month: its initial only (J F M A…), like Apple Santé; the full month is in the tooltip. */
+const monthInitial = (month: string) => monthLabel(month, { month: "narrow" }).toLocaleUpperCase("fr-FR");
 const bucketLabel = (unit: "day" | "month", key: string) => unit === "day" ? dayLabel(key, { weekday: "long", day: "numeric", month: "long" }) : monthLabel(key, { month: "long", year: "numeric" });
 function hours(minutes: number) {
   return minutes >= 60 ? `${number(Math.floor(minutes / 60))} h ${minutes % 60 ? `${minutes % 60} min` : ""}`.trim() : `${minutes} min`;
@@ -64,7 +66,6 @@ export function StatsView({ stats }: { stats: Stats }) {
         <SelectField label="Période" hideLabel value={period} onChange={setPeriod} options={periods}/>
         <span className="result-count">{plural(data.trips, "trajet")}</span>
       </div>
-      {data.withoutStations ? <p className="inline-notice">{plural(data.withoutStations, "trajet")} sans stations : Vélo’v a effacé ces données.</p> : null}
       {!stats.complete ? <p className="inline-notice">Une partie de l’historique n’a pas pu être lue : les chiffres peuvent être incomplets.</p> : null}
       <Headline data={data}/>
       {!data.trips ? (
@@ -230,7 +231,7 @@ function MinutesChart({ data }: { data: PeriodStats }) {
   const { unit, buckets } = data.series;
   const bars = buckets.map((bucket) => ({
     label: bucketLabel(unit, bucket.key), value: bucket.minutes,
-    axis: unit === "day" ? dayLabel(bucket.key, { day: "numeric", month: "numeric" }) : capitalize(monthLabel(bucket.key)).replace(".", ""),
+    axis: unit === "day" ? dayLabel(bucket.key, { day: "numeric", month: "numeric" }) : monthInitial(bucket.key),
     tip: <><strong>{capitalize(bucketLabel(unit, bucket.key))}</strong><span>{hours(bucket.minutes)} · {plural(bucket.trips, "trajet")}</span></>
   }));
   return <BarChart bars={bars} unit="Minutes" caption={unit === "day" ? "Minutes à vélo par jour" : "Minutes à vélo par mois"}
@@ -359,7 +360,7 @@ function PointsChart({ data, available }: { data: PeriodStats; available: boolea
             {[low, high].map((value) => <g key={value}><line className="chart-grid" x1={AXIS} x2={width} y1={y(value)} y2={y(value)}/><text className="chart-axis" x={AXIS - 8} y={y(value) + 3.5} textAnchor="end">{number(value)}</text></g>)}
             <polyline className="chart-line" points={line}/>
             {buckets.map((bucket, index) => (buckets.length - 1 - index) % every(width) === 0
-              ? <text key={bucket.key} className="chart-axis" x={x(index, width)} y={height - 6} textAnchor="middle">{unit === "day" ? dayLabel(bucket.key, { day: "numeric", month: "numeric" }) : capitalize(monthLabel(bucket.key)).replace(".", "")}</text> : null)}
+              ? <text key={bucket.key} className="chart-axis" x={x(index, width)} y={height - 6} textAnchor="middle">{unit === "day" ? dayLabel(bucket.key, { day: "numeric", month: "numeric" }) : monthInitial(bucket.key)}</text> : null)}
             {active != null ? <><line className="chart-cursor" x1={x(active, width)} x2={x(active, width)} y1={12} y2={12 + plot}/><circle className="chart-dot" cx={x(active, width)} cy={y(values[active])} r={4.5}/></> : null}
           </>
         );
