@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type PointerEvent, type ReactNode } from "react";
 import { BicycleIcon, ClockIcon, CoinsIcon, type Icon, LeafIcon, RouteIcon, StarFourIcon } from "./icons";
-import { Button, CardTag, EmptyState, SelectField } from "./ui";
+import { Button, CardTag, EmptyState, Ghost, SelectField, SelectSkeleton } from "./ui";
 import { BikeDrawer } from "./station-bikes";
 import { ApiError, getJson } from "./get-json";
 import { capitalize, formatDate, formatPrice } from "@/lib/models";
@@ -46,12 +46,7 @@ export function StatsPage({ account }: { account: string }) {
   }, [account]);
   useEffect(() => { if (cached?.account !== account) void load(); }, [account, load]);
 
-  if (state.kind === "loading") return (
-    <div className="page-content" aria-busy="true" aria-label="Chargement des statistiques">
-      <div className="stat-cards">{[0, 1, 2, 3, 4, 5].map((item) => <div className="skeleton stat-skeleton" key={item}/>)}</div>
-      <div className="skeleton skeleton-map"/>
-    </div>
-  );
+  if (state.kind === "loading") return <StatsSkeleton/>;
   if (state.kind === "error") return <div className="dashboard-error"><p role="alert">{state.message}</p><Button variant="secondary" onClick={() => void load()}>Réessayer</Button></div>;
   return <StatsView stats={state.stats}/>;
 }
@@ -81,6 +76,47 @@ export function StatsView({ stats }: { stats: Stats }) {
   );
 }
 
+const HEADLINES: { icon: Icon; label: string; value: string; unit?: string }[] = [
+  { icon: BicycleIcon, label: "Trajets", value: "0" }, { icon: ClockIcon, label: "Minutes à vélo", value: "0" },
+  { icon: RouteIcon, label: "Distance estimée", value: "0", unit: "km" }, { icon: LeafIcon, label: "CO₂ évité", value: "0", unit: "kg" },
+  { icon: CoinsIcon, label: "Dépenses", value: "0,00 €" }, { icon: StarFourIcon, label: "Points gagnés", value: "0" }
+];
+const GHOST_STATIONS = ["Bellecour", "Part-Dieu Villette", "Hôtel de Ville", "Saxe-Gambetta", "Croix-Rousse"];
+
+/** The page as it loads: the same grids, cards and panels as StatsView with a typical account, data as ghosts. */
+export function StatsSkeleton() {
+  return (
+    <div className="page-content stats-page" aria-busy="true" aria-label="Chargement des statistiques">
+      <div className="filter-line"><SelectSkeleton options={periods}/></div>
+      <div className="stat-cards" aria-hidden="true">
+        {HEADLINES.map((card) => <StatCard key={card.label} {...card} detail="—" skeleton/>)}
+      </div>
+      <div className="stat-grid">
+        <Panel title="Temps à vélo par mois" full><ChartSkeleton height={BAR_HEIGHT}/></Panel>
+        <Panel title="Horaires de départ" wide><ChartSkeleton height={heatmapHeight}/></Panel>
+        <Panel title="Répartition par type de vélo">
+          <div className="donut">
+            <div className="donut-chart" style={{ width: DONUT }}><ChartSkeleton height={DONUT} className="donut-skeleton"/></div>
+            <ul className="donut-legend">{["Électrique", "Mécanique"].map((label) => <li key={label}><span className="legend-dot skeleton"/><Ghost>{label}</Ghost><strong><Ghost>50 %</Ghost></strong></li>)}</ul>
+          </div>
+        </Panel>
+        <Panel title="Records" full>
+          <dl className="stat-records">{["Plus long trajet", "Jour record", "Série", "Vélo favori"].map((label) => <div key={label}><dt>{label}</dt><dd><Ghost>12 min</Ghost></dd></div>)}</dl>
+        </Panel>
+        <Panel title="Stations les plus utilisées" full>
+          <ol className="stat-ranking">{GHOST_STATIONS.map((name) => <li key={name}><span className="stat-ranking-label"><Ghost>{name}</Ghost></span><span className="stat-ranking-count"><Ghost>12</Ghost></span></li>)}</ol>
+        </Panel>
+      </div>
+    </div>
+  );
+}
+
+function ChartSkeleton({ height, className = "" }: { height: number | ((width: number) => number); className?: string }) {
+  const [ref, width] = useWidth();
+  const pixels = typeof height === "number" ? height : width ? height(width) : 0;
+  return <div className={`chart skeleton ${className}`} ref={ref} style={{ height: pixels || undefined }} aria-hidden="true"/>;
+}
+
 function Headline({ data, balance }: { data: PeriodStats; balance: number | null }) {
   const kg = data.co2Grams / 1000;
   return (
@@ -95,9 +131,9 @@ function Headline({ data, balance }: { data: PeriodStats; balance: number | null
   );
 }
 
-function StatCard({ icon, label, value, unit, detail }: { icon: Icon; label: string; value: string; unit?: string; detail?: string }) {
+function StatCard({ icon, label, value, unit, detail, skeleton = false }: { icon: Icon; label: string; value: string; unit?: string; detail?: string; skeleton?: boolean }) {
   return (
-    <div className="summary-card stat-card">
+    <div className={`summary-card stat-card${skeleton ? " skeleton" : ""}`}>
       <CardTag icon={icon}>{label}</CardTag>
       <strong className="metric-value">{value}{unit ? <span className="metric-unit">{unit}</span> : null}</strong>
       {detail ? <span className="metric-detail">{detail}</span> : null}
@@ -176,8 +212,9 @@ function niceMax(value: number) {
 type Bar = { label: string; value: number; tip: ReactNode; axis?: string };
 const AXIS = 34;
 const BASE = 24;
+const BAR_HEIGHT = 220;
 
-function BarChart({ bars, label, caption, unit, height = 220 }: { bars: Bar[]; label: string; caption: string; unit: string; height?: number }) {
+function BarChart({ bars, label, caption, unit, height = BAR_HEIGHT }: { bars: Bar[]; label: string; caption: string; unit: string; height?: number }) {
   const top = niceMax(Math.max(...bars.map((bar) => bar.value)));
   const inner = (width: number) => width - AXIS;
   const band = (width: number) => inner(width) / bars.length;
@@ -225,15 +262,18 @@ function MinutesChart({ data }: { data: PeriodStats }) {
     label={`Temps à vélo par ${unit === "day" ? "jour" : "mois"}, ${hours(data.minutes)} au total`}/>;
 }
 
+const HEAT_LEFT = 20;
+const cellHeight = (width: number) => Math.min(26, Math.max(12, (width - HEAT_LEFT) / 24));
+const heatmapHeight = (width: number) => 7 * cellHeight(width) + 20;
+
 function Heatmap({ data }: { data: PeriodStats }) {
   const rows = data.heatmap;
   const max = Math.max(1, ...rows.flat());
-  const left = 20;
+  const left = HEAT_LEFT;
   const gap = 2;
-  const cellHeight = (width: number) => Math.min(26, Math.max(12, (width - left) / 24));
   const busiest = rows.flatMap((row, day) => row.map((count, hour) => ({ day, hour, count }))).sort((one, other) => other.count - one.count)[0];
   return (
-    <Chart label={`Départs selon le jour et l’heure, le plus souvent le ${WEEKDAYS[busiest.day].toLowerCase()} entre ${busiest.hour} h et ${busiest.hour + 1} h`} height={(width) => 7 * cellHeight(width) + 20}
+    <Chart label={`Départs selon le jour et l’heure, le plus souvent le ${WEEKDAYS[busiest.day].toLowerCase()} entre ${busiest.hour} h et ${busiest.hour + 1} h`} height={heatmapHeight}
         hit={(x, y, width) => {
           const column = Math.floor((x - left) / ((width - left) / 24));
           const row = Math.floor(y / cellHeight(width));
@@ -266,6 +306,9 @@ function Heatmap({ data }: { data: PeriodStats }) {
   );
 }
 
+const DONUT = 152;
+const DONUT_STROKE = 22;
+
 function BikeTypes({ data }: { data: PeriodStats }) {
   const total = data.trips;
   const parts = [
@@ -273,8 +316,8 @@ function BikeTypes({ data }: { data: PeriodStats }) {
     { key: "mechanical", label: "Mécanique", spoken: "en mécanique", count: data.bikeTypes.mechanical },
     { key: "unknown", label: "Non renseigné", spoken: "sans type connu", count: data.bikeTypes.unknown }
   ].filter((part) => part.count > 0);
-  const size = 152;
-  const stroke = 22;
+  const size = DONUT;
+  const stroke = DONUT_STROKE;
   const radius = (size - stroke) / 2;
   const circumference = 2 * Math.PI * radius;
   const share = (count: number) => `${Math.round(count / total * 100)}${" "}%`;

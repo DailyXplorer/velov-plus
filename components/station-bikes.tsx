@@ -5,7 +5,7 @@ import { z } from "zod";
 import { ArrowClockwiseIcon, ArrowLeftIcon, BatteryEmptyIcon, BatteryFullIcon, BatteryHighIcon, BatteryLowIcon, BatteryMediumIcon, BicycleIcon, CaretDownIcon, CaretRightIcon, type Icon, LightningIcon, StarHalfIcon, StarIcon, ThumbsUpIcon, WarningIcon, XIcon } from "./icons";
 import { type AssessedBike, assessBikes, isCheckOverdue } from "@/lib/bike-score";
 import { type Bike, type Resource, type Station, bikeSchema, capitalize, formatDate } from "@/lib/models";
-import { Button, EmptyState, Eyebrow, Modal } from "./ui";
+import { Button, EmptyState, Eyebrow, Ghost, Modal } from "./ui";
 import { BikeActions, BookingsContext } from "./bike-actions";
 import { getJson } from "./get-json";
 
@@ -171,6 +171,46 @@ function BikeSheet({ item, actions }: { item: AssessedBike; actions?: ReactNode 
   );
 }
 
+/** One row per bike the station reported, in the list's own rows; the list opens on one recommended bike per type present. */
+function BikesSkeleton({ station }: { station: Station }) {
+  const count = station.mechanical + station.electrical;
+  const picks = Number(station.mechanical > 0) + Number(station.electrical > 0);
+  if (!count) return <EmptyState><Ghost>Aucun vélo à cette station.</Ghost></EmptyState>;
+  return (
+    <ul className="bikes-list" aria-busy="true" aria-label="Chargement des vélos">
+      {Array.from({ length: count }, (_, index) => (
+        <li key={index}>
+          <div className="bike-row">
+            <span className="trip-icon skeleton"/>
+            <span className="bike-row-main"><strong className="bike-number"><Ghost>{12000 + index * 731}</Ghost></strong><span className="bike-meta"><Ghost>Borne {index + 1}</Ghost></span>
+              {index < picks ? <span className="bike-verdict"><span className="card-tag bike-pick skeleton"><span className="card-tag-icon"/>Recommandé</span></span> : null}
+            </span>
+            <span className="bike-row-facts"><Ghost>4,5</Ghost></span>
+            <span/>
+          </div>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** The sheet of a mechanical bike with ratings: dates as two lines, as they load. */
+function BikeSheetSkeleton() {
+  const twoLines = <><Ghost>Il y a 2 h</Ghost><small><Ghost>12 oct. 2026, 08:42</Ghost></small></>;
+  return (
+    <div className="bike-sheet" aria-busy="true" aria-label="Chargement du vélo">
+      <div className="detail-type"><span className="eyebrow skeleton" aria-hidden="true"><span className="eyebrow-icon"/>Mécanique</span></div>
+      <dl className="account-details bike-details">
+        <div><dt>Note</dt><dd><span className="bike-rating skeleton-text" aria-hidden="true"><Stars value={4.5}/>4,5<span className="bike-out-of">/5</span></span><small><Ghost>12 avis · Dernier avis il y a 3 j</Ghost></small></dd></div>
+        <div><dt>Dernier trajet</dt><dd>{twoLines}</dd></div>
+        <div><dt>Prochain contrôle</dt><dd>{twoLines}</dd></div>
+        <div><dt>Borne</dt><dd><Ghost>12</Ghost></dd></div>
+      </dl>
+      <details className="bike-more" inert><summary>Détails<CaretDownIcon size={14} weight="bold" aria-hidden="true"/></summary></details>
+    </div>
+  );
+}
+
 export function StationBikes({ station, onClose }: { station: Station; onClose: () => void }) {
   const [bikes, setBikes] = useState<Resource<Bike[]>>({ kind: "loading" });
   const [selected, setSelected] = useState<number | null>(null);
@@ -222,7 +262,7 @@ export function StationBikes({ station, onClose }: { station: Station; onClose: 
         <>
           <p className="result-count bikes-count" role="status">{count === null ? "Chargement des vélos…" : `${count} vélo${count > 1 ? "s" : ""} à la station`}</p>
           {bikes.kind === "loading" ? (
-            <div className="bikes-skeleton" aria-busy="true" aria-label="Chargement des vélos">{[0, 1, 2, 3].map((item) => <div className="skeleton" key={item}/>)}</div>
+            <BikesSkeleton station={station}/>
           ) : bikes.kind === "error" ? (
             <div className="notice-error" role="alert">{bikes.message}<Button variant="secondary" onClick={() => void load()} pending={refreshing}>Réessayer</Button></div>
           ) : assessed?.length ? (
@@ -263,7 +303,7 @@ export function BikeDrawer({ number, onClose }: { number: number; onClose: () =>
         <h2 id="bike-drawer-title" className="bikes-title"><span className="sr-only">Vélo </span><span className="bike-sheet-number">{number}</span>{item && !own.has(number) ? <VerdictMark verdict={item.verdict}/> : null}</h2>
       </div>
       {bike.kind === "loading" ? (
-        <div className="bikes-skeleton" aria-busy="true" aria-label="Chargement du vélo">{[0, 1, 2].map((item) => <div className="skeleton" key={item}/>)}</div>
+        <BikeSheetSkeleton/>
       ) : bike.kind === "error" ? (
         <div className="notice-error" role="alert">{bike.message}<Button variant="secondary" onClick={() => void load()} pending={refreshing}>Réessayer</Button></div>
       ) : item ? <BikeSheet item={item}/> : null}

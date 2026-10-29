@@ -251,10 +251,6 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
 .data-notice summary { display: flex; align-items: center; gap: 8px; width: fit-content; padding: 8px 0; font-size: 13px; cursor: pointer; }
 .data-notice ul { padding-left: 23px; }
 .dashboard-error { display: flex; flex-direction: column; align-items: center; gap: 24px; padding: 100px 20px; color: var(--ink-soft); text-align: center; }
-.skeleton { border-radius: var(--radius); background: var(--mist) linear-gradient(90deg, transparent, rgba(223, 37, 55, .08), transparent) 0 0 / 200% 100%; animation: loading 1.4s linear infinite; }
-@keyframes loading { to { background-position: -200% 0; } }
-.skeleton-card { min-height: 210px; }
-.skeleton-map { height: 320px; margin-top: 50px; }
 .mobile-navigation { display: none; }
 
 .modal { width: min(440px, calc(100% - 40px)); max-height: calc(100svh - 48px); padding: 0; border: 0; border-radius: var(--radius); color: var(--ink); background: var(--white); box-shadow: 0 0 0 1px var(--ink-line); }
@@ -454,8 +450,6 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
 .bike-score, .bike-battery { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
 .bike-score svg, .bike-stars { color: var(--red); }
 .bike-battery svg { color: var(--ink-soft); }
-.bikes-skeleton { display: grid; gap: 10px; margin-top: 6px; }
-.bikes-skeleton > .skeleton { height: 64px; }
 .bikes-drawer .notice-error { margin-top: 12px; }
 .bike-sheet-number { font-size: 40px; line-height: 1; }
 .bike-sheet .detail-type { margin-top: 4px; }
@@ -638,7 +632,7 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
 .stats-page { --stat-gap: 16px; display: grid; gap: var(--stat-gap); }
 .stats-page > .filter-line { margin-bottom: 8px; }
 .stat-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--stat-gap); }
-.summary-card.stat-card, .stat-skeleton { min-height: 164px; }
+.summary-card.stat-card { min-height: 164px; }
 .stat-card .metric-value { margin-top: 22px; font-size: 48px; white-space: nowrap; }
 .metric-unit { margin-left: 6px; font-size: .45em; letter-spacing: -.01em; }
 .stat-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--stat-gap); }
@@ -703,7 +697,7 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
 @media (max-width: 620px) {
   .stats-page { --stat-gap: 10px; }
   .stats-page > .filter-line { margin-bottom: 6px; }
-  .summary-card.stat-card, .stat-skeleton { min-height: 132px; }
+  .summary-card.stat-card { min-height: 132px; }
   .stat-card .card-tag { gap: 7px; max-width: 100%; padding: 4px 10px 4px 4px; font-size: 12px; line-height: 1.15; white-space: nowrap; }
   .stat-card .card-tag-icon { width: 22px; height: 22px; }
   .stat-card .metric-value { margin-top: 18px; font-size: 32px; }
@@ -725,3 +719,22 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
 .station-distance,
 .map-explore > span,
 .stat-records dt { text-transform: uppercase; letter-spacing: .02em; }
+
+/* Loading skeletons: the loaded layout's own boxes in mist with a slightly lighter sweep, never red.
+   A box keeps its content for its size only; a ghost line keeps the line box of the text it stands for.
+   Last in the file so the skeleton surface wins over each box's own colour. */
+.skeleton, .skeleton-text, .points-summary > .skeleton, .account-logout > .skeleton { color: transparent; background: var(--mist) linear-gradient(90deg, transparent 25%, rgba(255, 255, 255, .7) 50%, transparent 75%) 0 0 / 200% 100%; box-shadow: none; animation: loading 1.6s linear infinite; }
+.skeleton::before { content: none; }
+.skeleton > *, .skeleton-text > * { visibility: hidden; }
+.skeleton-text { border-radius: 6px; }
+.donut-skeleton { border-radius: 50%; mask: radial-gradient(closest-side, transparent calc(100% - 22px), #000 calc(100% - 22px)); }
+@keyframes loading { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .skeleton, .skeleton-text, .points-summary > .skeleton, .account-logout > .skeleton { background-image: none; animation: none; }
+}
+/* Opening "Détails" (or any content growing past the max height) must not shift the layout when a scrollbar appears. */
+.modal { scrollbar-gutter: stable both-edges; }
+.modal.bikes-drawer, .stations-list, .station-sheet, .select-popover { scrollbar-gutter: stable; }
+/* Station counts: each uppercase label on one line ("Places libres" used to wrap). */
+.station-numbers { grid-template-columns: repeat(3, auto); justify-content: space-between; gap: 8px 12px; }
+.station-numbers small { white-space: nowrap; }

@@ -130,6 +130,31 @@ export function SelectField<T extends string>({ label, hideLabel = false, value,
   );
 }
 
+/** The select's trigger while loading: every option stacked inside, invisibly, so it is as wide as the loaded one. */
+export function SelectSkeleton({ options, className = "" }: { options: { label: string; short?: string }[]; className?: string }) {
+  return (
+    <div className={`select-field ${className}`} aria-hidden="true">
+      <div className="select-control">
+        <span className="select-trigger skeleton">
+          <span className="select-value">
+            {options.map((option, index) => (
+              <span key={option.label} aria-hidden={index ? true : undefined}>
+                {option.short ? <><span className="select-long">{option.label}</span><span className="select-short">{option.short}</span></> : option.label}
+              </span>
+            ))}
+          </span>
+          <span className="select-chevron"/>
+        </span>
+      </div>
+    </div>
+  );
+}
+
+/** Loading text: the placeholder keeps the line box of the text it stands for, painted as a bar. */
+export function Ghost({ children }: { children: ReactNode }) {
+  return <span className="skeleton-text" aria-hidden="true">{children}</span>;
+}
+
 export function EmptyState({ children }: { children: ReactNode }) {
   return <p className="empty-state">{children}</p>;
 }

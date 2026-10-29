@@ -1,14 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { z } from "zod";
 import { ArrowClockwiseIcon, BicycleIcon, ChartIcon, HouseIcon, MapPinIcon, SignOutIcon, StarFourIcon, UserCircleIcon, WarningCircleIcon, XIcon } from "./icons";
 import { bookingSchema, dashboardSchema, stationsSchema, type Booking, type Dashboard, type Page, type Resource, type Trip, formatDate, formatName } from "@/lib/models";
 import { createDockWatch, tripCheckSchema, tripToGreet } from "@/lib/trip-end";
-import { AccountPage, Overview, PointsPage, StationsPage, TripsPage } from "./dashboard";
+import { AccountPage, AccountSkeleton, Overview, OverviewSkeleton, PointsPage, PointsSkeleton, StationsPage, StationsSkeleton, TripsPage, TripsSkeleton } from "./dashboard";
 import { Button, Modal } from "./ui";
 import { Login } from "./login";
-import { StatsPage } from "./stats";
+import { StatsPage, StatsSkeleton } from "./stats";
 import { BookingBanner, BookingsContext, UnlockModal } from "./bike-actions";
 import { ApiError, getJson } from "./get-json";
 import { TripEndedSheet } from "./trip-sheet";
@@ -21,6 +21,8 @@ const navigation = [
   { id: "stations", label: "Stations", mobile: "Stations", icon: MapPinIcon },
   { id: "account", label: "Compte", mobile: "Compte", icon: UserCircleIcon }
 ] satisfies { id: Page; label: string; mobile: string; icon: typeof HouseIcon }[];
+// While the account loads, the page being opened shows its own skeleton: the stats one is also what StatsPage shows next.
+const skeletons: Record<Page, () => ReactNode> = { overview: OverviewSkeleton, trips: TripsSkeleton, stats: StatsSkeleton, points: PointsSkeleton, stations: StationsSkeleton, account: AccountSkeleton };
 const logoutSchema = z.object({ remoteLogout: z.boolean().optional() });
 const remoteLogoutUnconfirmed = "Déconnexion effectuée. Vélo’v ne l’a pas encore confirmée.";
 type State = { kind: "guest"; message: string | null } | { kind: "loading" } | { kind: "ready"; data: Dashboard } | { kind: "error"; message: string };
@@ -29,10 +31,15 @@ type StationData = z.infer<typeof stationsSchema>;
 function pageFromHash(): Page {
   return navigation.find((item) => item.id === window.location.hash.slice(1))?.id ?? "overview";
 }
+function subscribeHash(changed: () => void) {
+  window.addEventListener("hashchange", changed);
+  return () => window.removeEventListener("hashchange", changed);
+}
 
 export function Companion({ initialSession }: { initialSession: boolean }) {
   const [state, setState] = useState<State>(initialSession ? { kind: "loading" } : { kind: "guest", message: null });
-  const [page, setPage] = useState<Page>("overview");
+  // The server cannot see the hash: until hydration there is no page, so no other page's skeleton flashes first.
+  const page = useSyncExternalStore(subscribeHash, pageFromHash, () => null);
   const [stations, setStations] = useState<Resource<StationData>>({ kind: "loading" });
   const [stationsPending, setStationsPending] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -134,15 +141,13 @@ export function Companion({ initialSession }: { initialSession: boolean }) {
   }, [state]);
 
   useEffect(() => {
-    setPage(pageFromHash());
-    const changed = () => { setPage(pageFromHash()); window.scrollTo({ top: 0, behavior: "auto" }); };
+    const changed = () => window.scrollTo({ top: 0, behavior: "auto" });
     window.addEventListener("hashchange", changed);
     if (initialSession) { void loadDashboard(); void loadStations(); void loadBookings(); }
     return () => window.removeEventListener("hashchange", changed);
   }, [initialSession, loadDashboard, loadStations, loadBookings]);
 
   function navigate(next: Page) {
-    setPage(next);
     window.location.hash = next;
     window.scrollTo({ top: 0, behavior: "auto" });
   }
@@ -184,7 +189,8 @@ export function Companion({ initialSession }: { initialSession: boolean }) {
   const data = state.kind === "ready" ? state.data : null;
   const name = data ? formatName(`${data.profile.firstName} ${data.profile.lastName}`) : "";
   const initial = data ? formatName(data.profile.firstName).charAt(0) || null : null;
-  const label = navigation.find((item) => item.id === page)?.label ?? "Vue d’ensemble";
+  const label = page ? navigation.find((item) => item.id === page)?.label : "\u00a0";
+  const PageSkeleton = page ? skeletons[page] : () => null;
 
   return (
     <BookingsContext.Provider value={account}>
@@ -224,7 +230,7 @@ export function Companion({ initialSession }: { initialSession: boolean }) {
           </header>
           <main id="main-content" className="main-content">
             {bookings.map((booking) => <BookingBanner key={booking.id} booking={booking} onUnlock={() => setUnlocking(booking)}/>)}
-            {state.kind === "loading" ? <DashboardSkeleton/> : state.kind === "error" ? (
+            {state.kind === "loading" ? <PageSkeleton/> : state.kind === "error" ? (
               <div className="dashboard-error">
                 <p role="alert">{state.message}</p>
                 <Button variant="secondary" pending={refreshing} onClick={() => void loadDashboard()}>Réessayer</Button>
@@ -242,7 +248,7 @@ export function Companion({ initialSession }: { initialSession: boolean }) {
                     : page === "stats" ? <StatsPage account={state.data.profile.email}/>
                     : page === "points" ? <PointsPage data={state.data} onAutoSpend={setAutoSpend} onChanged={() => void loadDashboard()}/>
                       : page === "stations" ? <StationsPage resource={stations} reload={() => void loadStations()} reloading={stationsPending} favorites={state.data.profile.favorites} onFavorite={setFavorite}/>
-                        : <AccountPage data={state.data} onLogout={openLogout} onSaved={() => void loadDashboard()}/>}
+                        : page === "account" ? <AccountPage data={state.data} onLogout={openLogout} onSaved={() => void loadDashboard()}/> : null}
               </>
             )}
           </main>
@@ -275,15 +281,6 @@ export function Companion({ initialSession }: { initialSession: boolean }) {
         {ended ? <TripEndedSheet trip={ended} onClose={() => setEnded(null)}/> : null}
       </div>
     </BookingsContext.Provider>
-  );
-}
-
-function DashboardSkeleton() {
-  return (
-    <div className="dashboard-skeleton" aria-label="Chargement du compte" aria-busy="true">
-      <div className="summary-grid">{[0, 1, 2].map((item) => <div className="skeleton skeleton-card" key={item}/>)}</div>
-      <div className="skeleton skeleton-map"/>
-    </div>
   );
 }
 

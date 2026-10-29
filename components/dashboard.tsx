@@ -2,11 +2,11 @@
 
 import { useMemo, useState, useSyncExternalStore } from "react";
 import dynamic from "next/dynamic";
-import { BicycleIcon, CaretRightIcon, LetterCirclePIcon, LightningIcon, MagnifyingGlassIcon, NavigationArrowIcon, SignOutIcon, StarFourIcon, StarIcon, TicketIcon, TrendUpIcon, XIcon } from "./icons";
+import { BicycleIcon, CaretRightIcon, DownloadSimpleIcon, EnvelopeSimpleIcon, type Icon, LetterCirclePIcon, LightningIcon, MagnifyingGlassIcon, NavigationArrowIcon, SignOutIcon, StarFourIcon, StarIcon, TicketIcon, TrendUpIcon, XIcon } from "./icons";
 import { ViaAction } from "./via-action";
 import { type Dashboard, type Page, type Resource, type Station, type Trip, formatDate, formatName, formatPrice } from "@/lib/models";
 import { describeLocationFailure, findPosition, formatDistance, haversine, type Point } from "@/lib/geo";
-import { Button, CardTag, CircleArrow, EmptyState, Eyebrow, SectionHeading, SelectField, TextButton } from "./ui";
+import { Button, CardTag, CircleArrow, EmptyState, Eyebrow, Ghost, SectionHeading, SelectField, SelectSkeleton, TextButton } from "./ui";
 import { StationBikes } from "./station-bikes";
 import { TripSheet } from "./trip-sheet";
 import type { UserPosition } from "./station-map";
@@ -14,7 +14,7 @@ import { AutoRenewal, AutoSpendSetting, ContactSupport, FavoriteButton, InviteFr
 
 const StationMap = dynamic(() => import("./station-map"), {
   ssr: false,
-  loading: () => <div className="map-placeholder" aria-label="Chargement de la carte"/>
+  loading: () => <div className="map-placeholder skeleton" aria-label="Chargement de la carte"/>
 });
 type StationData = { stations: Station[]; updatedAt: string };
 type Navigation = (page: Page) => void;
@@ -23,6 +23,8 @@ type Favorites = { favorites: number[]; onFavorite: (number: number, favorite: b
 // One reference while stations load, so the map does not rebuild its pins on every render.
 const NO_STATIONS: Station[] = [];
 const MISSING = "Indisponible pour le moment";
+const bikeFilters = [{ value: "all", label: "Tous les vélos" }, { value: "mechanical", label: "Vélos mécaniques" }, { value: "electrical", label: "Vélos électriques" }];
+const stationFilters: { value: StationFilter; label: string; short?: string }[] = [{ value: "all", label: "Toutes les stations", short: "Toutes" }, { value: "favorites", label: "Favorites" }, { value: "available", label: "Vélos disponibles", short: "Vélos dispo" }, { value: "electrical", label: "Vélos électriques", short: "Électriques" }, { value: "stands", label: "Places libres", short: "Places" }];
 
 const phoneQuery = "(max-width: 620px)";
 function subscribePhone(changed: () => void) {
@@ -71,7 +73,7 @@ function StationNumbers({ station, compact = false }: { station: Station; compac
     <div className={`station-numbers ${compact ? "station-numbers-compact" : ""}`}>
       <span><BicycleIcon size={18} weight="light" aria-hidden="true"/><strong>{station.mechanical}</strong><small>Mécaniques</small></span>
       <span><LightningIcon size={17} weight="light" aria-hidden="true"/><strong>{station.electrical}</strong><small>Électriques</small></span>
-      <span><LetterCirclePIcon size={18} weight="light" aria-hidden="true"/><strong>{station.stands}</strong><small>Places libres</small></span>
+      <span><LetterCirclePIcon size={18} weight="light" aria-hidden="true"/><strong>{station.stands}</strong><small>Places</small></span>
     </div>
   );
 }
@@ -142,7 +144,7 @@ export function TripsPage({ data }: { data: Dashboard }) {
     <div className="page-content">
       <div className="filter-line">
         <SelectField label="Type de vélo" hideLabel value={filter} onChange={(value) => { setFilter(value); setLimit(10); }}
-          options={[{ value: "all", label: "Tous les vélos" }, { value: "mechanical", label: "Vélos mécaniques" }, { value: "electrical", label: "Vélos électriques" }]}/>
+          options={bikeFilters}/>
         <span className="result-count">{trips.length} trajet{trips.length > 1 ? "s" : ""}</span>
       </div>
       <TripsTable trips={trips.slice(0, limit)}/>
@@ -255,7 +257,7 @@ export function StationsPage({ resource, reload, reloading, favorites: favoriteL
             {query ? <button className="icon-button" aria-label="Effacer la recherche" onClick={() => setQuery("")}><XIcon size={16} weight="light"/></button> : null}
           </label>
           <SelectField className="select-inline" label="Afficher" hideLabel value={filter} onChange={(value) => { setFilter(value); }}
-            options={[{ value: "all", label: "Toutes les stations", short: "Toutes" }, { value: "favorites", label: "Favorites" }, { value: "available", label: "Vélos disponibles", short: "Vélos dispo" }, { value: "electrical", label: "Vélos électriques", short: "Électriques" }, { value: "stands", label: "Places libres", short: "Places" }]}/>
+            options={stationFilters}/>
         </div>
         <Button variant="secondary" pending={locating} onClick={locate} aria-label="Stations autour de moi" title="Autour de moi"><NavigationArrowIcon size={18} weight="light"/><span className="location-label">Autour de moi</span></Button>
       </div>
@@ -351,3 +353,164 @@ export function AccountPage({ data, onLogout, onSaved }: { data: Dashboard; onLo
   );
 }
 
+
+/*
+ * Loading skeletons: each page's own containers and classes, with as many items as a typical account shows,
+ * so nothing moves when the data arrives. Static labels stay real; what the data fills in is a ghost bar.
+ */
+
+const GHOST_ROUTES = [["Bellecour", "Part-Dieu Villette"], ["Hôtel de Ville", "Saxe-Gambetta"], ["Croix-Rousse", "Terreaux"], ["Perrache", "Jean Macé"]];
+
+function TripsTableSkeleton({ rows }: { rows: number }) {
+  return (
+    <div className="trips-table">
+      <div className="table-head"><span>Trajet</span><span>Date</span><span>Durée</span><span>Montant</span><span/></div>
+      {Array.from({ length: rows }, (_, index) => {
+        const [from, to] = GHOST_ROUTES[index % GHOST_ROUTES.length];
+        return (
+          <div className="trip-row" key={index}>
+            <span className="trip-description"><span className="trip-icon skeleton"/><span className="trip-route"><strong><Ghost>{from}</Ghost></strong><small><Ghost>{to}</Ghost></small></span></span>
+            <span className="trip-date"><Ghost>12 oct.</Ghost><small className="clock"><Ghost>08:42</Ghost></small></span>
+            <span className="trip-duration"><Ghost>14 min</Ghost></span>
+            <span className="trip-price"><Ghost>0,00 €</Ghost></span>
+            <span/>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function SummaryCardSkeleton({ icon, label, detail, subscription = false }: { icon: Icon; label: string; detail: string; subscription?: boolean }) {
+  return (
+    <div className="summary-card skeleton" aria-hidden="true">
+      <CardTag icon={icon}>{label}</CardTag>
+      {subscription ? <strong className="metric-subscription">Plus 1 an</strong> : <strong className="metric-value">0</strong>}
+      <span className="metric-detail">{detail}<CircleArrow outline/></span>
+    </div>
+  );
+}
+
+function LinkSkeleton({ children }: { children: string }) {
+  return <span className="text-button"><Ghost>{children}</Ghost></span>;
+}
+
+function LoadMoreSkeleton() {
+  return <div className="load-more"><span className="button skeleton" aria-hidden="true">Voir plus</span></div>;
+}
+
+export function OverviewSkeleton() {
+  return (
+    <div className="page-content" aria-busy="true" aria-label="Chargement du compte">
+      <div className="summary-grid">
+        <SummaryCardSkeleton icon={StarFourIcon} label="Points" detail="1 380 gagnés au total"/>
+        <SummaryCardSkeleton icon={BicycleIcon} label="Trajets" detail="12 h 40 min"/>
+        <SummaryCardSkeleton icon={TicketIcon} label="Abonnement" detail="Jusqu’au 1 mars 2027" subscription/>
+      </div>
+      <section className="map-section">
+        <SectionHeading title="Stations"><LinkSkeleton>Tout voir</LinkSkeleton></SectionHeading>
+        <div className="overview-map skeleton" aria-hidden="true"/>
+      </section>
+      <section className="recent-trips">
+        <SectionHeading title="Derniers trajets"><LinkSkeleton>Tout voir</LinkSkeleton></SectionHeading>
+        <TripsTableSkeleton rows={4}/>
+      </section>
+    </div>
+  );
+}
+
+export function TripsSkeleton() {
+  return (
+    <div className="page-content" aria-busy="true" aria-label="Chargement des trajets">
+      <div className="filter-line">
+        <SelectSkeleton options={bikeFilters}/>
+        <span className="result-count"><Ghost>10 trajets</Ghost></span>
+      </div>
+      <TripsTableSkeleton rows={10}/>
+      <LoadMoreSkeleton/>
+    </div>
+  );
+}
+
+const GHOST_RULES = ["Départ d’une station pleine", "Arrivée dans une station vide", "Évaluation d’un vélo après un trajet"];
+const GHOST_MOVEMENTS = ["Bonus de trajet", "Évaluation", "Arrivée dans une station vide", "Réduction sur un trajet"];
+
+export function PointsSkeleton() {
+  return (
+    <div className="page-content" aria-busy="true" aria-label="Chargement des points">
+      <div className="points-summary" aria-hidden="true">
+        <div className="skeleton"><Eyebrow icon={StarFourIcon}>Solde actuel</Eyebrow><strong className="points-balance">0<span>points</span></strong></div>
+        <div className="skeleton"><Eyebrow icon={TrendUpIcon}>Total gagné</Eyebrow><strong className="points-total">0<span>points</span></strong></div>
+      </div>
+      <div className="setting-row skeleton" aria-hidden="true"><div><span className="metric-label">Utilisation automatique</span><strong className="setting-value">Activée</strong></div><span className="switch"/></div>
+      <div className="soon-row invite-row skeleton" aria-hidden="true">
+        <div><span className="metric-label">Inviter un ami</span><p>Échangez vos points contre un code à offrir à un ami.</p><small className="soon-note">Il vous manque 255 points.</small></div>
+        <span className="button button-secondary"><span className="button-content">Obtenir un code</span></span>
+      </div>
+      <section className="earn-section">
+        <SectionHeading title="Gagner des points"/>
+        <div className="earn-grid">{GHOST_RULES.map((rule) => <div className="earn-rule skeleton" aria-hidden="true" key={rule}><span>{rule}</span><strong>+5</strong></div>)}</div>
+      </section>
+      <section className="points-history">
+        <SectionHeading title="Historique"/>
+        {Array.from({ length: 8 }, (_, index) => (
+          <div className="movement" key={index}>
+            <span className="movement-description"><strong><Ghost>{GHOST_MOVEMENTS[index % GHOST_MOVEMENTS.length]}</Ghost></strong><small><Ghost>12 octobre 2026</Ghost></small></span>
+            <span className="movement-amount"><Ghost>+5</Ghost></span>
+          </div>
+        ))}
+        <LoadMoreSkeleton/>
+      </section>
+    </div>
+  );
+}
+
+export function StationsSkeleton() {
+  return (
+    <div className="page-content stations-page" aria-busy="true" aria-label="Chargement des stations">
+      <div className="stations-toolbar" aria-hidden="true">
+        <div className="search-field skeleton">
+          <span className="search-input"><MagnifyingGlassIcon size={19} weight="light"/><input tabIndex={-1} readOnly/></span>
+          <SelectSkeleton className="select-inline" options={stationFilters}/>
+        </div>
+        <span className="button skeleton"><span className="button-content"><NavigationArrowIcon size={18} weight="light"/><span className="location-label">Autour de moi</span></span></span>
+      </div>
+      <div className="stations-explorer"><div className="explorer-map skeleton" aria-hidden="true"/></div>
+    </div>
+  );
+}
+
+export function AccountSkeleton() {
+  return (
+    <div className="page-content" aria-busy="true" aria-label="Chargement du compte">
+      <div className="account-grid" aria-hidden="true">
+        <section className="account-section skeleton">
+          <h2>Profil</h2>
+          <p className="profile-name">Prénom Nom</p>
+          <p className="profile-email">prenom.nom@exemple.fr</p>
+          <dl className="account-details">
+            <div><dt>Adresse</dt><dd>1 rue de la République<small>69002 Lyon · France</small></dd></div>
+            <div><dt>Téléphone</dt><dd>06 00 00 00 00</dd></div>
+          </dl>
+          <span className="button button-secondary"><span className="button-content">Modifier mes coordonnées</span></span>
+        </section>
+        <section className="account-section skeleton">
+          <h2>Abonnement</h2>
+          <p className="subscription-name">Vélo’v Plus 1 an Jeunes – paiement comptant</p>
+          <p className="subscription-validity">Jusqu’au 1 janvier 2027</p>
+          <div className="setting-row renewal-setting"><div><span className="metric-label">Renouvellement automatique</span><strong className="setting-value">Désactivé</strong></div><span className="switch"/></div>
+          <div className="receipts">
+            <h3 className="metric-label">Reçus</h3>
+            <ul><li className="receipt-row"><span><strong>Vélo’v Plus 1 an Jeunes</strong><small>Du 1 janv. 2026 au 1 janv. 2027</small></span><span className="button button-secondary"><span className="button-content"><DownloadSimpleIcon size={17} weight="light"/>Reçu</span></span></li></ul>
+          </div>
+          <span className="text-link">Gérer sur Vélo’v<CircleArrow external outline/></span>
+        </section>
+        <section className="account-section skeleton">
+          <h2>Service client</h2>
+          <div className="account-contact"><span className="button button-secondary"><span className="button-content"><EnvelopeSimpleIcon size={18} weight="light"/>Écrire au service client</span></span></div>
+        </section>
+      </div>
+      <div className="account-logout"><span className="button skeleton" aria-hidden="true"><span className="button-content">Se déconnecter</span></span></div>
+    </div>
+  );
+}
