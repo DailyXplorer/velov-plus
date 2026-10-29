@@ -6,7 +6,7 @@ import { Button, CardTag, EmptyState, SelectField } from "./ui";
 import { BikeDrawer } from "./station-bikes";
 import { ApiError, getJson } from "./get-json";
 import { capitalize, formatDate, formatPrice } from "@/lib/models";
-import { CO2_GRAMS_PER_KM, DETOUR_FACTOR, type Period, type PeriodStats, type Stats, statsSchema } from "@/lib/stats";
+import { type Period, type PeriodStats, type Stats, statsSchema } from "@/lib/stats";
 
 const unavailable = "Vos statistiques sont momentanément indisponibles.";
 const periods: { value: Period; label: string; short: string }[] = [
@@ -98,15 +98,11 @@ function Headline({ data }: { data: PeriodStats }) {
       <div className="stat-cards">
         <StatCard icon={BicycleIcon} label="Trajets" value={number(data.trips)} detail={data.trips ? `${hours(Math.round(data.minutes / data.trips))} en moyenne` : "Aucun trajet"}/>
         <StatCard icon={ClockIcon} label="Minutes à vélo" value={number(data.minutes)} detail={data.minutes >= 60 ? `Soit ${hours(data.minutes)}` : "Moins d’une heure"}/>
-        <StatCard icon={RouteIcon} label="Km estimés" value={kilometres(distance.metres)} detail={distance.unknown ? `Sur ${number(distance.known)} trajets sur ${number(data.trips)}` : "Entre stations, détours inclus"}/>
-        <StatCard icon={LeafIcon} label="CO₂ évité estimé" value={kg >= 1 ? kg.toLocaleString("fr-FR", { maximumFractionDigits: kg < 10 ? 1 : 0 }) : number(data.co2Grams)} unit={kg >= 1 ? "kg" : "g"} detail="Face à la voiture*"/>
+        <StatCard icon={RouteIcon} label="Km estimés" value={kilometres(distance.metres)} detail={`Sur ${plural(distance.known, "trajet")}`}/>
+        <StatCard icon={LeafIcon} label="CO₂ évité estimé" value={kg >= 1 ? kg.toLocaleString("fr-FR", { maximumFractionDigits: kg < 10 ? 1 : 0 }) : number(data.co2Grams)} unit={kg >= 1 ? "kg" : "g"} detail="Face à la voiture"/>
         <StatCard icon={CoinsIcon} label="Dépenses" value={formatPrice(data.spentCents)} detail={data.savedCents ? `${formatPrice(data.savedCents)} économisés` : data.spentCents ? "Aucune réduction" : "Trajets compris"}/>
         <StatCard icon={StarFourIcon} label="Points gagnés" value={number(data.pointsEarned)} detail="Trajets, notes et bonus"/>
       </div>
-      <p className="stat-footnote">
-        Km estimés : distance entre les stations de départ et d’arrivée, majorée de {Math.round((DETOUR_FACTOR - 1) * 100)} % pour les détours (0 km pour un retour à la même station).
-        {distance.unknown ? ` ${plural(distance.unknown, "trajet")} sans distance estimable.` : ""} *CO₂ évité : {CO2_GRAMS_PER_KM} g par km, ordre de grandeur d’une voiture thermique en ville.
-      </p>
     </>
   );
 }
