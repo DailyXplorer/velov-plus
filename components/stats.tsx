@@ -123,7 +123,7 @@ function Headline({ data, balance }: { data: PeriodStats; balance: number | null
     <div className="stat-cards">
       <StatCard icon={BicycleIcon} label="Trajets" value={number(data.trips)} detail={data.trips ? `${hours(Math.round(data.minutes / data.trips))} en moyenne` : "Aucun trajet"}/>
       <StatCard icon={ClockIcon} label="Minutes à vélo" value={number(data.minutes)} detail={data.minutes >= 60 ? `Soit ${hours(data.minutes)}` : "Moins d’une heure"}/>
-      <StatCard icon={RouteIcon} label="Distance estimée" value={kilometres(data.distance.metres)} unit="km" detail={`Sur ${plural(data.distance.known, "trajet")}`}/>
+      <StatCard icon={RouteIcon} label="Distance" value={kilometres(data.distance.metres)} unit="km" detail={`Sur ${plural(data.distance.known, "trajet")}`}/>
       <StatCard icon={LeafIcon} label="CO₂ évité" value={kg >= 1 ? kg.toLocaleString("fr-FR", { maximumFractionDigits: kg < 10 ? 1 : 0 }) : number(data.co2Grams)} unit={kg >= 1 ? "kg" : "g"} detail="Plutôt qu’en voiture"/>
       <StatCard icon={CoinsIcon} label="Dépenses" value={formatPrice(data.spentCents)} detail={data.savedCents ? `${formatPrice(data.savedCents)} économisés` : data.spentCents ? "Aucune réduction" : "Aucun supplément"}/>
       <StatCard icon={StarFourIcon} label="Points gagnés" value={number(data.pointsEarned)} detail={balance != null ? `Solde de ${plural(balance, "point")}` : undefined}/>
