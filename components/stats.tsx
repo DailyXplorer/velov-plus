@@ -1,18 +1,18 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type PointerEvent, type ReactNode } from "react";
-import { BicycleIcon, ClockIcon, CoinsIcon, type Icon, LeafIcon, RouteIcon, StarFourIcon } from "./icons";
+import { BicycleIcon, ClockIcon, type Icon, RouteIcon, StarFourIcon } from "./icons";
 import { Button, CardTag, EmptyState, SelectField } from "./ui";
 import { BikeDrawer } from "./station-bikes";
 import { ApiError, getJson } from "./get-json";
-import { capitalize, formatDate, formatPrice } from "@/lib/models";
+import { capitalize, formatDate } from "@/lib/models";
 import { type Period, type PeriodStats, type Stats, statsSchema } from "@/lib/stats";
 
 const unavailable = "Vos statistiques sont momentanément indisponibles.";
-const periods: { value: Period; label: string; short: string }[] = [
-  { value: "30d", label: "30 derniers jours", short: "30 jours" },
-  { value: "12m", label: "12 derniers mois", short: "12 mois" },
-  { value: "all", label: "Depuis le début", short: "Tout" }
+const periods: { value: Period; label: string }[] = [
+  { value: "30d", label: "30 derniers jours" },
+  { value: "12m", label: "12 derniers mois" },
+  { value: "all", label: "Depuis le début" }
 ];
 const WEEKDAYS = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
 const number = (value: number) => value.toLocaleString("fr-FR");
@@ -48,7 +48,7 @@ export function StatsPage({ account }: { account: string }) {
 
   if (state.kind === "loading") return (
     <div className="page-content" aria-busy="true" aria-label="Chargement des statistiques">
-      <div className="stat-cards">{[0, 1, 2, 3, 4, 5].map((item) => <div className="skeleton stat-skeleton" key={item}/>)}</div>
+      <div className="stat-cards">{[0, 1, 2, 3].map((item) => <div className="skeleton stat-skeleton" key={item}/>)}</div>
       <div className="skeleton skeleton-map"/>
     </div>
   );
@@ -64,48 +64,32 @@ export function StatsView({ stats }: { stats: Stats }) {
     <div className="page-content stats-page">
       <div className="filter-line">
         <SelectField label="Période" hideLabel value={period} onChange={setPeriod} options={periods}/>
-        <span className="result-count">{plural(data.trips, "trajet")}</span>
       </div>
-      {!stats.complete ? <p className="inline-notice">Une partie de votre historique n’a pas pu être chargée.</p> : null}
       <Headline data={data}/>
       {!data.trips ? (
         <EmptyState>{ever ? "Aucun trajet sur cette période." : "Vos statistiques apparaîtront après votre premier trajet."}</EmptyState>
       ) : (
-        <>
-          <div className="stat-grid">
-            <Panel title="Temps à vélo" wide><MinutesChart data={data}/></Panel>
-            <Panel title="Électrique ou mécanique"><BikeTypes data={data}/></Panel>
-            <Panel title="Quand vous roulez" wide><Heatmap data={data}/></Panel>
-            <Panel title="Durée des trajets" note="En minutes"><Durations data={data}/></Panel>
-            <Panel title="Solde de points" full><PointsChart data={data} available={stats.pointsAvailable}/></Panel>
-            <Panel title="Records" full><Records data={data}/></Panel>
-          </div>
-          <div className="stat-grid stat-lists">
-            <Panel title="Stations de départ"><Ranking items={data.starts.map((item) => ({ label: item.name, count: item.count }))}/></Panel>
-            <Panel title="Stations d’arrivée"><Ranking items={data.ends.map((item) => ({ label: item.name, count: item.count }))}/></Panel>
-            <Panel title="Trajets favoris"><Ranking items={data.pairs.map((item) => ({ label: item.from === item.to ? `${item.from} (aller-retour)` : `${item.from} → ${item.to}`, count: item.count }))} empty="Aucun trajet récurrent sur cette période."/></Panel>
-          </div>
-        </>
+        <div className="stat-grid">
+          <Panel title={data.series.unit === "day" ? "Minutes par jour" : "Minutes par mois"} full><MinutesChart data={data}/></Panel>
+          <Panel title="Quand vous roulez" wide><Heatmap data={data}/></Panel>
+          <Panel title="Type de vélo"><BikeTypes data={data}/></Panel>
+          <Panel title="Records" full><Records data={data}/></Panel>
+          {data.stations.length ? <Panel title="Stations favorites" full><Ranking items={data.stations}/></Panel> : null}
+        </div>
       )}
     </div>
   );
 }
 
 function Headline({ data }: { data: PeriodStats }) {
-  const { distance } = data;
-  const kg = data.co2Grams / 1000;
-  const balance = data.series.buckets.at(-1)?.balance;
+  const time = data.minutes >= 60 ? { value: number(Math.round(data.minutes / 60)), unit: "h" } : { value: number(data.minutes), unit: "min" };
   return (
-    <>
-      <div className="stat-cards">
-        <StatCard icon={BicycleIcon} label="Trajets" value={number(data.trips)} detail={data.trips ? `${hours(Math.round(data.minutes / data.trips))} en moyenne` : "Aucun trajet"}/>
-        <StatCard icon={ClockIcon} label="Minutes à vélo" value={number(data.minutes)} detail={data.minutes >= 60 ? `Soit ${hours(data.minutes)}` : "Moins d’une heure"}/>
-        <StatCard icon={RouteIcon} label="Distance estimée" value={kilometres(distance.metres)} unit="km" detail={`Sur ${plural(distance.known, "trajet")}`}/>
-        <StatCard icon={LeafIcon} label="CO₂ évité" value={kg >= 1 ? kg.toLocaleString("fr-FR", { maximumFractionDigits: kg < 10 ? 1 : 0 }) : number(data.co2Grams)} unit={kg >= 1 ? "kg" : "g"} detail="Plutôt qu’en voiture"/>
-        <StatCard icon={CoinsIcon} label="Dépenses" value={formatPrice(data.spentCents)} detail={data.savedCents ? `${formatPrice(data.savedCents)} économisés` : data.spentCents ? "Aucune réduction" : "Aucun supplément"}/>
-        <StatCard icon={StarFourIcon} label="Points gagnés" value={number(data.pointsEarned)} detail={balance != null ? `Solde de ${plural(balance, "point")}` : undefined}/>
-      </div>
-    </>
+    <div className="stat-cards">
+      <StatCard icon={BicycleIcon} label="Trajets" value={number(data.trips)}/>
+      <StatCard icon={ClockIcon} label="Temps à vélo" {...time} detail={data.trips ? `≈ ${number(Math.round(data.minutes / data.trips))} min par trajet` : undefined}/>
+      <StatCard icon={RouteIcon} label="Km estimés" value={kilometres(data.metres)} unit="km"/>
+      <StatCard icon={StarFourIcon} label="Points gagnés" value={number(data.pointsEarned)}/>
+    </div>
   );
 }
 
@@ -119,10 +103,10 @@ function StatCard({ icon, label, value, unit, detail }: { icon: Icon; label: str
   );
 }
 
-function Panel({ title, note, wide = false, full = false, children }: { title: string; note?: string; wide?: boolean; full?: boolean; children: ReactNode }) {
+function Panel({ title, wide = false, full = false, children }: { title: string; wide?: boolean; full?: boolean; children: ReactNode }) {
   return (
     <section className={`stat-panel${wide ? " is-wide" : ""}${full ? " is-full" : ""}`}>
-      <div className="stat-panel-heading"><h2>{title}</h2>{note ? <span className="metric-label">{note}</span> : null}</div>
+      <h2>{title}</h2>
       {children}
     </section>
   );
@@ -191,7 +175,7 @@ type Bar = { label: string; value: number; tip: ReactNode; axis?: string };
 const AXIS = 34;
 const BASE = 24;
 
-function BarChart({ bars, label, caption, unit, height = 190 }: { bars: Bar[]; label: string; caption: string; unit: string; height?: number }) {
+function BarChart({ bars, label, caption, unit, height = 220 }: { bars: Bar[]; label: string; caption: string; unit: string; height?: number }) {
   const top = niceMax(Math.max(...bars.map((bar) => bar.value)));
   const inner = (width: number) => width - AXIS;
   const band = (width: number) => inner(width) / bars.length;
@@ -239,23 +223,12 @@ function MinutesChart({ data }: { data: PeriodStats }) {
     label={`Temps à vélo par ${unit === "day" ? "jour" : "mois"}, ${hours(data.minutes)} au total`}/>;
 }
 
-const span = (label: string) => label === "30+" ? "30 min et plus" : `de ${label.replace("-", " à ")} min`;
-
-function Durations({ data }: { data: PeriodStats }) {
-  const bars = data.durations.map((bucket) => ({
-    label: `${bucket.label} min`, axis: bucket.label, value: bucket.count,
-    tip: <><strong>{capitalize(span(bucket.label))}</strong><span>{plural(bucket.count, "trajet")}</span></>
-  }));
-  const usual = [...data.durations].sort((left, right) => right.count - left.count)[0].label;
-  return <BarChart bars={bars} unit="Trajets" caption="Trajets selon leur durée" label={`Durée des trajets, le plus souvent ${span(usual)}`}/>;
-}
-
 function Heatmap({ data }: { data: PeriodStats }) {
   const rows = data.heatmap;
   const max = Math.max(1, ...rows.flat());
   const left = 20;
   const gap = 2;
-  const cellHeight = (width: number) => Math.min(22, Math.max(12, (width - left) / 24));
+  const cellHeight = (width: number) => Math.min(26, Math.max(12, (width - left) / 24));
   const busiest = rows.flatMap((row, day) => row.map((count, hour) => ({ day, hour, count }))).sort((one, other) => other.count - one.count)[0];
   return (
     <Chart label={`Départs selon le jour et l’heure, le plus souvent le ${WEEKDAYS[busiest.day].toLowerCase()} entre ${busiest.hour} h et ${busiest.hour + 1} h`} height={(width) => 7 * cellHeight(width) + 20}
@@ -298,8 +271,8 @@ function BikeTypes({ data }: { data: PeriodStats }) {
     { key: "mechanical", label: "Mécanique", spoken: "en mécanique", count: data.bikeTypes.mechanical },
     { key: "unknown", label: "Non renseigné", spoken: "sans type connu", count: data.bikeTypes.unknown }
   ].filter((part) => part.count > 0);
-  const size = 168;
-  const stroke = 24;
+  const size = 152;
+  const stroke = 22;
   const radius = (size - stroke) / 2;
   const circumference = 2 * Math.PI * radius;
   const share = (count: number) => `${Math.round(count / total * 100)}${" "}%`;
@@ -340,64 +313,27 @@ function BikeTypes({ data }: { data: PeriodStats }) {
   );
 }
 
-function PointsChart({ data, available }: { data: PeriodStats; available: boolean }) {
-  const { unit, buckets } = data.series;
-  if (!available) return <EmptyState>L’historique des points est momentanément indisponible.</EmptyState>;
-  const values = buckets.map((bucket) => bucket.balance ?? 0);
-  const low = Math.min(...values);
-  const high = Math.max(...values);
-  const span = Math.max(1, high - low);
-  const height = 190;
-  const plot = height - BASE - 16;
-  const x = (index: number, width: number) => AXIS + (buckets.length > 1 ? index / (buckets.length - 1) : .5) * (width - AXIS - 8);
-  const y = (value: number) => 12 + plot * (1 - (value - low) / span);
-  const every = (width: number) => Math.max(1, Math.ceil(buckets.length * 38 / (width - AXIS)));
-  return (
-    <Chart label={`Solde passé de ${number(values[0])} à ${plural(values.at(-1)!, "point")}`} height={height}
-      hit={(pointer, _y, width) => Math.max(0, Math.min(buckets.length - 1, Math.round((pointer - AXIS) / (width - AXIS - 8) * (buckets.length - 1))))}
-      tip={(index, width) => ({ x: x(index, width), y: y(values[index]) - 6, content: <><strong>{capitalize(bucketLabel(unit, buckets[index].key))}</strong><span>{plural(values[index], "point")}</span></> })}
-      table={<><caption>Solde de points par {unit === "day" ? "jour" : "mois"}</caption><thead><tr><th scope="col">Période</th><th scope="col">Points</th></tr></thead><tbody>{buckets.map((bucket, index) => <tr key={bucket.key}><th scope="row">{bucketLabel(unit, bucket.key)}</th><td>{values[index]}</td></tr>)}</tbody></>}>
-      {(width, active) => {
-        const line = values.map((value, index) => `${x(index, width).toFixed(1)},${y(value).toFixed(1)}`).join(" ");
-        return (
-          <>
-            {[low, high].map((value) => <g key={value}><line className="chart-grid" x1={AXIS} x2={width} y1={y(value)} y2={y(value)}/><text className="chart-axis" x={AXIS - 8} y={y(value) + 3.5} textAnchor="end">{number(value)}</text></g>)}
-            <polyline className="chart-line" points={line}/>
-            {buckets.map((bucket, index) => (buckets.length - 1 - index) % every(width) === 0
-              ? <text key={bucket.key} className="chart-axis" x={x(index, width)} y={height - 6} textAnchor="middle">{unit === "day" ? dayLabel(bucket.key, { day: "numeric", month: "numeric" }) : monthInitial(bucket.key)}</text> : null)}
-            {active != null ? <><line className="chart-cursor" x1={x(active, width)} x2={x(active, width)} y1={12} y2={12 + plot}/><circle className="chart-dot" cx={x(active, width)} cy={y(values[active])} r={4.5}/></> : null}
-          </>
-        );
-      }}
-    </Chart>
-  );
-}
-
 function Records({ data }: { data: PeriodStats }) {
-  const { longest, busiestDay, streak, bike } = data.records;
+  const { longestMinutes, busiestDayTrips, streakDays, bike } = data.records;
   const [bikeOpen, setBikeOpen] = useState(false);
-  const route = longest?.from && longest.to ? longest.from === longest.to ? `aller-retour depuis ${longest.from}` : `de ${longest.from} à ${longest.to}` : null;
   return (
     <dl className="stat-records">
-      <div><dt>Plus long trajet</dt><dd><strong>{longest ? hours(longest.minutes) : "—"}</strong>{longest ? <small>{capitalize([longest.startedAt ? `le ${formatDate(longest.startedAt, { day: "numeric", month: "long", year: "numeric" })}` : null, route].filter(Boolean).join(", "))}</small> : null}</dd></div>
-      <div><dt>Jour le plus actif</dt><dd><strong>{busiestDay ? plural(busiestDay.trips, "trajet") : "—"}</strong>{busiestDay ? <small>{capitalize(dayLabel(busiestDay.day, { weekday: "long", day: "numeric", month: "long", year: "numeric" }))}</small> : null}</dd></div>
-      <div><dt>Plus longue série</dt><dd><strong>{streak ? plural(streak.days, "jour") : "—"}</strong>{streak && streak.days > 1 ? <small>Du {dayLabel(streak.from, { day: "numeric", month: "long" })} au {dayLabel(streak.to, { day: "numeric", month: "long", year: "numeric" })}</small> : null}</dd></div>
-      <div><dt>Vélo le plus emprunté</dt><dd>{bike ? <><button className="stat-bike" onClick={() => setBikeOpen(true)} aria-label={`Voir la fiche du vélo ${bike.number}`}>N° {bike.number}</button><small>{plural(bike.count, "trajet")}{bike.type === "electrical" ? " en électrique" : bike.type === "mechanical" ? " en mécanique" : ""}</small></> : <strong>—</strong>}</dd></div>
-      {bikeOpen && bike ? <BikeDrawer number={bike.number} onClose={() => setBikeOpen(false)}/> : null}
+      <div><dt>Plus long trajet</dt><dd>{longestMinutes != null ? hours(longestMinutes) : "—"}</dd></div>
+      <div><dt>Jour record</dt><dd>{busiestDayTrips ? plural(busiestDayTrips, "trajet") : "—"}</dd></div>
+      <div><dt>Série</dt><dd>{streakDays ? plural(streakDays, "jour") : "—"}</dd></div>
+      <div><dt>Vélo favori</dt><dd>{bike ? <button className="stat-bike" onClick={() => setBikeOpen(true)} aria-label={`Voir la fiche du vélo ${bike}`}>N° {bike}</button> : "—"}</dd></div>
+      {bikeOpen && bike ? <BikeDrawer number={bike} onClose={() => setBikeOpen(false)}/> : null}
     </dl>
   );
 }
 
-function Ranking({ items, empty = "Aucune station renseignée." }: { items: { label: string; count: number }[]; empty?: string }) {
-  if (!items.length) return <EmptyState>{empty}</EmptyState>;
-  const max = items[0].count;
+function Ranking({ items }: { items: { name: string; count: number }[] }) {
   return (
     <ol className="stat-ranking">
       {items.map((item) => (
-        <li key={item.label}>
-          <span className="stat-ranking-label" title={item.label}>{item.label}</span>
-          <span className="stat-ranking-count">{number(item.count)}</span>
-          <span className="stat-ranking-bar" aria-hidden="true"><span style={{ width: `${item.count / max * 100}%` }}/></span>
+        <li key={item.name}>
+          <span className="stat-ranking-label">{item.name}</span>
+          <span className="stat-ranking-count">{number(item.count)}<span className="sr-only"> passages</span></span>
         </li>
       ))}
     </ol>

@@ -297,11 +297,10 @@ export function getStats(session: Session): Promise<Stats> {
     const account = `/accounts/${await accountIdOf(session)}`;
     const history = await collectPages((page) => read(`${account}/trips?status=FINISHED&status=ERROR&status=REVERSED&page=${page}&size=${TRIP_PAGE_SIZE}`, z.array(rawTrip), session, "application/vnd.trip.v6+json"), (trip) => trip.id);
     const movements = await collectPages((page) => read(`${account}/rewards/history?page=${page}`, z.object({ content: z.array(rawMovement) }), session, "application/vnd.rewards.v5+json").then((value) => value.content), (movement) => movement.id).catch(() => null);
-    const balance = await read(`${account}/rewards`, rawRewards, session, "application/vnd.rewards.v5+json").then((value) => value.balance, () => null);
     const stationList = await getStations().then((value) => value.stations, () => []);
     const byNumber = new Map(stationList.map((station) => [station.number, station]));
     return buildStats({
-      trips: history.items.map((trip) => normalizeTrip(trip, byNumber)), coords: byNumber, balance, complete: history.complete && (movements?.complete ?? true),
+      trips: history.items.map((trip) => normalizeTrip(trip, byNumber)), coords: byNumber,
       movements: movements?.items.map((movement) => ({ date: utcDate(movement.createdAt), amount: movement.amount * (movement.direction === "DEBIT" ? -1 : 1) })) ?? null,
       now: new Date()
     });

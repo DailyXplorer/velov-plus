@@ -16,7 +16,7 @@ function trip(startedAt: string, change: Partial<Trip> = {}): Trip {
     duration: 12, price: 0, fullPrice: 0, discount: 0, pointsEarned: 0, pointsSpent: 0, litigious: false, isRated: true, token: null, origin: 4, ...change
   };
 }
-const input = (trips: Trip[], change: Partial<StatsInput> = {}): StatsInput => ({ trips, coords, movements: null, balance: null, complete: true, now, ...change });
+const input = (trips: Trip[], change: Partial<StatsInput> = {}): StatsInput => ({ trips, coords, movements: null, now, ...change });
 
 test("distance: haversine × 1.3 between stations, 0 for a loop, unknown without a station or its coordinates", () => {
   const across = estimateDistance({ startStationNumber: 2002, endStationNumber: 3001 }, coords);
@@ -26,7 +26,7 @@ test("distance: haversine × 1.3 between stations, 0 for a loop, unknown without
   assert.equal(estimateDistance({ startStationNumber: 2002, endStationNumber: 9999 }, coords), null);
 });
 
-test("totals count every kept trip and say how many lack a distance or their stations", () => {
+test("totals count every kept trip; distance only between known stations", () => {
   const wiped = { startStation: null, endStation: null, startStationNumber: null, endStationNumber: null, bikeNumber: null };
   const stats = periodStats("all", input([
     trip("2026-10-20T07:00:00Z", { duration: 10, price: 100, discount: 50, pointsEarned: 5 }),
@@ -36,11 +36,8 @@ test("totals count every kept trip and say how many lack a distance or their sta
   ]));
   assert.equal(stats.trips, 3);
   assert.equal(stats.minutes, 60);
-  assert.deepEqual({ known: stats.distance.known, unknown: stats.distance.unknown }, { known: 2, unknown: 1 });
-  assert.equal(stats.distance.metres, Math.round(haversine(bellecour, partDieu) * DETOUR_FACTOR));
-  assert.equal(stats.co2Grams, Math.round(stats.distance.metres / 1000 * 200));
-  assert.equal(stats.withoutStations, 1);
-  assert.deepEqual([stats.spentCents, stats.savedCents, stats.pointsEarned], [100, 50, 5]);
+  assert.equal(stats.metres, Math.round(haversine(bellecour, partDieu) * DETOUR_FACTOR));
+  assert.equal(stats.pointsEarned, 5);
 });
 
 test("periods: 30 days by day and 12 months by month, in Paris time", () => {
@@ -69,52 +66,38 @@ test("heatmap: Monday first, local hour", () => {
   assert.equal(stats.heatmap.flat().reduce((sum, value) => sum + value, 0), 2);
 });
 
-test("duration buckets: lower bound included, upper excluded, unknown durations left out", () => {
-  const stats = periodStats("all", input([0, 4, 5, 10, 19, 20, 30, 75].map((duration, index) => trip(`2026-10-0${index + 1}T08:00:00Z`, { duration })).concat(trip("2026-10-09T08:00:00Z", { duration: null }))));
-  assert.deepEqual(stats.durations, [{ label: "0-5", count: 2 }, { label: "5-10", count: 1 }, { label: "10-20", count: 2 }, { label: "20-30", count: 1 }, { label: "30+", count: 2 }]);
-});
-
 test("streak: longest run of consecutive local days; busiest day and longest trip", () => {
   const stats = periodStats("all", input([
     trip("2026-10-01T08:00:00Z"), trip("2026-10-02T08:00:00Z"), trip("2026-10-02T17:00:00Z", { duration: 45 }), trip("2026-10-03T08:00:00Z"),
     trip("2026-10-10T08:00:00Z"), trip("2026-10-11T08:00:00Z")
   ]));
-  assert.deepEqual(stats.records.streak, { days: 3, from: "2026-10-01", to: "2026-10-03" });
-  assert.deepEqual(stats.records.busiestDay, { day: "2026-10-02", trips: 2, minutes: 57 });
-  assert.equal(stats.records.longest?.minutes, 45);
-  assert.equal(periodStats("all", input([])).records.streak, null);
+  assert.deepEqual(stats.records, { longestMinutes: 45, busiestDayTrips: 2, streakDays: 3, bike: 10 });
+  assert.deepEqual(periodStats("all", input([])).records, { longestMinutes: null, busiestDayTrips: null, streakDays: null, bike: null });
 });
 
-test("top stations and favourite pairs: counted, sorted, pairs seen at least twice", () => {
+test("favourite stations: departures and arrivals counted together, most used first", () => {
   const back = { startStation: "Part-Dieu", startStationNumber: 3001, endStation: "Bellecour", endStationNumber: 2002 };
   const stats = periodStats("all", input([
     trip("2026-10-01T08:00:00Z"), trip("2026-10-02T08:00:00Z"), trip("2026-10-03T08:00:00Z"),
     trip("2026-10-01T18:00:00Z", back), trip("2026-10-02T18:00:00Z", { ...back, bikeNumber: 77, bikeType: "electrical" }),
     trip("2026-10-04T18:00:00Z", { ...back, endStation: "Perrache", endStationNumber: 4004 })
   ]));
-  assert.deepEqual(stats.starts, [{ number: 2002, name: "Bellecour", count: 3 }, { number: 3001, name: "Part-Dieu", count: 3 }]);
-  assert.deepEqual(stats.ends.map((station) => [station.name, station.count]), [["Part-Dieu", 3], ["Bellecour", 2], ["Perrache", 1]]);
-  assert.deepEqual(stats.pairs, [{ from: "Bellecour", to: "Part-Dieu", count: 3 }, { from: "Part-Dieu", to: "Bellecour", count: 2 }]);
-  assert.deepEqual(stats.records.bike, { number: 10, count: 5, type: "mechanical" });
+  assert.deepEqual(stats.stations, [{ name: "Part-Dieu", count: 6 }, { name: "Bellecour", count: 5 }, { name: "Perrache", count: 1 }]);
+  assert.equal(stats.records.bike, 10);
   assert.deepEqual(stats.bikeTypes, { mechanical: 5, electrical: 1, unknown: 0 });
 });
 
-test("points: balance per bucket anchored on today's balance, earned points from the movements", () => {
+test("points earned: credits of the period from the movements", () => {
   const movements = [{ date: "2026-10-10T08:00:00Z", amount: 20 }, { date: "2026-10-20T08:00:00Z", amount: -10 }, { date: "2025-01-05T08:00:00Z", amount: 50 }];
-  const stats = periodStats("30d", input([], { movements, balance: 100 }));
-  const at = (key: string) => stats.series.buckets.find((bucket) => bucket.key === key)?.balance;
-  assert.deepEqual([at("2026-10-09"), at("2026-10-10"), at("2026-10-20"), at("2026-10-29")], [90, 110, 100, 100]);
-  assert.equal(stats.pointsEarned, 20);
-  assert.equal(periodStats("all", input([], { movements, balance: null })).series.buckets.at(-1)?.balance, 60);
-  assert.equal(periodStats("30d", input([])).series.buckets[0].balance, null);
+  assert.equal(periodStats("30d", input([], { movements })).pointsEarned, 20);
+  assert.equal(periodStats("all", input([], { movements })).pointsEarned, 70);
 });
 
 test("an empty history gives zeros, not errors", () => {
   const stats = buildStats(input([]));
   assert.equal(stats.periods.all.trips, 0);
   assert.equal(stats.periods.all.series.buckets.length, 1);
-  assert.equal(stats.periods["12m"].records.longest, null);
-  assert.equal(stats.pointsAvailable, false);
+  assert.equal(stats.periods["12m"].records.longestMinutes, null);
 });
 
 test("pagination: sequential pages, stops at the first empty page", async () => {
