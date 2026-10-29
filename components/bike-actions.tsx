@@ -66,10 +66,10 @@ function Confirm({ action, place, onCancel, onConfirm, sending }: { action: Acti
         <div><dt>Station</dt><dd>{place.stationName}</dd></div>
         <div><dt>Borne</dt><dd>{place.standNumber}</dd></div>
         <div><dt>Vélo</dt><dd>{place.bikeNumber}</dd></div>
-        {action === "book" ? <div><dt>Coût</dt><dd>{BOOKING_POINTS} points · {BOOKING_MINUTES} min</dd></div> : null}
+        {action === "book" ? <div><dt>Coût</dt><dd>{BOOKING_POINTS} points</dd></div> : null}
         {action === "unlock" && distance != null ? <div><dt>Distance</dt><dd>≈ {formatDistance(distance)}</dd></div> : null}
       </dl>
-      {action === "book" ? <p className="bike-action-note">Le vélo vous attend {BOOKING_MINUTES} min, puis la réservation expire. Elle ne s’annule pas.</p>
+      {action === "book" ? <p className="bike-action-note">Le vélo vous est réservé pendant {BOOKING_MINUTES} minutes.</p>
         : <p className="bike-action-note bike-action-warning">Ensuite, appuyez sur le bouton de la borne dans les 60 secondes, puis retirez le vélo. Passé ce délai, la borne le reverrouille.</p>}
       {action === "unlock" && far ? <p className="bike-action-far" role="alert"><WarningIcon size={16} weight="bold" aria-hidden="true"/>Vous semblez à plus de {RELEASE_DISTANCE} m de la station : un vélo libéré à distance peut partir sur votre compte.</p> : null}
       <div className="bike-action-buttons">
