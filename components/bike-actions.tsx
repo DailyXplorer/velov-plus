@@ -105,7 +105,7 @@ export function BikeActions({ place, booking = null, initial, onDone }: { place:
     setFailure(null);
     setNotice(null);
     const key = `${action}:${place.bikeNumber}`;
-    const outcome = await runOnce(operations, key, () => sendBikeAction(action, place), { meta: { stationNumber: place.stationNumber, standNumber: place.standNumber, bikeNumber: place.bikeNumber } });
+    const outcome = await runOnce(operations, key, () => sendBikeAction(action, place), { keep: true, meta: { stationNumber: place.stationNumber, standNumber: place.standNumber, bikeNumber: place.bikeNumber } });
     if (typeof outcome === "string") { setNotice(blockedMessage(outcome, operations.get(key) !== null)); return; }
     if (outcome.httpStatus === 401) { setStep({ kind: "expired" }); return; }
     if (outcome.ok) {

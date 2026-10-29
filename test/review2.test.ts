@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, test } from "node:test";
-import { type Locks, createOperations, runOnce, settleHeld, UNSHARED, blockedMessage } from "../lib/operations.ts";
+import { type Locks, createOperations, runOnce, settleHeld, UNSAVED, UNSHARED, blockedMessage } from "../lib/operations.ts";
 import { bookingCheck, unlockCheck } from "../lib/bike-action.ts";
 import { accountCall, postBooking, postRelease } from "../lib/cyclocity.ts";
 import { postPromoCode } from "../lib/promo.ts";
@@ -328,4 +328,36 @@ test("parity: labels use DM Sans, warnings use the grey ink, no brown", () => {
   assert.match(css, /\.data-notice \{ margin-bottom: 24px; color: var\(--ink-soft\);/);
   assert.match(source("components/trip-sheet.tsx"), /<h3 id="trip-rate-title" className="trip-rate-title">Noter ce vélo<\/h3>/);
   assert.match(source("components/account-actions.tsx"), /<h3 className="metric-label">Reçus<\/h3>/);
+});
+
+test("F1/F3: booking and unlock are tracked in the shared store or not sent at all", async () => {
+  const locks = sharedLocks();
+  const meta = { stationNumber: 2002, standNumber: 12, bikeNumber: 20449 };
+  for (const broken of [{ getItem: () => null, setItem: () => { throw new Error("quota"); }, removeItem: () => {} }, { getItem: () => "{illisible", setItem: () => {}, removeItem: () => {} }]) {
+    for (const key of ["book:20449", "unlock:20449"]) {
+      let sent = 0;
+      const outcome = await runOnce(createOperations(() => broken, Date.now, () => locks), key, async () => { sent += 1; return noAnswer(""); }, { keep: true, meta });
+      assert.equal(outcome, "unsaved", key);
+      assert.equal(blockedMessage("unsaved", false), UNSAVED);
+      assert.equal(sent, 0, `${key}: nothing sent`);
+    }
+  }
+  const bike = source("components/bike-actions.tsx");
+  assert.match(bike, /runOnce\(operations, key, \(\) => sendBikeAction\(action, place\), \{ keep: true, meta: \{ stationNumber: place\.stationNumber, standNumber: place\.standNumber, bikeNumber: place\.bikeNumber \} \}\)/);
+});
+
+test("F3: a failed trip history read is unknown, never proof that the unlock did nothing", async () => {
+  const velov = source("lib/velov.ts");
+  assert.match(velov, /trips\("trips\?status=FINISHED"\)\.catch\(\(\) => null\)/);
+  assert.match(velov, /if \(!history\) return \{ ongoing: null, latest: null \};/);
+  assert.doesNotMatch(/export async function getTripCheck[\s\S]*?\n\}/.exec(velov)![0], /\.catch\(\(\) => \[\]\)/);
+  const at = Date.parse("2026-10-29T12:00:00Z");
+  const storage = memoryStore();
+  const locks = sharedLocks();
+  const tab = createOperations(() => storage, () => at, () => locks);
+  await runOnce(tab, "unlock:20449", async () => noAnswer("Le serveur ne répond pas."), { keep: true, meta: { bikeNumber: 20449 } });
+  const later = at + HISTORY_LAG + 60_000;
+  const settled = await settleHeld(tab, "unlock:20449", async () => unlockCheck({ ongoing: null, latest: null }, 20449, at).check, () => later);
+  assert.equal(settled?.kind, "uncertain");
+  assert.equal(tab.get("unlock:20449")?.status, "uncertain", "the lock stays held");
 });

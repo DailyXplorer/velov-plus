@@ -156,7 +156,8 @@ export async function getTripCheck(session: Session): Promise<TripCheck> {
     const stations = ongoing?.length ? await stationsByNumber() : new Map<number, Station>();
     return { ongoing: ongoing?.map((trip) => normalizeTrip(trip, stations)) ?? null, latest: null };
   }
-  const [history, stations] = await Promise.all([trips("trips?status=FINISHED").catch(() => []), stationsByNumber()]);
+  const [history, stations] = await Promise.all([trips("trips?status=FINISHED").catch(() => null), stationsByNumber()]);
+  if (!history) return { ongoing: null, latest: null };
   return { ongoing: [], latest: latestFinished(history.map((trip) => normalizeTrip(trip, stations))) };
 }
 
