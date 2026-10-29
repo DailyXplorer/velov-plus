@@ -361,7 +361,6 @@ function PointsChart({ data, available }: { data: PeriodStats; available: boolea
         return (
           <>
             {[low, high].map((value) => <g key={value}><line className="chart-grid" x1={AXIS} x2={width} y1={y(value)} y2={y(value)}/><text className="chart-axis" x={AXIS - 8} y={y(value) + 3.5} textAnchor="end">{number(value)}</text></g>)}
-            <polygon className="chart-area" points={`${x(0, width)},${12 + plot} ${line} ${x(values.length - 1, width)},${12 + plot}`}/>
             <polyline className="chart-line" points={line}/>
             {buckets.map((bucket, index) => (buckets.length - 1 - index) % every(width) === 0
               ? <text key={bucket.key} className="chart-axis" x={x(index, width)} y={height - 6} textAnchor="middle">{unit === "day" ? dayLabel(bucket.key, { day: "numeric", month: "numeric" }) : capitalize(monthLabel(bucket.key)).replace(".", "")}</text> : null)}
