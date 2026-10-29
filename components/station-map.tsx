@@ -52,13 +52,30 @@ export default function StationMap({ stations, selected, onSelect, onClear, user
     L.control.zoom({ position: "topright" }).addTo(instance);
     instance.on("click", () => clear.current?.());
     map.current = instance;
+    // Cooperative wheel (like Google Maps embeds): a plain wheel scrolls the page, Ctrl/⌘ + wheel or a trackpad pinch zooms the map.
+    const host = element.current;
+    const hint = document.createElement("div");
+    hint.className = "map-wheel-hint";
+    hint.textContent = /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘ + molette pour zoomer" : "Ctrl + molette pour zoomer";
+    host.appendChild(hint);
+    let hide = 0;
+    const onWheel = (event: WheelEvent) => {
+      if (event.ctrlKey || event.metaKey || !host.contains(event.target as Node)) return;
+      event.stopPropagation();
+      hint.classList.add("is-visible");
+      window.clearTimeout(hide);
+      hide = window.setTimeout(() => hint.classList.remove("is-visible"), 1200);
+    };
+    // Listen on the parent in the capture phase so the event never reaches Leaflet's own listener on the map container.
+    const wheelHost = host.parentElement ?? host;
+    wheelHost.addEventListener("wheel", onWheel, { capture: true });
     let frame = 0;
     const observer = new ResizeObserver(() => {
       if (frame) return;
       frame = requestAnimationFrame(() => { frame = 0; instance.invalidateSize(); });
     });
     observer.observe(element.current);
-    return () => { observer.disconnect(); cancelAnimationFrame(frame); instance.remove(); map.current = null; };
+    return () => { observer.disconnect(); cancelAnimationFrame(frame); window.clearTimeout(hide); wheelHost.removeEventListener("wheel", onWheel, { capture: true }); hint.remove(); instance.remove(); map.current = null; };
   }, []);
 
   useEffect(() => {
