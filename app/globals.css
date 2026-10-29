@@ -484,8 +484,8 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
 .booking-banner { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; padding: 6px 6px 6px 16px; border-radius: var(--radius); color: var(--white); background: var(--red); }
 .booking-banner .booking-left { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
 .booking-banner .booking-time { min-width: 2.7em; font-family: var(--font-title); font-size: 26px; line-height: 1; letter-spacing: -.02em; font-variant-numeric: proportional-nums; }
-.booking-banner .button-on-red { flex: none; gap: 8px; margin-left: auto; padding: 0 16px; color: var(--white); background: transparent; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .7); text-transform: uppercase; letter-spacing: .04em; font-size: 13px; }
-.booking-banner .button-on-red:hover { color: var(--white); background: rgba(255, 255, 255, .1); box-shadow: inset 0 0 0 1px var(--white); }
+.booking-banner .button-on-red { flex: none; gap: 8px; margin-left: auto; padding: 0 16px; color: var(--red); background: var(--white); box-shadow: none; text-transform: uppercase; letter-spacing: .04em; font-size: 13px; }
+.booking-banner .button-on-red:hover { color: var(--red-deep); background: var(--white); box-shadow: none; }
 
 .card-tag.bike-pick { z-index: auto; }
 .account-logout { max-width: 560px; margin-top: 40px; }
