@@ -16,7 +16,7 @@ async function sendWrite(url: string, method: "POST" | "PATCH" | "DELETE", body?
   try {
     response = await fetch(url, { method, headers: body === undefined ? undefined : { "Content-Type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body), signal: AbortSignal.timeout(40_000) });
   } catch {
-    return { outcome: failure(0, "network", "Pas de réponse du serveur : actualisez avant de réessayer."), data: null };
+    return { outcome: failure(0, "network", "Le serveur ne répond pas. Actualisez la page avant de réessayer."), data: null };
   }
   const data: unknown = await response.json().catch(() => null);
   if (!response.ok) {
@@ -24,7 +24,7 @@ async function sendWrite(url: string, method: "POST" | "PATCH" | "DELETE", body?
     return { outcome: failure(response.status, error.success ? error.data.code ?? null : null, error.success ? error.data.error : "Le service ne répond pas."), data };
   }
   const outcome = outcomeSchema.safeParse(data);
-  return { outcome: outcome.success ? outcome.data : failure(response.status, "local.unreadable", "Réponse illisible : actualisez avant de réessayer."), data };
+  return { outcome: outcome.success ? outcome.data : failure(response.status, "local.unreadable", "Réponse inattendue. Actualisez la page avant de réessayer."), data };
 }
 
 function RawStatus({ outcome }: { outcome: Outcome }) {
@@ -92,14 +92,14 @@ export function AutoSpendSetting({ value, onChanged }: { value: boolean | null; 
       </div>
       {value != null ? <Switch checked={value} label="Utilisation automatique des points" onClick={() => setAsking(true)}/> : null}
       {asking ? (
-        <ConfirmDialog title={next ? "Activer l’utilisation automatique ?" : "Désactiver l’utilisation automatique ?"} success={next ? "Utilisation automatique activée." : "Utilisation automatique désactivée."} onClose={() => setAsking(false)}
+        <ConfirmDialog title={next ? "Activer l’utilisation automatique ?" : "Désactiver l’utilisation automatique ?"} success={next ? "Utilisation automatique activée." : "Utilisation automatique désactivée."} onClose={() => setAsking(false)}
           run={async () => {
             const { outcome, data } = await sendWrite("/api/account/rewards", "PATCH", { autoSpend: next });
             const result = autoSpendResultSchema.safeParse(data);
             if (outcome.ok) onChanged(result.success && result.data.autoSpend != null ? result.data.autoSpend : next);
             return outcome;
           }}>
-          <p>{next ? "Vos points paieront automatiquement le dépassement de la période gratuite de vos trajets." : "Vos points ne paieront plus le dépassement de la période gratuite de vos trajets."}</p>
+          <p>{next ? "Vos points régleront automatiquement les minutes au-delà de la période gratuite." : "Vos points ne régleront plus les minutes au-delà de la période gratuite."}</p>
         </ConfirmDialog>
       ) : null}
     </div>
@@ -115,7 +115,7 @@ export function FavoriteButton({ station, favorite, onChanged }: { station: Stat
         <StarIcon size={19} weight={favorite ? "fill" : "light"}/>
       </button>
       {asking ? (
-        <ConfirmDialog title={favorite ? "Retirer des favoris ?" : "Ajouter aux favoris ?"} success={favorite ? "Station retirée des favoris." : "Station ajoutée aux favoris."} onClose={() => setAsking(false)}
+        <ConfirmDialog title={favorite ? "Retirer des favoris ?" : "Ajouter aux favoris ?"} success={favorite ? "Station retirée des favoris." : "Station ajoutée aux favoris."} onClose={() => setAsking(false)}
           run={async () => {
             const { outcome } = await sendWrite(`/api/account/favorites/${station.number}`, favorite ? "DELETE" : "POST");
             if (outcome.ok) onChanged(station.number, !favorite);
@@ -132,7 +132,7 @@ export function FavoriteButton({ station, favorite, onChanged }: { station: Stat
 function periodLabel({ start, end }: Receipt) {
   const day = { day: "numeric", month: "short", year: "numeric" } as const;
   if (start && end) return `Du ${formatDate(start, day)} au ${formatDate(end, day)}`;
-  return start ? `Depuis le ${formatDate(start, day)}` : end ? `Jusqu’au ${formatDate(end, day)}` : "Période sans dates";
+  return start ? `Depuis le ${formatDate(start, day)}` : end ? `Jusqu’au ${formatDate(end, day)}` : "Dates inconnues";
 }
 
 /** The receipt POST only reads: no confirmation, but one request per click and the PDF saved as a file. */
@@ -149,7 +149,7 @@ function ReceiptRow({ receipt }: { receipt: Receipt }) {
       try {
         response = await fetch("/api/account/receipts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ subscriptionId: receipt.subscriptionId, periodId: receipt.periodId }), signal: AbortSignal.timeout(40_000) });
       } catch {
-        setFailed(failure(0, "network", "Pas de réponse du serveur. Réessayez dans un instant."));
+        setFailed(failure(0, "network", "Le serveur ne répond pas. Réessayez dans un instant."));
         return;
       }
       if (response.ok && response.headers.get("content-type")?.startsWith("application/pdf")) {
@@ -183,7 +183,7 @@ export function Receipts({ receipts }: { receipts: Receipt[] | null }) {
   if (!receipts?.length) return null;
   return (
     <div className="receipts">
-      <h3 className="metric-label">Télécharger le reçu</h3>
+      <h3 className="metric-label">Reçus</h3>
       <ul>{receipts.map((receipt) => <ReceiptRow key={receipt.periodId} receipt={receipt}/>)}</ul>
     </div>
   );
@@ -224,7 +224,7 @@ function changesOf(profile: Profile, draft: Draft): { body: ProfileBody; changes
   const parsed = profileBodySchema.safeParse(body);
   if (parsed.success) return { body: parsed.data, changes };
   const field = parsed.error.issues[0]?.path[0];
-  return { error: field === "phoneNumber" ? "Numéro de téléphone invalide : 06 12 34 56 78 ou +33 6 12 34 56 78." : field === "zipCode" ? "Code postal invalide." : field === "city" ? "Saisissez une ville." : field === "address" ? `Adresse invalide (${ADDRESS_MAX} caractères au plus).` : "Coordonnées invalides." };
+  return { error: field === "phoneNumber" ? "Numéro de téléphone invalide. Exemple : 06 12 34 56 78." : field === "zipCode" ? "Code postal invalide." : field === "city" ? "Saisissez une ville." : field === "address" ? `L’adresse ne doit pas dépasser ${ADDRESS_MAX} caractères.` : "Coordonnées invalides." };
 }
 
 function Field({ label, value, onChange, maxLength, inputMode, autoComplete }: { label: string; value: string; onChange: (value: string) => void; maxLength?: number; inputMode?: "tel" | "numeric" | "text"; autoComplete?: string }) {
@@ -241,7 +241,7 @@ export function ProfileCoordinates({ profile, onSaved }: { profile: Profile; onS
   function review() {
     if (!draft) return;
     const result = changesOf(profile, draft);
-    if (!result) { setError("Aucune modification."); return; }
+    if (!result) { setError("Vous n’avez rien modifié."); return; }
     if ("error" in result) { setError(result.error); return; }
     setError(null);
     setAsking(result);
@@ -275,14 +275,14 @@ export function ProfileCoordinates({ profile, onSaved }: { profile: Profile; onS
         </>
       )}
       {asking ? (
-        <ConfirmDialog title="Enregistrer ?" success="Coordonnées enregistrées." onClose={() => setAsking(null)}
+        <ConfirmDialog title="Enregistrer les modifications ?" success="Coordonnées enregistrées." onClose={() => setAsking(null)}
           run={async () => {
             const { outcome } = await sendWrite("/api/account/profile", "PATCH", asking.body);
             // Back to the coordinates, read again from Vélo’v.
             if (outcome.ok) { setDraft(null); onSaved(); }
             return outcome;
           }}>
-          <dl className="bike-action-facts">{asking.changes.map((change) => <div key={change.label}><dt>{change.label}</dt><dd>{change.after}<small className="write-muted">Avant : {change.before}</small></dd></div>)}</dl>
+          <dl className="bike-action-facts">{asking.changes.map((change) => <div key={change.label}><dt>{change.label}</dt><dd>{change.after}<small className="write-muted">Avant : {change.before}</small></dd></div>)}</dl>
         </ConfirmDialog>
       ) : null}
     </>

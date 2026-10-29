@@ -25,7 +25,7 @@ export function ViaAction({ stations }: { stations: Station[] }) {
 
   function close() { if (!inFlight.current) setOpen(false); }
   function locate() {
-    if (!navigator.geolocation) { setLocationError("La localisation n’est pas disponible. Recherchez une station."); return; }
+    if (!navigator.geolocation) { setLocationError("Localisation indisponible. Recherchez une station par son nom."); return; }
     setLocating(true);
     navigator.geolocation.getCurrentPosition(({ coords }) => { setPosition({ lat: coords.latitude, lon: coords.longitude }); setLocationError(""); setLocating(false); }, () => { setLocationError("Position indisponible. Recherchez une station par son nom."); setLocating(false); }, { timeout: 15_000, maximumAge: 30_000 });
   }
@@ -40,10 +40,10 @@ export function ViaAction({ stations }: { stations: Station[] }) {
       if (parsed.success) setResult(parsed.data);
       else {
         const error = body && typeof body === "object" ? body as Record<string, unknown> : {};
-        setResult({ ok: false, httpStatus: response.status, transactionState: null, code: typeof error.code === "string" ? error.code : null, message: typeof error.error === "string" ? error.error : "Réponse illisible. Vérifiez le trajet dans l’app Vélo’v avant de réessayer.", detail: null });
+        setResult({ ok: false, httpStatus: response.status, transactionState: null, code: typeof error.code === "string" ? error.code : null, message: typeof error.error === "string" ? error.error : "Réponse inattendue. Vérifiez votre trajet dans l’app Vélo’v avant de réessayer.", detail: null });
       }
     } catch {
-      setResult({ ok: false, httpStatus: 0, transactionState: null, code: "network", message: "Pas de réponse : les minutes ont peut-être été accordées. Vérifiez le trajet dans l’app Vélo’v avant de réessayer.", detail: null });
+      setResult({ ok: false, httpStatus: 0, transactionState: null, code: "network", message: "Vélo’v ne répond pas. Vérifiez dans l’app si les 15 minutes ont été ajoutées avant de réessayer.", detail: null });
     } finally { inFlight.current = false; setPending(false); }
   }
   return <span className="ongoing-extra">
@@ -52,14 +52,14 @@ export function ViaAction({ stations }: { stations: Station[] }) {
       <div onKeyDownCapture={(event) => { if (pending && event.key === "Escape") event.preventDefault(); }}>
         <div className="modal-heading"><h2 id={titleId}>15 minutes de plus</h2></div>
         {result ? <>
-          <p className={result.ok ? "write-done" : "form-error"} role={result.ok ? "status" : "alert"}>{result.ok ? "Vélo’v a accepté la demande de minutes supplémentaires." : result.message}</p>
+          <p className={result.ok ? "write-done" : "form-error"} role={result.ok ? "status" : "alert"}>{result.ok ? "Vélo’v vous accorde 15 minutes de plus." : result.message}</p>
           {!result.ok ? <p className="bike-action-raw">HTTP {result.httpStatus || "aucune réponse"} · Code {result.code ?? "—"} · {capitalize(result.detail ?? result.message ?? "")}</p> : null}
           <div className="modal-actions"><Button variant="secondary" onClick={close}>Fermer</Button></div>
         </> : reviewing && station ? <>
-          <p className="write-question">Demander 15 minutes supplémentaires pour rendre votre vélo à une autre station ? La station <strong>{station.name} (n° {station.number})</strong> est pleine.</p>
+          <p className="write-question">La station <strong>{station.name} (n° {station.number})</strong> est pleine. Demander 15 minutes de plus pour rejoindre une autre station ?</p>
           <div className="modal-actions"><Button variant="ghost" disabled={pending} onClick={() => setReviewing(false)}>Retour</Button><Button pending={pending} onClick={() => void confirm()}>Confirmer</Button></div>
         </> : <>
-          <p>Choisissez la station pleine où vous souhaitez rendre votre vélo. Sa disponibilité sera revérifiée avant l’envoi.</p>
+          <p>Choisissez la station pleine où vous vouliez rendre votre vélo.</p>
           <label className="field"><span className="metric-label">Rechercher une station pleine</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Nom, adresse ou numéro"/></label>
           <Button variant="ghost" pending={locating} onClick={locate}>Les plus proches</Button>
           {locationError ? <p className="soon-note">{locationError}</p> : null}

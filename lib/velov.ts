@@ -38,7 +38,7 @@ const publicToken = appToken(async () => {
 
 async function read<T>(path: string, schema: z.ZodType<T>, session: Session, accept = "application/json"): Promise<T> {
   const response = await getWithAppToken(publicToken, `${BASE}${path}`, (token) => ({ Authorization: `Taknv1 ${token}`, Identity: session.accessToken, Accept: accept, "User-Agent": BROWSER_AGENT }));
-  if (response.status === 401) throw new VelovError("expired", "Votre session doit être renouvelée. Reconnectez-vous pour continuer.");
+  if (response.status === 401) throw new VelovError("expired", "Votre session a expiré. Reconnectez-vous.");
   if (!response.ok) throw new VelovError("unavailable", "Certaines informations Vélo’v ne sont pas disponibles pour le moment.");
   const value: unknown = await response.json();
   return schema.parse(value);
@@ -92,7 +92,7 @@ async function currentSubscriptionId(account: string, session: Session) {
   return subscriptions.find((subscription) => subscription.id && !subscription.isLocked && (subscription.periods?.length ?? 0) > 0)?.id ?? null;
 }
 
-const noSubscription = () => refusal("local.no.subscription", "Aucun abonnement valide : achetez un ticket ou un abonnement dans l’app Vélo’v.");
+const noSubscription = () => refusal("local.no.subscription", "Aucun abonnement valide : achetez un ticket ou un abonnement dans l’app Vélo’v.");
 
 async function stationsByNumber() {
   try { return new Map((await getStations()).stations.map((station) => [station.number, station])); }
@@ -133,8 +133,8 @@ export async function bookBike(session: Session, body: BookBody): Promise<BookRe
   if (!subscriptionId) return stop(noSubscription());
   if (!bike || bike.status !== "AVAILABLE") return stop(refusal("local.bike.gone", "Ce vélo n’est plus disponible à cette station."));
   if (bike.isReserved) return stop(refusal("local.bike.reserved", "Ce vélo est déjà réservé."));
-  if (bike.standNumber == null) return stop(refusal("local.bike.no.stand", "Ce vélo n’est pas accroché à une borne : il ne peut pas être réservé."));
-  if (!bike.id || !station) return stop(refusal("local.missing.id", "Vélo’v n’a pas donné l’identifiant de la station ou du vélo. Réessayez dans un instant."));
+  if (bike.standNumber == null) return stop(refusal("local.bike.no.stand", "Ce vélo n’est pas accroché à une borne : il ne peut pas être réservé."));
+  if (!bike.id || !station) return stop(refusal("local.missing.id", "Ce vélo ne peut pas être réservé pour le moment. Réessayez dans un instant."));
   const { outcome, booking } = await postBooking({ accountId, token: await publicToken.get(), identity: session.accessToken, body: { stationId: station, stationNumber: body.stationNumber, standNumber: bike.standNumber, subscriptionId, bikeId: bike.id } });
   return { ...outcome, booking: booking ? toBooking(booking, await stationsByNumber(), new Map([[bike.id, bike.number]])) : null };
 }
@@ -247,10 +247,10 @@ export async function requestExtraTime(session: Session, body: ViaBody): Promise
     id: item.id!, ongoing: await read(`${account}/subscriptions/${encodeURIComponent(item.id!)}/rentbike`, z.boolean(), session, VIA_MEDIA_TYPE)
   })));
   const active = renting.filter((item) => item.ongoing);
-  if (active.length !== 1) return refusal("local.via.trip", active.length ? "Plusieurs locations sont en cours : utilisez l’app Vélo’v pour choisir le trajet." : "Aucun trajet en cours : les minutes supplémentaires ne peuvent pas être demandées.");
+  if (active.length !== 1) return refusal("local.via.trip", active.length ? "Vous avez plusieurs trajets en cours. Utilisez l’app Vélo’v." : "Vous n’avez aucun trajet en cours.");
   // v4 gives the UUID too; GBFS station.id is only a station number and cannot be used as the UUID fallback.
   const station = await read(`/stations/${body.stationNumber}`, z.object({ id: z.string(), number: z.number(), open: z.boolean(), availabilities: z.object({ main: z.object({ stands: z.number() }) }) }), session, "application/vnd.station.v4+json");
-  if (station.number !== body.stationNumber || !station.open || station.availabilities.main.stands !== 0) return refusal("local.via.not.full", "Cette station n’est plus pleine ou n’est pas ouverte. Choisissez une autre station.");
+  if (station.number !== body.stationNumber || !station.open || station.availabilities.main.stands !== 0) return refusal("local.via.not.full", "Cette station n’est plus pleine ou est fermée. Choisissez-en une autre.");
   return postVia({ ...auth, subscriptionId: active[0].id, stationId: VIA_STATION_IDENTIFIER === "uuid" ? station.id : station.number });
 }
 
@@ -267,7 +267,7 @@ export async function consumePromoCode(session: Session, expectedCost: number) {
     read(`/accounts/${auth.accountId}/rewards`, rawRewards, session, PROMOCODE_ACCEPT)
   ]);
   const rule = config.find((entry) => entry.name === PROMOCODE_REWARD && entry.enable);
-  if (!rule || rule.reward !== expectedCost) return { ...refusal("local.promo.price.changed", "L’offre ou son coût a changé. Actualisez les points avant de confirmer."), promoCode: null };
-  if (rewards.balance < rule.reward) return { ...refusal("local.promo.balance", "Votre solde ne permet plus cet échange. Actualisez les points."), promoCode: null };
+  if (!rule || rule.reward !== expectedCost) return { ...refusal("local.promo.price.changed", "L’offre a changé. Actualisez la page avant de confirmer."), promoCode: null };
+  if (rewards.balance < rule.reward) return { ...refusal("local.promo.balance", "Votre solde de points est insuffisant."), promoCode: null };
   return postPromoCode(auth);
 }

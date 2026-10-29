@@ -16,7 +16,7 @@ type Result = { action: "book"; value: BookResult } | { action: "unlock"; value:
 type Step = { kind: "start" } | { kind: "confirm"; action: Action } | { kind: "sending"; action: Action } | { kind: "done"; result: Result } | { kind: "expired" };
 
 const errorSchema = z.object({ error: z.string(), code: z.string().optional() });
-const signIn = "Connectez-vous pour réserver ou déverrouiller";
+const signIn = "Connectez-vous pour réserver ou déverrouiller un vélo.";
 
 /** Seconds left until a date, ticking every second; null without a date. */
 export function useSecondsLeft(until: string | null) {
@@ -61,7 +61,7 @@ function Confirm({ action, place, onCancel, onConfirm, sending }: { action: Acti
   const far = distance != null && distance > RELEASE_DISTANCE;
   return (
     <>
-      <p className="bike-action-question">{action === "book" ? "Réserver ce vélo ?" : "Déverrouiller ce vélo ?"}</p>
+      <p className="bike-action-question">{action === "book" ? "Réserver ce vélo ?" : "Déverrouiller ce vélo ?"}</p>
       <dl className="bike-action-facts">
         <div><dt>Station</dt><dd>{place.stationName}</dd></div>
         <div><dt>Borne</dt><dd>{place.standNumber}</dd></div>
@@ -70,8 +70,8 @@ function Confirm({ action, place, onCancel, onConfirm, sending }: { action: Acti
         {action === "unlock" && distance != null ? <div><dt>Distance</dt><dd>≈ {formatDistance(distance)}</dd></div> : null}
       </dl>
       {action === "book" ? <p className="bike-action-note">Le vélo vous est réservé pendant {BOOKING_MINUTES} minutes.</p>
-        : <p className="bike-action-note bike-action-warning">Ensuite, appuyez sur le bouton de la borne dans les 60 secondes, puis retirez le vélo. Passé ce délai, la borne le reverrouille.</p>}
-      {action === "unlock" && far ? <p className="bike-action-far" role="alert"><WarningIcon size={16} weight="bold" aria-hidden="true"/>Vous semblez à plus de {RELEASE_DISTANCE} m de la station : un vélo libéré à distance peut partir sur votre compte.</p> : null}
+        : <p className="bike-action-note bike-action-warning">Vous aurez ensuite 60 secondes pour appuyer sur le bouton de la borne et retirer le vélo.</p>}
+      {action === "unlock" && far ? <p className="bike-action-far" role="alert"><WarningIcon size={16} weight="bold" aria-hidden="true"/>Vous semblez être à plus de {RELEASE_DISTANCE} m de la station. Si quelqu’un d’autre prend le vélo, le trajet vous sera facturé.</p> : null}
       <div className="bike-action-buttons">
         <Button variant="ghost" disabled={sending} onClick={onCancel}>Annuler</Button>
         <Button pending={sending} onClick={onConfirm}>Confirmer</Button>
@@ -82,8 +82,8 @@ function Confirm({ action, place, onCancel, onConfirm, sending }: { action: Acti
 
 function BookedUntil({ endsAt }: { endsAt: string | null }) {
   const left = useSecondsLeft(endsAt);
-  if (!endsAt || left == null) return <strong>Vélo réservé pour {BOOKING_MINUTES} min</strong>;
-  return <><strong>Vélo réservé jusqu’à <span className="clock">{formatDate(endsAt, { hour: "2-digit", minute: "2-digit" })}</span></strong><span className="bike-action-countdown"><ClockIcon size={15} weight="bold" aria-hidden="true"/>{left > 0 ? <>reste <span className="clock">{clock(left)}</span></> : "réservation expirée"}</span></>;
+  if (!endsAt || left == null) return <strong>Vélo réservé pour {BOOKING_MINUTES} minutes</strong>;
+  return <><strong>Vélo réservé jusqu’à <span className="clock">{formatDate(endsAt, { hour: "2-digit", minute: "2-digit" })}</span></strong><span className="bike-action-countdown"><ClockIcon size={15} weight="bold" aria-hidden="true"/>{left > 0 ? <>Il reste <span className="clock">{clock(left)}</span></> : "Réservation expirée"}</span></>;
 }
 
 function Done({ result, place, onBack, onUnlock }: { result: Result; place: Place; onBack: () => void; onUnlock: () => void }) {
@@ -92,7 +92,7 @@ function Done({ result, place, onBack, onUnlock }: { result: Result; place: Plac
     <>
       <div className="bike-action-result bike-action-failed" role="alert">
         <span className="card-tag-icon"><XIcon size={15} weight="bold" aria-hidden="true"/></span>
-        <div><strong>{result.action === "book" ? "Réservation refusée" : "Déverrouillage refusé"}</strong><p>{value.message}</p></div>
+        <div><strong>{result.action === "book" ? "Réservation impossible" : "Déverrouillage impossible"}</strong><p>{value.message}</p></div>
       </div>
       <Raw outcome={value}/>
       <div className="bike-action-buttons"><Button variant="secondary" onClick={onBack}>Retour</Button></div>
@@ -112,8 +112,8 @@ function Done({ result, place, onBack, onUnlock }: { result: Result; place: Plac
     <>
       <div className="bike-action-result" role="status">
         <span className="card-tag-icon"><CheckIcon size={15} weight="bold" aria-hidden="true"/></span>
-        <div><strong>Vélo déverrouillé — Borne {place.standNumber}</strong><p>Appuyez maintenant sur le bouton de la borne (60 s), puis retirez le vélo.</p>
-          <p>{ongoing?.length ? "Trajet en cours." : "Le trajet apparaît une dizaine de secondes après le retrait du vélo."}</p></div>
+        <div><strong>Vélo déverrouillé à la borne {place.standNumber}</strong><p>Appuyez sur le bouton de la borne et retirez le vélo dans les 60 secondes.</p>
+          <p>{ongoing?.length ? "Votre trajet a commencé." : "Votre trajet s’affichera une dizaine de secondes après le retrait du vélo."}</p></div>
       </div>
       <Raw outcome={value} extra={`Trips/ongoing ${ongoing ? ongoing.length : "illisible"}`}/>
       <div className="bike-action-buttons"><Button variant="secondary" onClick={onBack}>Fermer</Button></div>
@@ -149,11 +149,11 @@ export function BikeActions({ place, booking = null, initial }: { place: Place; 
       let result: Result | null = null;
       if (action === "book") { const parsed = bookResultSchema.safeParse(raw); if (parsed.success) result = { action, value: parsed.data }; }
       else { const parsed = unlockResultSchema.safeParse(raw); if (parsed.success) result = { action, value: parsed.data }; }
-      if (!result) { setFailure("Réponse illisible : vérifiez la borne et vos réservations avant de réessayer."); setStep({ kind: "confirm", action }); return; }
+      if (!result) { setFailure("Réponse inattendue. Vérifiez la borne et vos réservations avant de réessayer."); setStep({ kind: "confirm", action }); return; }
       setStep({ kind: "done", result });
       if (result.value.ok) account?.changed();
     } catch {
-      setFailure("Pas de réponse du serveur. Vérifiez la borne et vos réservations avant de réessayer.");
+      setFailure("Le serveur ne répond pas. Vérifiez la borne et vos réservations avant de réessayer.");
       setStep({ kind: "confirm", action });
     } finally {
       inFlight.current = false;

@@ -29,12 +29,12 @@ export class VelovError extends Error {
 
 /** The identity provider refused the refresh token itself: only this ends the browser session. */
 export class SessionRevoked extends VelovError {
-  constructor() { super("expired", "Votre session a expiré. Reconnectez-vous pour continuer."); }
+  constructor() { super("expired", "Votre session a expiré. Reconnectez-vous."); }
 }
 
 export function safeIAMUrl(value: string) {
   const url = new URL(value, IAM);
-  if (url.origin !== IAM || !url.pathname.startsWith("/realms/vls-default/")) throw new VelovError("protocol", "Une étape de connexion n’a pas pu être vérifiée.");
+  if (url.origin !== IAM || !url.pathname.startsWith("/realms/vls-default/")) throw new VelovError("protocol", "Connexion impossible. Réessayez dans un instant.");
   return url;
 }
 
@@ -43,7 +43,7 @@ export function requireSameOrigin(request: Request) {
   const expected = new URL(request.url);
   // Next.js may use an internal hostname in request.url; Host is the public authority.
   expected.host = request.headers.get("host") ?? expected.host;
-  if (origin !== expected.origin) throw new VelovError("origin", "Cette demande doit être effectuée depuis votre espace Vélo’v.");
+  if (origin !== expected.origin) throw new VelovError("origin", "Cette action n’est possible que depuis ce site.");
 }
 
 /** The JSON body of a request, read up to `limit` bytes; undefined when it is not JSON, too large or malformed. */
@@ -76,7 +76,7 @@ export function readCallback(value: string, state: string) {
   const url = new URL(value);
   const expected = new URL(CALLBACK);
   if (url.origin !== expected.origin || url.pathname !== expected.pathname || url.searchParams.get("state") !== state || url.searchParams.has("error") || !url.searchParams.get("code")) {
-    throw new VelovError("protocol", "Le retour de connexion n’a pas pu être vérifié.");
+    throw new VelovError("protocol", "Connexion impossible. Réessayez dans un instant.");
   }
   return url.searchParams.get("code") ?? "";
 }
@@ -86,9 +86,9 @@ export function readForm(html: string, id: string) {
   const form = $(`form#${id}`);
   if (form.length !== 1 || !form.attr("action")) {
     const text = $.text().toLocaleLowerCase("fr-FR");
-    if (text.includes("autre appareil") || text.includes("another device")) throw new VelovError("device", "Votre compte est déjà utilisé sur un autre appareil. Déconnectez cette session avant de réessayer.");
-    if (id === "vls-form-device-id" && $("#kc-form-login").length) throw new VelovError("credentials", "L’email ou le code secret n’a pas été reconnu.");
-    throw new VelovError("protocol", "La connexion demande une étape supplémentaire. Réessayez depuis le service officiel.");
+    if (text.includes("autre appareil") || text.includes("another device")) throw new VelovError("device", "Votre compte est déjà connecté sur un autre appareil. Déconnectez-le avant de réessayer.");
+    if (id === "vls-form-device-id" && $("#kc-form-login").length) throw new VelovError("credentials", "Adresse e-mail ou code secret incorrect.");
+    throw new VelovError("protocol", "Une étape supplémentaire est demandée. Connectez-vous d’abord sur l’app ou le site Vélo’v.");
   }
   const fields = new URLSearchParams();
   form.find('input[type="hidden"]').each((_, element) => {
@@ -116,7 +116,7 @@ class LoginTransport {
       }
       if ([301, 302, 303].includes(response.status)) {
         const location = response.headers.get("location");
-        if (!location) throw new VelovError("protocol", "Le serveur de connexion n’a pas répondu comme prévu.");
+        if (!location) throw new VelovError("protocol", "Connexion impossible. Réessayez dans un instant.");
         const next = new URL(location, url);
         if (next.origin === new URL(CALLBACK).origin && next.pathname === new URL(CALLBACK).pathname) return { kind: "callback", url: next.href };
         url = safeIAMUrl(next.href);
@@ -131,7 +131,7 @@ class LoginTransport {
       }
       return { kind: "page", html };
     }
-    throw new VelovError("protocol", "La connexion n’a pas pu se terminer.");
+    throw new VelovError("protocol", "La connexion n’a pas abouti. Réessayez.");
   }
 }
 
@@ -139,7 +139,7 @@ export async function login(credentials: Credentials, deviceId: string = randomU
   const authorization = makeAuthorization();
   const transport = new LoginTransport(http);
   let response = await transport.request(authorization.url);
-  if (response.kind !== "page") throw new VelovError("protocol", "Un nouveau formulaire de connexion est nécessaire.");
+  if (response.kind !== "page") throw new VelovError("protocol", "Connexion interrompue. Réessayez.");
   const form = readForm(response.html, "kc-form-login");
   form.fields.set("username", credentials.email);
   form.fields.set("password", credentials.code);
@@ -150,14 +150,14 @@ export async function login(credentials: Credentials, deviceId: string = randomU
     device.fields.set("device_id", deviceId);
     response = await transport.request(device.url, device.fields);
   }
-  if (response.kind !== "callback") throw new VelovError("protocol", "La connexion n’a pas pu se terminer.");
+  if (response.kind !== "callback") throw new VelovError("protocol", "La connexion n’a pas abouti. Réessayez.");
   const code = readCallback(response.url, authorization.state);
   const tokenResponse = await http(`${OIDC}/token`, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ grant_type: "authorization_code", client_id: CLIENT_ID, redirect_uri: CALLBACK, code, code_verifier: authorization.verifier }), redirect: "manual", cache: "no-store", signal: AbortSignal.timeout(20_000) });
-  if (!tokenResponse.ok) throw new VelovError("unavailable", "La session n’a pas pu être ouverte. Réessayez.");
+  if (!tokenResponse.ok) throw new VelovError("unavailable", "Connexion impossible. Réessayez.");
   const raw: unknown = await tokenResponse.json();
   const tokens = tokenSchema.parse(raw);
   const { payload } = await jwtVerify(tokens.id_token, jwks, { issuer: REALM, audience: CLIENT_ID, algorithms: ["RS256"] });
-  if (payload.nonce !== authorization.nonce) throw new VelovError("protocol", "La réponse de connexion n’a pas pu être vérifiée.");
+  if (payload.nonce !== authorization.nonce) throw new VelovError("protocol", "Connexion impossible. Réessayez dans un instant.");
   return { tokens, deviceId };
 }
 
@@ -192,8 +192,8 @@ export async function endSession({ refreshToken, idToken }: { refreshToken?: str
 
 export async function verifyAccess(accessToken: string) {
   const { payload } = await jwtVerify(accessToken, jwks, { issuer: REALM, algorithms: ["RS256"] });
-  if (payload.azp !== CLIENT_ID) throw new VelovError("expired", "Cette session doit être renouvelée.");
+  if (payload.azp !== CLIENT_ID) throw new VelovError("expired", "Votre session a expiré. Reconnectez-vous.");
   const email = z.email().safeParse(payload.preferred_username ?? payload.sub);
-  if (!email.success) throw new VelovError("protocol", "Le compte associé à cette session n’a pas pu être vérifié.");
+  if (!email.success) throw new VelovError("protocol", "Votre compte n’a pas pu être vérifié. Reconnectez-vous.");
   return email.data;
 }

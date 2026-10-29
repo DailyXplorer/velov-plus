@@ -67,13 +67,13 @@ export async function postRating({ accountId, tripId, body, token, identity }: {
     body: JSON.stringify({ bikeId: body.bikeNumber, recommended: body.recommended, contract: "lyon", rating: body.rating }),
     cache: "no-store", signal: AbortSignal.timeout(15_000)
   });
-  if (response.status === 401) throw new VelovError("expired", "Votre session doit être renouvelée. Reconnectez-vous pour continuer.");
+  if (response.status === 401) throw new VelovError("expired", "Votre session a expiré. Reconnectez-vous.");
   if (!response.ok) throw new VelovError("unavailable", "Vélo’v n’a pas enregistré la note. Réessayez dans un instant.");
 }
 
 /** Release refusals the official app translates (§ 5.6), plus the booking clash it shows with its generic message. */
 const releaseCodes: Record<string, string> = {
-  "trips.exception.bookings.already.reserved": "Vélo réservé par un autre usager. Vélo’v renvoie parfois ce refus pour un vélo que vous avez vous-même réservé : essayez un autre vélo.",
+  "trips.exception.bookings.already.reserved": "Vélo réservé par un autre usager. Choisissez-en un autre.",
   "trips.exception.invalid.customer.maxBikesRented": "Impossible de libérer le vélo, un autre trajet est en cours.",
   "kiwi.exception.customer.rent.time.limit": "Délai entre deux courses non écoulé.",
   "kiwi.exception.customer.insuffisant.right": "Abonnement hors validité.",
@@ -82,18 +82,18 @@ const releaseCodes: Record<string, string> = {
   "trips.exception.invalid.customer.credit": "Crédit du compte insuffisant pour libérer un vélo."
 };
 const releaseStates: Record<string, string> = {
-  ABORT: "La libération du vélo a été annulée.",
-  NOK: "La libération du vélo a échoué.",
-  TIME_OUT: "La borne n’a pas répondu à temps pour libérer le vélo.",
-  NOT_CONNECTED: "Aucun vélo n’est connecté à la borne : borne non connectée."
+  ABORT: "Le déverrouillage a été annulé.",
+  NOK: "Le vélo n’a pas pu être déverrouillé.",
+  TIME_OUT: "La borne n’a pas répondu à temps.",
+  NOT_CONNECTED: "Aucun vélo n’est accroché à cette borne."
 };
 const bookingCodes: Record<string, string> = {
   "booking.exception.bike.already.reserved": "Ce vélo est déjà réservé par un autre usager.",
-  "bookings.exception.not.authorized": "Réservation refusée : un compte n’a qu’une réservation à la fois, et il faut 10 points."
+  "bookings.exception.not.authorized": "Vous avez déjà une réservation en cours, ou moins de 10 points."
 };
-const releaseFailed = "La libération du vélo a échoué pour une raison inconnue.";
+const releaseFailed = "Le déverrouillage n’a pas abouti.";
 const bookingFailed = "La réservation de votre vélo n’a pas fonctionné.";
-const sessionRefused = "Vélo’v n’a pas reconnu votre session. Reconnectez-vous puis réessayez.";
+const sessionRefused = "Votre session n’est plus valide. Reconnectez-vous.";
 const errorBody = z.object({ code: lenient(z.string()), message: lenient(z.string()), transactionState: lenient(z.string()) }).catch({ code: null, message: null, transactionState: null });
 
 export const rawBooking = z.object({ id: z.string(), stationNumber: z.number(), standNumber: lenient(z.number()), bikeId: lenient(z.string()), endTime: lenient(z.string()) });
@@ -135,9 +135,9 @@ export async function postRelease({ accountId, subscriptionId, body, token, iden
       cache: "no-store", signal: AbortSignal.timeout(30_000)
     });
   } catch (error) {
-    return { ...refusal("network", "Vélo’v n’a pas répondu. Le vélo a peut-être été libéré : regardez la borne avant de réessayer."), detail: error instanceof Error ? error.name : null };
+    return { ...refusal("network", "Vélo’v ne répond pas. Le vélo est peut-être déverrouillé : regardez la borne avant de réessayer."), detail: error instanceof Error ? error.name : null };
   }
-  if (response.status === 401) throw new VelovError("expired", "Votre session doit être renouvelée. Reconnectez-vous pour continuer.");
+  if (response.status === 401) throw new VelovError("expired", "Votre session a expiré. Reconnectez-vous.");
   return releaseOutcome(response.status, await answer(response));
 }
 
@@ -155,9 +155,9 @@ export async function postBooking({ accountId, body, token, identity }: { accoun
       cache: "no-store", signal: AbortSignal.timeout(30_000)
     });
   } catch (error) {
-    return { outcome: { ...refusal("network", "Vélo’v n’a pas répondu. La réservation est peut-être passée : actualisez avant de réessayer."), detail: error instanceof Error ? error.name : null }, booking: null };
+    return { outcome: { ...refusal("network", "Vélo’v ne répond pas. Le vélo est peut-être réservé : actualisez la page avant de réessayer."), detail: error instanceof Error ? error.name : null }, booking: null };
   }
-  if (response.status === 401) throw new VelovError("expired", "Votre session doit être renouvelée. Reconnectez-vous pour continuer.");
+  if (response.status === 401) throw new VelovError("expired", "Votre session a expiré. Reconnectez-vous.");
   const reply = await answer(response);
   const outcome = bookingOutcome(response.status, reply);
   const booking = rawBooking.safeParse(reply.value);
@@ -166,7 +166,7 @@ export async function postBooking({ accountId, body, token, identity }: { accoun
 
 export type Auth = { accountId: string; token: string; identity: string };
 const accountCodes: Record<string, string> = {
-  "accounts.exception.validation.failed": "Vélo’v a refusé ces coordonnées : vérifiez le numéro de téléphone et l’adresse.",
+  "accounts.exception.validation.failed": "Vélo’v a refusé ces coordonnées : vérifiez le numéro de téléphone et l’adresse.",
   "accounts.exception.notacceptable.account.phone.invalid": "Ce numéro de téléphone n’est pas valide."
 };
 
@@ -176,9 +176,9 @@ export async function accountCall(url: string, init: { method: "POST" | "PATCH" 
   try {
     response = await send(url, { ...init, headers: { Authorization: `Taknv1 ${auth.token}`, Identity: auth.identity, ...init.headers, "User-Agent": BROWSER_AGENT }, cache: "no-store", signal: AbortSignal.timeout(15_000) });
   } catch (error) {
-    return { outcome: { ...refusal("network", "Vélo’v n’a pas répondu. La modification est peut-être passée : actualisez avant de réessayer."), detail: error instanceof Error ? error.name : null }, value: null };
+    return { outcome: { ...refusal("network", "Vélo’v ne répond pas. La modification a peut-être été prise en compte : actualisez la page avant de réessayer."), detail: error instanceof Error ? error.name : null }, value: null };
   }
-  if (response.status === 401 && !preserveUnauthorized) throw new VelovError("expired", "Votre session doit être renouvelée. Reconnectez-vous pour continuer.");
+  if (response.status === 401 && !preserveUnauthorized) throw new VelovError("expired", "Votre session a expiré. Reconnectez-vous.");
   const reply = await answer(response);
   const outcome: Outcome = { ok: response.ok, httpStatus: response.status, transactionState: null, code: reply.code, message: response.ok ? null : reply.code && accountCodes[reply.code] ? accountCodes[reply.code] : response.status === 403 ? sessionRefused : failed, detail: reply.detail };
   return { outcome, value: response.ok ? reply.value : null };
@@ -203,11 +203,11 @@ const report = z.object({ filename: lenient(z.string()), translations: z.object(
 
 /** The receipt of one subscription period: a POST without body that only reads, answered as base64 under Accept: application/json. */
 export async function postPeriodReport({ subscriptionId, periodId, ...auth }: Auth & { subscriptionId: string; periodId: string }, send: typeof fetch = fetch): Promise<{ outcome: Outcome; pdf: { filename: string; bytes: Buffer } | null }> {
-  const { outcome, value } = await accountCall(`${accountUrl(auth.accountId)}/subscriptions/${encodeURIComponent(subscriptionId)}/periods/${encodeURIComponent(periodId)}/reports`, { method: "POST", headers: { Accept: "application/json" } }, auth, "Vélo’v n’a pas fourni ce reçu.", send);
+  const { outcome, value } = await accountCall(`${accountUrl(auth.accountId)}/subscriptions/${encodeURIComponent(subscriptionId)}/periods/${encodeURIComponent(periodId)}/reports`, { method: "POST", headers: { Accept: "application/json" } }, auth, "Ce reçu n’est pas disponible.", send);
   if (!outcome.ok) return { outcome, pdf: null };
   const parsed = report.safeParse(value);
   const bytes = parsed.success ? Buffer.from(parsed.data.translations.content, "base64") : null;
-  if (!parsed.success || !bytes || bytes.subarray(0, 5).toString("latin1") !== "%PDF-") return { outcome: { ...outcome, ok: false, code: "local.receipt.unreadable", message: "Le reçu renvoyé par Vélo’v est illisible." }, pdf: null };
+  if (!parsed.success || !bytes || bytes.subarray(0, 5).toString("latin1") !== "%PDF-") return { outcome: { ...outcome, ok: false, code: "local.receipt.unreadable", message: "Ce reçu ne peut pas être ouvert." }, pdf: null };
   return { outcome, pdf: { filename: parsed.data.filename?.replace(/[^\w.-]/g, "") || `recu-${periodId}.pdf`, bytes } };
 }
 
@@ -231,7 +231,7 @@ export async function patchAutoRenewal({ subscriptionId, autoRenewal, ...auth }:
 export async function postVia({ subscriptionId, stationId, ...auth }: Auth & { subscriptionId: string; stationId: string | number }, send: typeof fetch = fetch): Promise<Outcome> {
   const { outcome, value } = await accountCall(`${accountUrl(auth.accountId)}/subscriptions/${encodeURIComponent(subscriptionId)}/via`, {
     method: "POST", headers: { "Content-Type": VIA_MEDIA_TYPE }, body: JSON.stringify({ [VIA_STATION_FIELD]: stationId })
-  }, auth, "Vélo’v n’a pas accordé les 15 minutes supplémentaires.", send, true);
+  }, auth, "Les 15 minutes supplémentaires n’ont pas été accordées.", send, true);
   if (!outcome.ok) return outcome;
   // VLSKit SubscriptionService.requestExtraTime returns TransactionState, not an HTTP-only acknowledgement.
   const parsed = z.union([z.string(), z.object({ [VIA_STATE_FIELD]: z.string() }).transform((reply) => reply[VIA_STATE_FIELD])]).safeParse(value);

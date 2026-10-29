@@ -58,7 +58,7 @@ function RateBike({ trip, bikeNumber }: { trip: Trip; bikeNumber: number }) {
     }
   }
 
-  if (step.kind === "done") return <p className="trip-rate-done" role="status"><CheckIcon size={16} weight="bold" aria-hidden="true"/>Merci, +5 points</p>;
+  if (step.kind === "done") return <p className="trip-rate-done" role="status"><CheckIcon size={16} weight="bold" aria-hidden="true"/>Merci ! +5 points</p>;
   return (
     <section className="trip-rate" aria-labelledby="trip-rate-title">
       <h3 id="trip-rate-title" className="trip-rate-title">Noter ce vélo · <span>+5 points</span></h3>
@@ -69,7 +69,7 @@ function RateBike({ trip, bikeNumber }: { trip: Trip; bikeNumber: number }) {
         </div>
       ) : step.kind === "reasons" ? (
         <>
-          <p className="trip-rate-question" id="trip-rate-reasons">Quel problème ?</p>
+          <p className="trip-rate-question" id="trip-rate-reasons">Quel problème ?</p>
           <div className="trip-rate-reasons" role="group" aria-labelledby="trip-rate-reasons">
             {defects.map((defect) => <button key={defect.rating} className="trip-rate-reason" onClick={() => setStep({ kind: "confirm", vote: { recommended: false, rating: defect.rating } })}>{defect.label}<CaretRightIcon size={15} weight="light" aria-hidden="true"/></button>)}
           </div>
@@ -77,7 +77,7 @@ function RateBike({ trip, bikeNumber }: { trip: Trip; bikeNumber: number }) {
         </>
       ) : (
         <>
-          <p className="trip-rate-question">Envoyer la note ?</p>
+          <p className="trip-rate-question">Envoyer la note ?</p>
           <p className="trip-rate-summary">{step.vote.recommended ? "Je recommande ce vélo" : `Je déconseille ce vélo · ${defects.find((defect) => defect.rating === step.vote.rating)?.label}`}</p>
           {step.kind === "confirm" && step.error ? <p className="form-error" role="alert">{step.error}</p> : null}
           <div className="trip-rate-actions">
@@ -128,7 +128,7 @@ export function TripSheet({ trip, onClose }: { trip: Trip; onClose: () => void }
         {points ? <p className="trip-points">{points}</p> : null}
         {trip.litigious ? (
           <div className="trip-alert" role="note">
-            <p>Trajet signalé comme litigieux par Vélo’v</p>
+            <p>Vélo’v a signalé ce trajet comme litigieux.</p>
             <a className="text-link" href={`mailto:contact.velov@jcdecaux.com?subject=${encodeURIComponent(subject)}`}>Contacter le service client</a>
           </div>
         ) : null}

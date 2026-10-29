@@ -18,7 +18,7 @@ const navigation = [
   { id: "account", label: "Compte", mobile: "Compte", icon: UserCircleIcon }
 ] satisfies { id: Page; label: string; mobile: string; icon: typeof HouseIcon }[];
 const logoutSchema = z.object({ remoteLogout: z.boolean().optional() });
-const remoteLogoutUnconfirmed = "Déconnecté ici, mais Vélo’v n’a pas confirmé la fin de session.";
+const remoteLogoutUnconfirmed = "Déconnexion effectuée. Vélo’v ne l’a pas encore confirmée.";
 type State = { kind: "guest"; message: string | null } | { kind: "loading" } | { kind: "ready"; data: Dashboard } | { kind: "error"; message: string };
 type StationData = z.infer<typeof stationsSchema>;
 
@@ -53,9 +53,9 @@ export function Companion({ initialSession }: { initialSession: boolean }) {
     stationsInFlight.current = true;
     setStationsPending(true);
     try {
-      setStations({ kind: "ready", data: await getJson("/api/stations", stationsSchema, "Stations indisponibles.") });
+      setStations({ kind: "ready", data: await getJson("/api/stations", stationsSchema, "Les stations sont momentanément indisponibles.") });
     } catch (error) {
-      setStations({ kind: "error", message: error instanceof ApiError ? error.message : "Stations indisponibles." });
+      setStations({ kind: "error", message: error instanceof ApiError ? error.message : "Les stations sont momentanément indisponibles." });
     } finally {
       stationsInFlight.current = false;
       setStationsPending(false);
@@ -77,10 +77,10 @@ export function Companion({ initialSession }: { initialSession: boolean }) {
     dashboardInFlight.current = true;
     setRefreshing(true);
     try {
-      setState({ kind: "ready", data: await getJson("/api/dashboard", dashboardSchema, "Compte indisponible.") });
+      setState({ kind: "ready", data: await getJson("/api/dashboard", dashboardSchema, "Votre compte est momentanément indisponible.") });
     } catch (error) {
-      if (error instanceof ApiError && error.status === 401) setState({ kind: "guest", message: "Session expirée. Reconnectez-vous." });
-      else setState({ kind: "error", message: error instanceof ApiError ? error.message : "Compte indisponible." });
+      if (error instanceof ApiError && error.status === 401) setState({ kind: "guest", message: "Votre session a expiré. Reconnectez-vous." });
+      else setState({ kind: "error", message: error instanceof ApiError ? error.message : "Votre compte est momentanément indisponible." });
     } finally {
       dashboardInFlight.current = false;
       setRefreshing(false);
@@ -186,7 +186,7 @@ export function Companion({ initialSession }: { initialSession: boolean }) {
               <>
                 {state.data.warnings.length ? (
                   <details className="data-notice">
-                    <summary><WarningCircleIcon size={17} weight="light"/>Informations indisponibles</summary>
+                    <summary><WarningCircleIcon size={17} weight="light"/>Certaines informations sont indisponibles</summary>
                     <ul>{state.data.warnings.map((warning) => <li key={warning}>{warning}</li>)}</ul>
                   </details>
                 ) : null}
@@ -213,7 +213,7 @@ export function Companion({ initialSession }: { initialSession: boolean }) {
         {logoutOpen ? (
           <Modal titleId="logout-title" onClose={() => setLogoutOpen(false)}>
             <div className="modal-heading">
-              <h2 id="logout-title">Se déconnecter ?</h2>
+              <h2 id="logout-title">Se déconnecter ?</h2>
               <button className="icon-button" aria-label="Fermer" onClick={() => setLogoutOpen(false)}><XIcon size={20} weight="light"/></button>
             </div>
             {logoutError ? <p className="form-error" role="alert">{logoutError}</p> : null}

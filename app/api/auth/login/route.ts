@@ -12,9 +12,9 @@ export async function POST(request: NextRequest) {
   try {
     requireSameOrigin(request);
     const body = await readJsonBody(request);
-    if (body === undefined) return jsonResponse({ error: "Vérifiez votre email et votre code à six chiffres." }, null, 400);
+    if (body === undefined) return jsonResponse({ error: "Vérifiez votre adresse e-mail et votre code secret." }, null, 400);
     const credentials = loginSchema.safeParse(body);
-    if (!credentials.success) return jsonResponse({ error: "Saisissez un email et un code secret à six chiffres." }, null, 400);
+    if (!credentials.success) return jsonResponse({ error: "Saisissez votre adresse e-mail et votre code secret à six chiffres." }, null, 400);
     device = deviceOf(request) ?? randomUUID();
     const { tokens, deviceId } = await login(credentials.data, device);
     const response = jsonResponse({ connected: true });

@@ -40,9 +40,9 @@ test("a release posts the app's body to the subscription's trips, once, with bot
 
 test("a release succeeds on transactionState OK only, not on HTTP 200", async () => {
   for (const [state, message] of [
-    ["NOK", "La libération du vélo a échoué."], ["ABORT", "La libération du vélo a été annulée."],
-    ["TIME_OUT", "La borne n’a pas répondu à temps pour libérer le vélo."], ["NOT_CONNECTED", "Aucun vélo n’est connecté à la borne : borne non connectée."],
-    ["SOMETHING_NEW", "La libération du vélo a échoué pour une raison inconnue."], [undefined, "La libération du vélo a échoué pour une raison inconnue."]
+    ["NOK", "Le vélo n’a pas pu être déverrouillé."], ["ABORT", "Le déverrouillage a été annulé."],
+    ["TIME_OUT", "La borne n’a pas répondu à temps."], ["NOT_CONNECTED", "Aucun vélo n’est accroché à cette borne."],
+    ["SOMETHING_NEW", "Le déverrouillage n’a pas abouti."], [undefined, "Le déverrouillage n’a pas abouti."]
   ] as const) {
     const outcome = await postRelease(release, recorder({ status: 200, body: state ? { transactionState: state } : {} }).send);
     assert.equal(outcome.ok, false, String(state));
@@ -84,7 +84,7 @@ test("a release is never retried: gateway errors, a lost answer and an expired s
   const outcome = await postRelease(release, lost.send);
   assert.equal(lost.calls.length, 1);
   assert.deepEqual([outcome.ok, outcome.httpStatus, outcome.code, outcome.detail], [false, 0, "network", "TimeoutError"]);
-  assert.match(outcome.message ?? "", /peut-être été libéré/);
+  assert.match(outcome.message ?? "", /peut-être déverrouillé/);
   const expired = recorder({ status: 401 });
   await assert.rejects(postRelease(release, expired.send), (error) => error instanceof VelovError && error.code === "expired");
   assert.equal(expired.calls.length, 1);
@@ -111,7 +111,7 @@ test("a booking posts CreateBooking in the app's field order, as plain JSON with
 test("booking refusals map to French messages, unknown ones to the app's generic one", async () => {
   for (const [code, message] of [
     ["booking.exception.bike.already.reserved", "Ce vélo est déjà réservé par un autre usager."],
-    ["bookings.exception.not.authorized", "Réservation refusée : un compte n’a qu’une réservation à la fois, et il faut 10 points."],
+    ["bookings.exception.not.authorized", "Vous avez déjà une réservation en cours, ou moins de 10 points."],
     ["rewards.exception.something", "La réservation de votre vélo n’a pas fonctionné."]
   ]) {
     const { outcome, booking: booked } = await postBooking(booking, recorder({ status: 400, body: { code, message: "raw" } }).send);

@@ -29,9 +29,9 @@ export function AutoRenewal({ subscriptionId, value, allowed, onSaved }: { subsc
       const data: unknown = await response.json().catch(() => null);
       const parsed = autoRenewalResultSchema.safeParse(data);
       const error = errorSchema.safeParse(data);
-      outcome = response.ok && parsed.success ? parsed.data : failed(response.status, error.success ? error.data.code ?? "unavailable" : "local.unreadable", error.success ? error.data.error : "Réponse illisible : actualisez avant de réessayer.");
+      outcome = response.ok && parsed.success ? parsed.data : failed(response.status, error.success ? error.data.code ?? "unavailable" : "local.unreadable", error.success ? error.data.error : "Réponse inattendue. Actualisez la page avant de réessayer.");
     } catch {
-      outcome = failed(0, "network", "Pas de réponse : le réglage a peut-être changé. Actualisez avant de réessayer.");
+      outcome = failed(0, "network", "Vélo’v ne répond pas. Actualisez la page pour voir si le réglage a changé.");
     }
     setResult(outcome);
     setPending(false);
@@ -45,11 +45,11 @@ export function AutoRenewal({ subscriptionId, value, allowed, onSaved }: { subsc
   }
 
   return <div className="setting-row renewal-setting">
-    <div><span className="metric-label">Renouvellement automatique</span><strong className="setting-value">{actual === null ? "État à actualiser" : actual ? "Activé" : "Désactivé"}</strong></div>
+    <div><span className="metric-label">Renouvellement automatique</span><strong className="setting-value">{actual === null ? "Indisponible pour le moment" : actual ? "Activé" : "Désactivé"}</strong></div>
     {canChange && subscriptionId && actual !== null ? <button type="button" role="switch" className="switch" disabled={result !== null} aria-checked={actual} aria-label="Renouvellement automatique" onClick={() => { once.current = false; setResult(null); setAsking(true); }}/> : null}
     {asking ? <Modal titleId={titleId} onClose={close}>
       <h2 id={titleId}>Renouvellement automatique</h2>
-      {!result ? <p>{next ? "Activer le renouvellement automatique de votre abonnement ? Il pourra être renouvelé et facturé à son échéance." : "Désactiver le renouvellement automatique de votre abonnement ?"}</p> : result.ok ? <p role="status">{!result.verified || result.autoRenewal === null ? "Demande acceptée, mais l’état n’a pas pu être relu. Actualisez sans renvoyer la demande." : `État confirmé par Vélo’v : renouvellement ${result.autoRenewal ? "activé" : "désactivé"}.`}</p> : <>
+      {!result ? <p>{next ? "Activer le renouvellement automatique ? Votre abonnement sera renouvelé et facturé à son échéance." : "Désactiver le renouvellement automatique de votre abonnement ?"}</p> : result.ok ? <p role="status">{!result.verified || result.autoRenewal === null ? "Demande envoyée. Actualisez la page pour vérifier le réglage." : `Renouvellement automatique ${result.autoRenewal ? "activé" : "désactivé"}.`}</p> : <>
         <p className="form-error" role="alert">{result.message}</p>
         <p className="bike-action-raw">HTTP {result.httpStatus || "aucune réponse"} · Code {result.code ?? "—"} · {capitalize(result.detail ?? result.message ?? "")}</p>
       </>}

@@ -181,7 +181,7 @@ export function PointsPage({ data, onAutoSpend, onChanged }: { onChanged: () => 
             <span className={`movement-amount ${movement.amount > 0 ? "is-credit" : ""}`}>{movement.amount > 0 ? "+" : ""}{movement.amount}</span>
           </div>
         ))}
-        {!data.rewards.movements.length ? <EmptyState>Aucun mouvement.</EmptyState> : null}
+        {!data.rewards.movements.length ? <EmptyState>Aucun mouvement de points.</EmptyState> : null}
         {data.rewards.movements.length > limit ? <div className="load-more"><Button variant="secondary" onClick={() => setLimit(limit + 12)}>Voir plus</Button></div> : null}
       </section>
     </div>
@@ -202,9 +202,9 @@ function distanceTo(station: Station, position: Point) {
 }
 
 function locationErrorMessage(error: GeolocationPositionError) {
-  if (error.code === error.PERMISSION_DENIED) return "Localisation refusée. Autorisez-la pour ce site : Réglages > Safari > Position (iPhone) ou l’icône à gauche de l’adresse (ordinateur).";
+  if (error.code === error.PERMISSION_DENIED) return "Localisation refusée. Autorisez-la dans les réglages de votre navigateur.";
   if (error.code === error.TIMEOUT) return "La localisation a pris trop de temps. Réessayez.";
-  return "Position introuvable pour le moment.";
+  return "Impossible de vous localiser pour le moment.";
 }
 
 export function StationsPage({ resource, reload, reloading, favorites: favoriteList, onFavorite }: { resource: Resource<StationData> } & Reload & Favorites) {
@@ -244,7 +244,7 @@ export function StationsPage({ resource, reload, reloading, favorites: favoriteL
 
   function locate() {
     setLocationError("");
-    if (!window.isSecureContext) { setLocationError("La localisation demande une connexion sécurisée (https). Recherchez une station par son nom."); return; }
+    if (!window.isSecureContext) { setLocationError("Localisation indisponible sur cette page. Recherchez une station par son nom."); return; }
     if (!("geolocation" in navigator)) { setLocationError("Ce navigateur ne permet pas la localisation. Recherchez une station par son nom."); return; }
     setLocating(true);
     navigator.geolocation.getCurrentPosition((result) => located(result.coords),

@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
   try {
     requireSameOrigin(request);
     const body = contactBodySchema.safeParse(await readJsonBody(request));
-    if (!body.success) return jsonResponse({ error: "Vérifiez la catégorie et le message (4 Ko au maximum).", code: "invalid" }, null, 400);
+    if (!body.success) return jsonResponse({ error: "Votre message est vide ou trop long.", code: "invalid" }, null, 400);
     session = await getSession(request);
     if (!session) return jsonResponse({ error: "Connectez-vous pour contacter le service client.", code: "expired" }, null, 401);
     return jsonResponse(await contactSupport(session, body.data), session);

@@ -62,7 +62,7 @@ test("success without a code warns about possible debit and does not call a proc
     assert.equal(calls.length, 1);
     assert.equal(result.ok, false);
     assert.equal(result.code, "local.promo.unreadable");
-    assert.match(result.message!, /Ne recommencez pas/);
+    assert.match(result.message!, /avant de recommencer/);
   }
 });
 

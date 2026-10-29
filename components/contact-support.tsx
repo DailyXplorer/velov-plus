@@ -29,7 +29,7 @@ export function ContactSupport({ trips }: { trips: Trip[] | null }) {
   function review() {
     const parsed = contactBodySchema.safeParse(body);
     if (!parsed.success || new TextEncoder().encode(JSON.stringify(body)).length > 4096) {
-      setError("Saisissez un message et une catégorie valides (4 Ko au maximum).");
+      setError("Votre message est vide ou trop long.");
       return;
     }
     setError(null); setOutcome(null); setDraft(parsed.data);
@@ -45,10 +45,10 @@ export function ContactSupport({ trips }: { trips: Trip[] | null }) {
       if (parsed.success) setOutcome(parsed.data);
       else {
         const value = data && typeof data === "object" ? data as Record<string, unknown> : {};
-        setOutcome(failed(response.status, typeof value.code === "string" ? value.code : "local.unreadable", typeof value.error === "string" ? value.error : "Réponse illisible. Le message a peut-être été envoyé : vérifiez avant tout nouvel envoi."));
+        setOutcome(failed(response.status, typeof value.code === "string" ? value.code : "local.unreadable", typeof value.error === "string" ? value.error : "Réponse inattendue. Votre message a peut-être déjà été envoyé."));
       }
     } catch {
-      setOutcome(failed(0, "network", "Pas de réponse. Le message a peut-être été envoyé : vérifiez avant tout nouvel envoi."));
+      setOutcome(failed(0, "network", "Pas de réponse. Votre message a peut-être déjà été envoyé."));
     } finally { setSending(false); inFlight.current = false; }
   }
 
@@ -67,7 +67,7 @@ export function ContactSupport({ trips }: { trips: Trip[] | null }) {
       <div className="profile-form-actions"><Button variant="ghost" onClick={() => setOpen(false)}>Annuler</Button><Button onClick={review}>Vérifier et envoyer</Button></div>
     </div>}
     {draft ? <Modal titleId={titleId} onClose={closeConfirmation}>
-      <div className="modal-heading"><h2 id={titleId}>Envoyer au service client ?</h2><button className="icon-button" aria-label="Fermer" disabled={sending} onClick={closeConfirmation}><XIcon size={20}/></button></div>
+      <div className="modal-heading"><h2 id={titleId}>Envoyer au service client ?</h2><button className="icon-button" aria-label="Fermer" disabled={sending} onClick={closeConfirmation}><XIcon size={20}/></button></div>
       <p>{subjects.find((item) => item.value === draft.complaintType)?.label}</p>
       <p style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{contactMessage(draft)}</p>
       {outcome ? <><p role={outcome.ok ? "status" : "alert"} className={outcome.ok ? "write-done" : "form-error"}>{outcome.ok ? "Message envoyé au service client." : outcome.message}</p>{!outcome.ok ? <p className="bike-action-raw">HTTP {outcome.httpStatus || "aucune réponse"} · Code {outcome.code ?? "—"} · {capitalize(outcome.detail ?? outcome.message ?? "—")}</p> : null}</> : null}

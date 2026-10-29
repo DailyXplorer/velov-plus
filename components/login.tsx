@@ -30,7 +30,7 @@ export function Login({ onConnected }: { onConnected: () => void }) {
       setCode("");
       onConnected();
     } catch {
-      setError("Connexion impossible. Vérifiez votre accès à Internet.");
+      setError("Connexion impossible. Vérifiez votre connexion Internet.");
     } finally {
       setPending(false);
     }
@@ -42,8 +42,8 @@ export function Login({ onConnected }: { onConnected: () => void }) {
         <h1 id="login-title">Vélo’v<span className="brand-plus">+</span></h1>
         <form onSubmit={submit} className="login-form" aria-label="Connexion Vélo’v">
           <input
-            name="email" type="email" autoComplete="username" aria-label="Adresse email"
-            placeholder="Adresse email" required maxLength={254}
+            name="email" type="email" autoComplete="username" aria-label="Adresse e-mail"
+            placeholder="Adresse e-mail" required maxLength={254}
             value={email} onChange={(event) => setEmail(event.target.value)} disabled={pending}
           />
           <input

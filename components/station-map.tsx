@@ -87,7 +87,7 @@ export default function StationMap({ stations, selected, onSelect, onClear, user
     for (const station of stations) {
       if (!station.open) continue;
       const total = station.mechanical + station.electrical;
-      const marker = L.marker([station.lat, station.lon], { icon: pinIcon(total, chosen === station.id), title: `${station.name}, ${total} vélos`, keyboard: true }).addTo(instance);
+      const marker = L.marker([station.lat, station.lon], { icon: pinIcon(total, chosen === station.id), title: `${station.name}, ${total} vélo${total > 1 ? "s" : ""}`, keyboard: true }).addTo(instance);
       marker.on("click", () => select.current(station.id));
       markers.current.set(station.id, { marker, total });
     }

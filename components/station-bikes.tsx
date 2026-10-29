@@ -132,7 +132,7 @@ function VerdictMark({ verdict }: { verdict: AssessedBike["verdict"] }) {
 /** Offered on a bike hooked to a borne and free, or booked by this account (a reserved bike stays AVAILABLE, § 5.2). */
 function StationActions({ bike, station }: { bike: Bike; station: Station }) {
   const account = useContext(BookingsContext);
-  if (!account) return <p className="bike-action-signin">Connectez-vous pour réserver ou déverrouiller</p>;
+  if (!account) return <p className="bike-action-signin">Connectez-vous pour réserver ou déverrouiller un vélo.</p>;
   const booking = account.bookings.find((item) => item.bikeNumber === bike.number) ?? null;
   if (bike.status !== "AVAILABLE" || bike.standNumber == null || (bike.isReserved && !booking)) return null;
   return <BikeActions place={{ stationNumber: station.number, stationName: station.name, standNumber: bike.standNumber, bikeNumber: bike.number, lat: station.lat, lon: station.lon }} booking={booking}/>;
@@ -151,7 +151,7 @@ function BikeSheet({ item, station }: { item: AssessedBike; station?: Station })
       {station ? <StationActions bike={bike} station={station}/> : null}
       <dl className="account-details bike-details">
         <div><dt>Note</dt><dd>{bike.rating && rating != null ? (
-          <><span className="bike-rating"><Stars value={rating}/>{formatScore(rating)}<span className="bike-out-of">/5</span></span><small>{bike.rating.count} avis{fromNow(bike.rating.lastAt) ? ` · Le dernier ${fromNow(bike.rating.lastAt)}` : ""}</small></>
+          <><span className="bike-rating"><Stars value={rating}/>{formatScore(rating)}<span className="bike-out-of">/5</span></span><small>{bike.rating.count} avis{fromNow(bike.rating.lastAt) ? ` · Dernier avis ${fromNow(bike.rating.lastAt)}` : ""}</small></>
         ) : "Pas encore d’avis"}</dd></div>
         {bike.type === "electrical" ? <div><dt>Batterie</dt><dd>{bike.batteryPercent != null ? <BatteryLevel percent={bike.batteryPercent}/> : "Non renseigné"}</dd></div> : null}
         <DateFact label="Dernier trajet" value={bike.lastTripAt} withAgo/>
