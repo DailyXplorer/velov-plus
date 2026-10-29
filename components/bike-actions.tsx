@@ -2,8 +2,8 @@
 
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { z } from "zod";
-import { CheckIcon, ClockIcon, LockOpenIcon, TimerIcon, WarningIcon, XIcon } from "./icons";
-import { BOOKING_MINUTES, BOOKING_POINTS, RELEASE_DISTANCE, type BookResult, type Booking, type Outcome, type UnlockResult, bookResultSchema, capitalize, formatDate, unlockResultSchema } from "@/lib/models";
+import { ClockIcon, LockOpenIcon, TimerIcon, WarningIcon, XIcon } from "./icons";
+import { BOOKING_MINUTES, BOOKING_POINTS, RELEASE_DISTANCE, type Booking, type Outcome, bookResultSchema, capitalize, formatDate, unlockResultSchema } from "@/lib/models";
 import { formatDistance, haversine } from "@/lib/geo";
 import { Button, CardTag, Modal } from "./ui";
 
@@ -12,8 +12,9 @@ export const BookingsContext = createContext<{ bookings: Booking[]; changed: () 
 
 export type Place = { stationNumber: number; stationName: string; standNumber: number; bikeNumber: number; lat: number | null; lon: number | null };
 type Action = "book" | "unlock";
-type Result = { action: "book"; value: BookResult } | { action: "unlock"; value: UnlockResult };
-type Step = { kind: "start" } | { kind: "confirm"; action: Action } | { kind: "sending"; action: Action } | { kind: "done"; result: Result } | { kind: "expired" };
+type Step = { kind: "start" } | { kind: "confirm"; action: Action } | { kind: "sending"; action: Action } | { kind: "expired" };
+/** Why the last confirmation did not go through, with Vélo’v’s raw status when it answered. */
+type Failure = { message: string; outcome?: Outcome };
 
 const errorSchema = z.object({ error: z.string(), code: z.string().optional() });
 const signIn = "Connectez-vous pour réserver ou déverrouiller un vélo.";
@@ -62,15 +63,8 @@ function Confirm({ action, place, onCancel, onConfirm, sending }: { action: Acti
   return (
     <>
       <p className="bike-action-question">{action === "book" ? "Réserver ce vélo ?" : "Déverrouiller ce vélo ?"}</p>
-      <dl className="bike-action-facts">
-        <div><dt>Station</dt><dd>{place.stationName}</dd></div>
-        <div><dt>Borne</dt><dd>{place.standNumber}</dd></div>
-        <div><dt>Vélo</dt><dd>{place.bikeNumber}</dd></div>
-        {action === "book" ? <div><dt>Coût</dt><dd>{BOOKING_POINTS} points</dd></div> : null}
-        {action === "unlock" && distance != null ? <div><dt>Distance</dt><dd>≈ {formatDistance(distance)}</dd></div> : null}
-      </dl>
-      {action === "book" ? <p className="bike-action-note">Le vélo vous est réservé pendant {BOOKING_MINUTES} minutes.</p>
-        : <p className="bike-action-note bike-action-warning">Vous aurez ensuite 60 secondes pour appuyer sur le bouton de la borne et retirer le vélo.</p>}
+      {action === "book" ? <p className="bike-action-note">{BOOKING_POINTS} points pour garder ce vélo {BOOKING_MINUTES} minutes.</p>
+        : <p className="bike-action-note bike-action-warning">Vous aurez ensuite 60 secondes pour appuyer sur le bouton de la borne {place.standNumber} et retirer le vélo.</p>}
       {action === "unlock" && far ? <p className="bike-action-far" role="alert"><WarningIcon size={16} weight="bold" aria-hidden="true"/>Vous semblez être à plus de {RELEASE_DISTANCE} m de la station. Si quelqu’un d’autre prend le vélo, le trajet vous sera facturé.</p> : null}
       <div className="bike-action-buttons">
         <Button variant="ghost" disabled={sending} onClick={onCancel}>Annuler</Button>
@@ -86,46 +80,11 @@ function BookedUntil({ endsAt }: { endsAt: string | null }) {
   return <><strong>Vélo réservé jusqu’à <span className="clock">{formatDate(endsAt, { hour: "2-digit", minute: "2-digit" })}</span></strong><span className="bike-action-countdown"><ClockIcon size={15} weight="bold" aria-hidden="true"/>{left > 0 ? <>Il reste <span className="clock">{clock(left)}</span></> : "Réservation expirée"}</span></>;
 }
 
-function Done({ result, place, onBack, onUnlock }: { result: Result; place: Place; onBack: () => void; onUnlock: () => void }) {
-  const { value } = result;
-  if (!value.ok) return (
-    <>
-      <div className="bike-action-result bike-action-failed" role="alert">
-        <span className="card-tag-icon"><XIcon size={15} weight="bold" aria-hidden="true"/></span>
-        <div><strong>{result.action === "book" ? "Réservation impossible" : "Déverrouillage impossible"}</strong><p>{value.message}</p></div>
-      </div>
-      <Raw outcome={value}/>
-      <div className="bike-action-buttons"><Button variant="secondary" onClick={onBack}>Retour</Button></div>
-    </>
-  );
-  if (result.action === "book") return (
-    <>
-      <div className="bike-action-result" role="status">
-        <span className="card-tag-icon"><CheckIcon size={15} weight="bold" aria-hidden="true"/></span>
-        <div><BookedUntil endsAt={result.value.booking?.endsAt ?? null}/><p>Vélo {place.bikeNumber} · Borne {place.standNumber}</p></div>
-      </div>
-      <div className="bike-action-buttons"><Button variant="secondary" onClick={onBack}>Fermer</Button><Button onClick={onUnlock}><LockOpenIcon size={17} weight="light" aria-hidden="true"/>Déverrouiller</Button></div>
-    </>
-  );
-  const ongoing = result.value.ongoing;
-  return (
-    <>
-      <div className="bike-action-result" role="status">
-        <span className="card-tag-icon"><CheckIcon size={15} weight="bold" aria-hidden="true"/></span>
-        <div><strong>Vélo déverrouillé à la borne {place.standNumber}</strong><p>Appuyez sur le bouton de la borne et retirez le vélo dans les 60 secondes.</p>
-          <p>{ongoing?.length ? "Votre trajet a commencé." : "Votre trajet s’affichera une dizaine de secondes après le retrait du vélo."}</p></div>
-      </div>
-      <Raw outcome={value} extra={`Trips/ongoing ${ongoing ? ongoing.length : "illisible"}`}/>
-      <div className="bike-action-buttons"><Button variant="secondary" onClick={onBack}>Fermer</Button></div>
-    </>
-  );
-}
-
-/** Book or release one bike: a confirmation step, exactly one request per confirmation, and the raw answer kept on screen. */
-export function BikeActions({ place, booking = null, initial }: { place: Place; booking?: Booking | null; initial?: Action }) {
+/** Book or release one bike: a confirmation step and exactly one request per confirmation; success hands over to the page, a failure stays with its raw answer. */
+export function BikeActions({ place, booking = null, initial, onDone }: { place: Place; booking?: Booking | null; initial?: Action; onDone: () => void }) {
   const account = useContext(BookingsContext);
   const [step, setStep] = useState<Step>(initial ? { kind: "confirm", action: initial } : { kind: "start" });
-  const [failure, setFailure] = useState<string | null>(null);
+  const [failure, setFailure] = useState<Failure | null>(null);
   const inFlight = useRef(false);
 
   if (!account || step.kind === "expired") return <p className="bike-action-signin">{signIn}</p>;
@@ -142,19 +101,19 @@ export function BikeActions({ place, booking = null, initial }: { place: Place; 
       if (response.status === 401) { setStep({ kind: "expired" }); return; }
       if (!response.ok) {
         const error = errorSchema.safeParse(raw);
-        setFailure(`${error.success ? error.data.error : "Le service ne répond pas."} (HTTP ${response.status}${error.success && error.data.code ? ` · ${error.data.code}` : ""})`);
+        setFailure({ message: `${error.success ? error.data.error : "Le service ne répond pas."} (HTTP ${response.status}${error.success && error.data.code ? ` · ${error.data.code}` : ""})` });
         setStep({ kind: "confirm", action });
         return;
       }
-      let result: Result | null = null;
-      if (action === "book") { const parsed = bookResultSchema.safeParse(raw); if (parsed.success) result = { action, value: parsed.data }; }
-      else { const parsed = unlockResultSchema.safeParse(raw); if (parsed.success) result = { action, value: parsed.data }; }
-      if (!result) { setFailure("Réponse inattendue. Vérifiez la borne et vos réservations avant de réessayer."); setStep({ kind: "confirm", action }); return; }
-      setStep({ kind: "done", result });
-      if (result.value.ok) account?.changed();
-      if (result.action === "unlock" && result.value.ok) account?.unlocked(result.value.ongoing?.[0]?.id ?? null);
+      const parsed = action === "book" ? bookResultSchema.safeParse(raw) : unlockResultSchema.safeParse(raw);
+      if (!parsed.success) { setFailure({ message: "Réponse inattendue. Vérifiez la borne et vos réservations avant de réessayer." }); setStep({ kind: "confirm", action }); return; }
+      const outcome = parsed.data;
+      if (!outcome.ok) { setFailure({ message: outcome.message ?? (action === "book" ? "Réservation impossible." : "Déverrouillage impossible."), outcome }); setStep({ kind: "confirm", action }); return; }
+      account?.changed();
+      if (action === "unlock") account?.unlocked("ongoing" in outcome ? outcome.ongoing?.[0]?.id ?? null : null);
+      onDone();
     } catch {
-      setFailure("Le serveur ne répond pas. Vérifiez la borne et vos réservations avant de réessayer.");
+      setFailure({ message: "Le serveur ne répond pas. Vérifiez la borne et vos réservations avant de réessayer." });
       setStep({ kind: "confirm", action });
     } finally {
       inFlight.current = false;
@@ -171,12 +130,10 @@ export function BikeActions({ place, booking = null, initial }: { place: Place; 
             <Button onClick={() => setStep({ kind: "confirm", action: "unlock" })}><LockOpenIcon size={17} weight="light" aria-hidden="true"/>Déverrouiller</Button>
           </div>
         </>
-      ) : step.kind === "done" ? (
-        <Done result={step.result} place={place} onBack={() => setStep({ kind: "start" })} onUnlock={() => setStep({ kind: "confirm", action: "unlock" })}/>
       ) : (
         <>
-          <Confirm action={step.action} place={place} sending={step.kind === "sending"} onCancel={() => setStep({ kind: "start" })} onConfirm={() => void send(step.action)}/>
-          {failure ? <p className="form-error" role="alert">{failure}</p> : null}
+          <Confirm action={step.action} place={place} sending={step.kind === "sending"} onCancel={() => { setFailure(null); setStep({ kind: "start" }); }} onConfirm={() => void send(step.action)}/>
+          {failure ? <><p className="form-error" role="alert">{failure.message}</p>{failure.outcome ? <Raw outcome={failure.outcome}/> : null}</> : null}
         </>
       )}
     </section>
@@ -201,7 +158,7 @@ export function BookingBanner({ booking, onUnlock }: { booking: Booking; onUnloc
   );
 }
 
-/** Kept apart from the banner: the release consumes the booking, and its result must outlive the banner. */
+/** Kept apart from the banner: the release consumes the booking, and its failure must outlive the banner. */
 export function UnlockModal({ booking, onClose }: { booking: Booking; onClose: () => void }) {
   const place = placeOf(booking);
   if (!place) return null;
@@ -211,7 +168,7 @@ export function UnlockModal({ booking, onClose }: { booking: Booking; onClose: (
         <h2 id="booking-unlock-title">Vélo {place.bikeNumber}</h2>
         <button className="icon-button" aria-label="Fermer" onClick={onClose}><XIcon size={20} weight="light"/></button>
       </div>
-      <BikeActions place={place} booking={booking} initial="unlock"/>
+      <BikeActions place={place} booking={booking} initial="unlock" onDone={onClose}/>
     </Modal>
   );
 }

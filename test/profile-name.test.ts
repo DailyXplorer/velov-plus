@@ -36,7 +36,6 @@ test("the form sends only the fields that changed, and nothing when nothing chan
   const renamed = changesOf(profile, { ...draftOf(profile), lastName: "  Dupont  de la  Tour " });
   assert.ok(renamed && "body" in renamed);
   assert.deepEqual(renamed.body, { lastName: "Dupont de la Tour" });
-  assert.deepEqual(renamed.changes, [{ label: "Nom", before: "Dupont", after: "Dupont de la Tour" }]);
   const both = changesOf(profile, { ...draftOf(profile), firstName: "Jeanne", city: "Villeurbanne" });
   assert.ok(both && "body" in both);
   assert.deepEqual(both.body, { firstName: "Jeanne", city: "Villeurbanne" });

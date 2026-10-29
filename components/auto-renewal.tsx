@@ -12,16 +12,18 @@ const failed = (status: number, code: string, message: string): AutoRenewalResul
 export function AutoRenewal({ subscriptionId, value, allowed, onSaved }: { subscriptionId: string | null; value: boolean | null; allowed: boolean; onSaved: () => void }) {
   const [asking, setAsking] = useState(false);
   const [pending, setPending] = useState(false);
-  const [result, setResult] = useState<AutoRenewalResult | null>(null);
-  const once = useRef(false);
+  const [failure, setFailure] = useState<AutoRenewalResult | null>(null);
+  // Vélo’v’s answer to the last change, shown until the account is read again.
+  const [saved, setSaved] = useState<AutoRenewalResult | null>(null);
+  const inFlight = useRef(false);
   const titleId = useId();
-  const actual = result?.ok ? result.autoRenewal : value;
-  const canChange = result?.ok ? result.autoRenewalAllowed : allowed;
+  const actual = saved ? saved.autoRenewal : value;
+  const canChange = saved ? saved.autoRenewalAllowed : allowed;
   const next = !actual;
 
   async function confirm() {
-    if (once.current || !subscriptionId) return;
-    once.current = true;
+    if (inFlight.current || !subscriptionId) return;
+    inFlight.current = true;
     setPending(true);
     let outcome: AutoRenewalResult;
     try {
@@ -33,27 +35,29 @@ export function AutoRenewal({ subscriptionId, value, allowed, onSaved }: { subsc
     } catch {
       outcome = failed(0, "network", "Vélo’v ne répond pas. Actualisez la page pour voir si le réglage a changé.");
     }
-    setResult(outcome);
+    inFlight.current = false;
     setPending(false);
+    if (!outcome.ok) { setFailure(outcome); return; }
+    if (outcome.verified && outcome.autoRenewal !== null) setSaved(outcome);
+    setAsking(false);
+    onSaved();
   }
 
   function close() {
-    if (pending) return;
-    setAsking(false);
-    // Reload after displaying the answer, never unmount its confirmation while a write is pending.
-    if (once.current) onSaved();
+    if (!inFlight.current) setAsking(false);
   }
 
   return <div className="setting-row renewal-setting">
     <div><span className="metric-label">Renouvellement automatique</span><strong className="setting-value">{actual === null ? "Indisponible pour le moment" : actual ? "Activé" : "Désactivé"}</strong></div>
-    {canChange && subscriptionId && actual !== null ? <button type="button" role="switch" className="switch" disabled={result !== null} aria-checked={actual} aria-label="Renouvellement automatique" onClick={() => { once.current = false; setResult(null); setAsking(true); }}/> : null}
+    {canChange && subscriptionId && actual !== null ? <button type="button" role="switch" className="switch" aria-checked={actual} aria-label="Renouvellement automatique" onClick={() => { setFailure(null); setAsking(true); }}/> : null}
     {asking ? <Modal titleId={titleId} onClose={close}>
-      <h2 id={titleId}>Renouvellement automatique</h2>
-      {!result ? <p>{next ? "Activer le renouvellement automatique ? Votre abonnement sera renouvelé et facturé à son échéance." : "Désactiver le renouvellement automatique de votre abonnement ?"}</p> : result.ok ? <p role="status">{!result.verified || result.autoRenewal === null ? "Demande envoyée. Actualisez la page pour vérifier le réglage." : `Renouvellement automatique ${result.autoRenewal ? "activé" : "désactivé"}.`}</p> : <>
-        <p className="form-error" role="alert">{result.message}</p>
-        <p className="bike-action-raw">HTTP {result.httpStatus || "aucune réponse"} · Code {result.code ?? "—"} · {capitalize(result.detail ?? result.message ?? "")}</p>
-      </>}
-      <div className="modal-actions"><Button variant="secondary" disabled={pending} onClick={close}>{result ? "Fermer" : "Annuler"}</Button>{!result ? <Button pending={pending} onClick={() => void confirm()}>Confirmer</Button> : null}</div>
+      <h2 id={titleId}>{next ? "Activer le renouvellement automatique ?" : "Désactiver le renouvellement automatique ?"}</h2>
+      {next ? <p>Votre abonnement sera renouvelé et facturé à son échéance.</p> : null}
+      {failure ? <>
+        <p className="form-error" role="alert">{failure.message}</p>
+        <p className="bike-action-raw">HTTP {failure.httpStatus || "aucune réponse"} · Code {failure.code ?? "—"} · {capitalize(failure.detail ?? failure.message ?? "")}</p>
+      </> : null}
+      <div className="modal-actions"><Button variant="secondary" disabled={pending} onClick={close}>Annuler</Button><Button pending={pending} onClick={() => void confirm()}>Confirmer</Button></div>
     </Modal> : null}
   </div>;
 }

@@ -130,15 +130,15 @@ function VerdictMark({ verdict }: { verdict: AssessedBike["verdict"] }) {
 }
 
 /** Offered on a bike hooked to a borne and free, or booked by this account (a reserved bike stays AVAILABLE, § 5.2). */
-function StationActions({ bike, station }: { bike: Bike; station: Station }) {
+function StationActions({ bike, station, onDone }: { bike: Bike; station: Station; onDone: () => void }) {
   const account = useContext(BookingsContext);
   if (!account) return <p className="bike-action-signin">Connectez-vous pour réserver ou déverrouiller un vélo.</p>;
   const booking = account.bookings.find((item) => item.bikeNumber === bike.number) ?? null;
   if (bike.status !== "AVAILABLE" || bike.standNumber == null || (bike.isReserved && !booking)) return null;
-  return <BikeActions place={{ stationNumber: station.number, stationName: station.name, standNumber: bike.standNumber, bikeNumber: bike.number, lat: station.lat, lon: station.lon }} booking={booking}/>;
+  return <BikeActions place={{ stationNumber: station.number, stationName: station.name, standNumber: bike.standNumber, bikeNumber: bike.number, lat: station.lat, lon: station.lon }} booking={booking} onDone={onDone}/>;
 }
 
-function BikeSheet({ item, station }: { item: AssessedBike; station?: Station }) {
+function BikeSheet({ item, actions }: { item: AssessedBike; actions?: ReactNode }) {
   const { bike } = item;
   const type = types[bike.type];
   const rating = score(bike);
@@ -148,7 +148,7 @@ function BikeSheet({ item, station }: { item: AssessedBike; station?: Station })
     <div className="bike-sheet">
       <div className="detail-type"><Eyebrow icon={type.icon}>{type.label}</Eyebrow>{bike.isReserved && !mine ? <span className="bike-reserved">Réservé</span> : null}</div>
       {bike.status !== "AVAILABLE" ? <p className="bike-sheet-status">{bike.statusLabel ?? "Statut inconnu"}</p> : null}
-      {station ? <StationActions bike={bike} station={station}/> : null}
+      {actions}
       <dl className="account-details bike-details">
         <div><dt>Note</dt><dd>{bike.rating && rating != null ? (
           <><span className="bike-rating"><Stars value={rating}/>{formatScore(rating)}<span className="bike-out-of">/5</span></span><small>{bike.rating.count} avis{fromNow(bike.rating.lastAt) ? ` · Dernier avis ${fromNow(bike.rating.lastAt)}` : ""}</small></>
@@ -218,7 +218,7 @@ export function StationBikes({ station, onClose }: { station: Station; onClose: 
           <button className="icon-button" onClick={onClose} aria-label="Fermer"><XIcon size={20} weight="light"/></button>
         </div>
       </div>
-      {opened ? <BikeSheet item={opened} station={station}/> : (
+      {opened ? <BikeSheet item={opened} actions={<StationActions bike={opened.bike} station={station} onDone={onClose}/>}/> : (
         <>
           <p className="result-count bikes-count" role="status">{count === null ? "Chargement des vélos…" : `${count} vélo${count > 1 ? "s" : ""} à la station`}</p>
           {bikes.kind === "loading" ? (

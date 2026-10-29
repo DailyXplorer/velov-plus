@@ -91,7 +91,7 @@ export function InviteFriend({ cost, balance, account, onChanged }: { onChanged:
       <p>Les {cost} points sont débités dès la création du code, même s’il n’est jamais utilisé.</p>
       {outcome ? <><p className={outcome.ok ? "write-done" : "form-error"} role="status">{outcome.ok ? "Code créé. Copiez-le pour l’envoyer à votre ami." : outcome.message}</p>{!outcome.ok ? <p className="bike-action-raw">HTTP {outcome.httpStatus || "aucune réponse"} · Code {outcome.code ?? "—"} · {capitalize(outcome.detail ?? outcome.message ?? "—")}</p> : null}{codeList}</> : null}
       {warning ? <p className="form-error" role="alert">{warning}</p> : null}
-      <div className="modal-actions"><Button variant="ghost" disabled={pending} onClick={close}>{outcome ? "Fermer" : "Annuler"}</Button>{!outcome ? <Button pending={pending} disabled={!canObtain} onClick={() => void confirm()}>Confirmer</Button> : null}</div>
+      <div className="modal-actions"><Button variant="ghost" disabled={pending} onClick={close}>{outcome?.ok ? "Fermer" : "Annuler"}</Button>{!outcome?.ok ? <Button pending={pending} disabled={!canObtain} onClick={() => void confirm()}>Confirmer</Button> : null}</div>
     </Modal> : null}
   </>;
 }

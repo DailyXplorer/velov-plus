@@ -2,9 +2,9 @@
 
 import { type ReactNode, useId, useRef, useState } from "react";
 import { z } from "zod";
-import { CheckIcon, DownloadSimpleIcon, StarIcon, XIcon } from "./icons";
+import { DownloadSimpleIcon, StarIcon, XIcon } from "./icons";
 import { ADDRESS_MAX, NAME_MAX, type Dashboard, type Outcome, type ProfileBody, type Receipt, type Station, type Trip, autoSpendResultSchema, capitalize, formatDate, outcomeSchema } from "@/lib/models";
-import { type Change, type Draft, changesOf, countries, countryName, draftOf } from "@/lib/profile-draft";
+import { type Draft, changesOf, countries, countryName, draftOf } from "@/lib/profile-draft";
 import { Button, Modal, SelectField } from "./ui";
 
 const errorSchema = z.object({ error: z.string(), code: z.string().optional() });
@@ -32,10 +32,10 @@ function RawStatus({ outcome }: { outcome: Outcome }) {
   return <p className="bike-action-raw">{[`HTTP ${outcome.httpStatus || "aucune réponse"}`, `Code ${outcome.code ?? "—"}`, outcome.detail && capitalize(outcome.detail)].filter(Boolean).join(" · ")}</p>;
 }
 
-type Step = { kind: "confirm" } | { kind: "sending" } | { kind: "done" } | { kind: "failed"; outcome: Outcome };
+type Step = { kind: "confirm" } | { kind: "sending" } | { kind: "failed"; outcome: Outcome };
 
-/** Every change to the account: a question, one request per "Confirmer", then the result; the raw status shows on failure only. */
-function ConfirmDialog({ title, children, success, run, onClose }: { title: string; children: ReactNode; success: string; run: () => Promise<Outcome>; onClose: () => void }) {
+/** Every change to the account: a question, one request per "Confirmer"; success closes the dialog, a failure stays with its raw status. */
+function ConfirmDialog({ title, children, run, onClose }: { title: string; children?: ReactNode; run: () => Promise<Outcome>; onClose: () => void }) {
   const titleId = useId();
   const [step, setStep] = useState<Step>({ kind: "confirm" });
   const inFlight = useRef(false);
@@ -46,7 +46,8 @@ function ConfirmDialog({ title, children, success, run, onClose }: { title: stri
     setStep({ kind: "sending" });
     try {
       const outcome = await run();
-      setStep(outcome.ok ? { kind: "done" } : { kind: "failed", outcome });
+      if (outcome.ok) onClose();
+      else setStep({ kind: "failed", outcome });
     } finally {
       inFlight.current = false;
     }
@@ -58,21 +59,12 @@ function ConfirmDialog({ title, children, success, run, onClose }: { title: stri
         <h2 id={titleId}>{title}</h2>
         <button className="icon-button" aria-label="Fermer" disabled={step.kind === "sending"} onClick={onClose}><XIcon size={20} weight="light"/></button>
       </div>
-      {step.kind === "done" ? (
-        <>
-          <p className="write-done" role="status"><CheckIcon size={16} weight="bold" aria-hidden="true"/>{success}</p>
-          <div className="modal-actions"><Button variant="secondary" onClick={onClose}>Fermer</Button></div>
-        </>
-      ) : (
-        <>
-          <div className="write-question">{children}</div>
-          {step.kind === "failed" ? <><p className="form-error" role="alert">{step.outcome.message ?? "La modification n’a pas abouti."}</p><RawStatus outcome={step.outcome}/></> : null}
-          <div className="modal-actions">
-            <Button variant="ghost" disabled={step.kind === "sending"} onClick={onClose}>Annuler</Button>
-            <Button pending={step.kind === "sending"} onClick={() => void confirm()}>Confirmer</Button>
-          </div>
-        </>
-      )}
+      {children ? <div className="write-question">{children}</div> : null}
+      {step.kind === "failed" ? <><p className="form-error" role="alert">{step.outcome.message ?? "La modification n’a pas abouti."}</p><RawStatus outcome={step.outcome}/></> : null}
+      <div className="modal-actions">
+        <Button variant="ghost" disabled={step.kind === "sending"} onClick={onClose}>Annuler</Button>
+        <Button pending={step.kind === "sending"} onClick={() => void confirm()}>Confirmer</Button>
+      </div>
     </Modal>
   );
 }
@@ -93,7 +85,7 @@ export function AutoSpendSetting({ value, onChanged }: { value: boolean | null; 
       </div>
       {value != null ? <Switch checked={value} label="Utilisation automatique des points" onClick={() => setAsking(true)}/> : null}
       {asking ? (
-        <ConfirmDialog title={next ? "Activer l’utilisation automatique ?" : "Désactiver l’utilisation automatique ?"} success={next ? "Utilisation automatique activée." : "Utilisation automatique désactivée."} onClose={() => setAsking(false)}
+        <ConfirmDialog title={next ? "Activer l’utilisation automatique ?" : "Désactiver l’utilisation automatique ?"} onClose={() => setAsking(false)}
           run={async () => {
             const { outcome, data } = await sendWrite("/api/account/rewards", "PATCH", { autoSpend: next });
             const result = autoSpendResultSchema.safeParse(data);
@@ -116,14 +108,12 @@ export function FavoriteButton({ station, favorite, onChanged }: { station: Stat
         <StarIcon size={19} weight={favorite ? "fill" : "light"}/>
       </button>
       {asking ? (
-        <ConfirmDialog title={favorite ? "Retirer des favoris ?" : "Ajouter aux favoris ?"} success={favorite ? "Station retirée des favoris." : "Station ajoutée aux favoris."} onClose={() => setAsking(false)}
+        <ConfirmDialog title={favorite ? "Retirer des favoris ?" : "Ajouter aux favoris ?"} onClose={() => setAsking(false)}
           run={async () => {
             const { outcome } = await sendWrite(`/api/account/favorites/${station.number}`, favorite ? "DELETE" : "POST");
             if (outcome.ok) onChanged(station.number, !favorite);
             return outcome;
-          }}>
-          <p>{station.name} <span className="write-muted">n° {station.number}</span></p>
-        </ConfirmDialog>
+          }}/>
       ) : null}
     </>
   );
@@ -202,7 +192,7 @@ function Field({ label, value, onChange, maxLength, inputMode, autoComplete }: {
 export function ProfileCoordinates({ profile, onSaved }: { profile: Profile; onSaved: () => void }) {
   const [draft, setDraft] = useState<Draft | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [asking, setAsking] = useState<{ body: ProfileBody; changes: Change[] } | null>(null);
+  const [asking, setAsking] = useState<ProfileBody | null>(null);
   const set = (key: keyof Draft) => (value: string) => setDraft((current) => current && { ...current, [key]: value });
 
   function review() {
@@ -211,7 +201,7 @@ export function ProfileCoordinates({ profile, onSaved }: { profile: Profile; onS
     if (!result) { setError("Vous n’avez rien modifié."); return; }
     if ("error" in result) { setError(result.error); return; }
     setError(null);
-    setAsking(result);
+    setAsking(result.body);
   }
 
   return (
@@ -246,15 +236,13 @@ export function ProfileCoordinates({ profile, onSaved }: { profile: Profile; onS
         </>
       )}
       {asking ? (
-        <ConfirmDialog title="Enregistrer les modifications ?" success="Coordonnées enregistrées." onClose={() => setAsking(null)}
+        <ConfirmDialog title="Enregistrer les modifications ?" onClose={() => setAsking(null)}
           run={async () => {
-            const { outcome } = await sendWrite("/api/account/profile", "PATCH", asking.body);
+            const { outcome } = await sendWrite("/api/account/profile", "PATCH", asking);
             // Back to the coordinates, read again from Vélo’v.
             if (outcome.ok) { setDraft(null); onSaved(); }
             return outcome;
-          }}>
-          <dl className="bike-action-facts">{asking.changes.map((change) => <div key={change.label}><dt>{change.label}</dt><dd>{change.after}<small className="write-muted">Avant : {change.before}</small></dd></div>)}</dl>
-        </ConfirmDialog>
+          }}/>
       ) : null}
     </>
   );

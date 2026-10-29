@@ -487,20 +487,12 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
 .bike-action > .bike-action-buttons:first-child, .bike-action-mine + .bike-action-buttons { margin-top: 0; }
 .bike-action-buttons > .button { flex: 1 1 150px; }
 .bike-action-question { font-size: 15px; }
-.bike-action-facts { display: grid; gap: 6px; margin: 10px 0 0; }
-.bike-action-facts > div { display: flex; justify-content: space-between; gap: 12px; }
-.bike-action-facts dt, .bike-action-countdown, .bike-action-raw, .bike-action-signin { font-family: var(--font-label); font-weight: 500; letter-spacing: -.01em; }
-.bike-action-facts dt { color: var(--ink-soft); font-size: 11px; text-transform: uppercase; }
-.bike-action-facts dd { margin: 0; font-size: 14px; text-align: right; }
+.bike-action-countdown, .bike-action-raw, .bike-action-signin { font-family: var(--font-label); font-weight: 500; letter-spacing: -.01em; }
 .bike-action-note { margin-top: 12px; color: var(--ink-soft); font-size: 13px; }
 .bike-action-warning { color: var(--red-deep); }
 .bike-action-far { display: flex; align-items: flex-start; gap: 8px; margin-top: 10px; padding: 10px 12px; border-radius: 12px; color: var(--red-deep); background: var(--white); box-shadow: inset 0 0 0 1px var(--red); font-size: 13px; }
 .bike-action-far svg { margin-top: 2px; }
-.bike-action-result { display: flex; align-items: flex-start; gap: 12px; }
-.bike-action-result .card-tag-icon { width: 30px; height: 30px; }
-.bike-action-failed .card-tag-icon { color: var(--red-deep); background: var(--white); box-shadow: inset 0 0 0 1px var(--red); }
-.bike-action-result strong, .bike-action-mine strong { display: block; font-family: var(--font-title); font-size: 20px; font-weight: 400; line-height: 1.3; letter-spacing: -.03em; }
-.bike-action-result p { margin-top: 2px; color: var(--ink-soft); font-size: 13px; }
+.bike-action-mine strong { display: block; font-family: var(--font-title); font-size: 20px; font-weight: 400; line-height: 1.3; letter-spacing: -.03em; }
 .bike-action-countdown { display: inline-flex; align-items: center; gap: 6px; margin-top: 4px; color: var(--red-deep); font-size: 12px; text-transform: uppercase; }
 .bike-action-raw { margin-top: 12px; color: var(--ink-soft); font-size: 11px; overflow-wrap: anywhere; }
 .bike-action-mine { margin-bottom: 12px; }
@@ -564,8 +556,6 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
 .switch:disabled, .button[data-soon]:disabled { cursor: default; }
 .write-question { margin-top: 14px; font-size: 15px; }
 .write-question p + p { margin-top: 8px; }
-.write-question .bike-action-facts dd > small { display: block; margin-top: 2px; }
-.write-muted { color: var(--ink-soft); font-size: 12px; }
 .write-done { display: flex; align-items: center; gap: 8px; margin-top: 18px; color: var(--red-deep); font-size: 15px; }
 .modal .bike-action-raw { margin-top: 6px; }
 .favorite-button.is-favorite, .favorite-button.is-favorite:hover, .favorite-mark { color: var(--red); }
