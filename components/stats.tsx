@@ -66,24 +66,24 @@ export function StatsView({ stats }: { stats: Stats }) {
         <SelectField label="Période" hideLabel value={period} onChange={setPeriod} options={periods}/>
         <span className="result-count">{plural(data.trips, "trajet")}</span>
       </div>
-      {!stats.complete ? <p className="inline-notice">Une partie de l’historique n’a pas pu être lue : les chiffres peuvent être incomplets.</p> : null}
+      {!stats.complete ? <p className="inline-notice">Une partie de votre historique n’a pas pu être chargée.</p> : null}
       <Headline data={data}/>
       {!data.trips ? (
-        <EmptyState>{ever ? "Aucun trajet sur cette période." : "Aucun trajet pour l’instant. Vos statistiques apparaîtront après votre premier trajet."}</EmptyState>
+        <EmptyState>{ever ? "Aucun trajet sur cette période." : "Vos statistiques apparaîtront après votre premier trajet."}</EmptyState>
       ) : (
         <>
           <div className="stat-grid">
-            <Panel title={data.series.unit === "day" ? "Minutes par jour" : "Minutes par mois"} wide><MinutesChart data={data}/></Panel>
-            <Panel title="Type de vélo"><BikeTypes data={data}/></Panel>
-            <Panel title="Quand vous roulez" note="Départs par jour et par heure" wide><Heatmap data={data}/></Panel>
+            <Panel title="Temps à vélo" wide><MinutesChart data={data}/></Panel>
+            <Panel title="Électrique ou mécanique"><BikeTypes data={data}/></Panel>
+            <Panel title="Quand vous roulez" wide><Heatmap data={data}/></Panel>
             <Panel title="Durée des trajets" note="En minutes"><Durations data={data}/></Panel>
-            <Panel title="Évolution des points" note={stats.pointsAvailable ? "Solde en fin de période" : undefined} full><PointsChart data={data} available={stats.pointsAvailable}/></Panel>
+            <Panel title="Solde de points" full><PointsChart data={data} available={stats.pointsAvailable}/></Panel>
             <Panel title="Records" full><Records data={data}/></Panel>
           </div>
           <div className="stat-grid stat-lists">
             <Panel title="Stations de départ"><Ranking items={data.starts.map((item) => ({ label: item.name, count: item.count }))}/></Panel>
             <Panel title="Stations d’arrivée"><Ranking items={data.ends.map((item) => ({ label: item.name, count: item.count }))}/></Panel>
-            <Panel title="Trajets favoris"><Ranking items={data.pairs.map((item) => ({ label: item.from === item.to ? `${item.from} (boucle)` : `${item.from} → ${item.to}`, count: item.count }))} empty="Aucun trajet refait deux fois."/></Panel>
+            <Panel title="Trajets favoris"><Ranking items={data.pairs.map((item) => ({ label: item.from === item.to ? `${item.from} (aller-retour)` : `${item.from} → ${item.to}`, count: item.count }))} empty="Aucun trajet récurrent sur cette période."/></Panel>
           </div>
         </>
       )}
@@ -94,26 +94,27 @@ export function StatsView({ stats }: { stats: Stats }) {
 function Headline({ data }: { data: PeriodStats }) {
   const { distance } = data;
   const kg = data.co2Grams / 1000;
+  const balance = data.series.buckets.at(-1)?.balance;
   return (
     <>
       <div className="stat-cards">
         <StatCard icon={BicycleIcon} label="Trajets" value={number(data.trips)} detail={data.trips ? `${hours(Math.round(data.minutes / data.trips))} en moyenne` : "Aucun trajet"}/>
         <StatCard icon={ClockIcon} label="Minutes à vélo" value={number(data.minutes)} detail={data.minutes >= 60 ? `Soit ${hours(data.minutes)}` : "Moins d’une heure"}/>
-        <StatCard icon={RouteIcon} label="Km estimés" value={kilometres(distance.metres)} detail={`Sur ${plural(distance.known, "trajet")}`}/>
-        <StatCard icon={LeafIcon} label="CO₂ évité estimé" value={kg >= 1 ? kg.toLocaleString("fr-FR", { maximumFractionDigits: kg < 10 ? 1 : 0 }) : number(data.co2Grams)} unit={kg >= 1 ? "kg" : "g"} detail="Face à la voiture"/>
-        <StatCard icon={CoinsIcon} label="Dépenses" value={formatPrice(data.spentCents)} detail={data.savedCents ? `${formatPrice(data.savedCents)} économisés` : data.spentCents ? "Aucune réduction" : "Trajets compris"}/>
-        <StatCard icon={StarFourIcon} label="Points gagnés" value={number(data.pointsEarned)} detail="Trajets, notes et bonus"/>
+        <StatCard icon={RouteIcon} label="Distance estimée" value={kilometres(distance.metres)} unit="km" detail={`Sur ${plural(distance.known, "trajet")}`}/>
+        <StatCard icon={LeafIcon} label="CO₂ évité" value={kg >= 1 ? kg.toLocaleString("fr-FR", { maximumFractionDigits: kg < 10 ? 1 : 0 }) : number(data.co2Grams)} unit={kg >= 1 ? "kg" : "g"} detail="Plutôt qu’en voiture"/>
+        <StatCard icon={CoinsIcon} label="Dépenses" value={formatPrice(data.spentCents)} detail={data.savedCents ? `${formatPrice(data.savedCents)} économisés` : data.spentCents ? "Aucune réduction" : "Aucun supplément"}/>
+        <StatCard icon={StarFourIcon} label="Points gagnés" value={number(data.pointsEarned)} detail={balance != null ? `Solde de ${plural(balance, "point")}` : undefined}/>
       </div>
     </>
   );
 }
 
-function StatCard({ icon, label, value, unit, detail }: { icon: Icon; label: string; value: string; unit?: string; detail: string }) {
+function StatCard({ icon, label, value, unit, detail }: { icon: Icon; label: string; value: string; unit?: string; detail?: string }) {
   return (
     <div className="summary-card stat-card">
       <CardTag icon={icon}>{label}</CardTag>
       <strong className="metric-value">{value}{unit ? <span className="metric-unit">{unit}</span> : null}</strong>
-      <span className="metric-detail">{detail}</span>
+      {detail ? <span className="metric-detail">{detail}</span> : null}
     </div>
   );
 }
@@ -232,18 +233,21 @@ function MinutesChart({ data }: { data: PeriodStats }) {
   const bars = buckets.map((bucket) => ({
     label: bucketLabel(unit, bucket.key), value: bucket.minutes,
     axis: unit === "day" ? dayLabel(bucket.key, { day: "numeric", month: "numeric" }) : monthInitial(bucket.key),
-    tip: <><strong>{capitalize(bucketLabel(unit, bucket.key))}</strong><span>{hours(bucket.minutes)} · {plural(bucket.trips, "trajet")}</span></>
+    tip: <><strong>{capitalize(bucketLabel(unit, bucket.key))}</strong><span>{hours(bucket.minutes)} en {plural(bucket.trips, "trajet")}</span></>
   }));
-  return <BarChart bars={bars} unit="Minutes" caption={unit === "day" ? "Minutes à vélo par jour" : "Minutes à vélo par mois"}
-    label={`Minutes à vélo par ${unit === "day" ? "jour" : "mois"}, ${hours(data.minutes)} au total`}/>;
+  return <BarChart bars={bars} unit="Minutes" caption={unit === "day" ? "Temps à vélo par jour" : "Temps à vélo par mois"}
+    label={`Temps à vélo par ${unit === "day" ? "jour" : "mois"}, ${hours(data.minutes)} au total`}/>;
 }
+
+const span = (label: string) => label === "30+" ? "30 min et plus" : `de ${label.replace("-", " à ")} min`;
 
 function Durations({ data }: { data: PeriodStats }) {
   const bars = data.durations.map((bucket) => ({
     label: `${bucket.label} min`, axis: bucket.label, value: bucket.count,
-    tip: <><strong>{bucket.label === "30+" ? "30 min et plus" : `De ${bucket.label.replace("-", " à ")} min`}</strong><span>{plural(bucket.count, "trajet")}</span></>
+    tip: <><strong>{capitalize(span(bucket.label))}</strong><span>{plural(bucket.count, "trajet")}</span></>
   }));
-  return <BarChart bars={bars} unit="Trajets" caption="Nombre de trajets par durée" label={`Durée des trajets, la plus fréquente ${[...bars].sort((left, right) => right.value - left.value)[0].label}`}/>;
+  const usual = [...data.durations].sort((left, right) => right.count - left.count)[0].label;
+  return <BarChart bars={bars} unit="Trajets" caption="Trajets selon leur durée" label={`Durée des trajets, le plus souvent ${span(usual)}`}/>;
 }
 
 function Heatmap({ data }: { data: PeriodStats }) {
@@ -254,7 +258,7 @@ function Heatmap({ data }: { data: PeriodStats }) {
   const cellHeight = (width: number) => Math.min(22, Math.max(12, (width - left) / 24));
   const busiest = rows.flatMap((row, day) => row.map((count, hour) => ({ day, hour, count }))).sort((one, other) => other.count - one.count)[0];
   return (
-    <Chart label={`Départs par jour et par heure. Créneau le plus fréquent : ${WEEKDAYS[busiest.day].toLowerCase()} de ${busiest.hour} h à ${busiest.hour + 1} h`} height={(width) => 7 * cellHeight(width) + 20}
+    <Chart label={`Départs selon le jour et l’heure, le plus souvent le ${WEEKDAYS[busiest.day].toLowerCase()} entre ${busiest.hour} h et ${busiest.hour + 1} h`} height={(width) => 7 * cellHeight(width) + 20}
         hit={(x, y, width) => {
           const column = Math.floor((x - left) / ((width - left) / 24));
           const row = Math.floor(y / cellHeight(width));
@@ -262,9 +266,9 @@ function Heatmap({ data }: { data: PeriodStats }) {
         }}
         tip={(index, width) => {
           const [day, hour] = [Math.floor(index / 24), index % 24];
-          return { x: left + (width - left) / 24 * (hour + .5), y: day * cellHeight(width), content: <><strong>{WEEKDAYS[day]}, {hour} h - {hour + 1} h</strong><span>{plural(rows[day][hour], "départ")}</span></> };
+          return { x: left + (width - left) / 24 * (hour + .5), y: day * cellHeight(width), content: <><strong>{WEEKDAYS[day]}, de {hour} h à {hour + 1} h</strong><span>{plural(rows[day][hour], "départ")}</span></> };
         }}
-        table={<><caption>Départs par jour de la semaine et par heure</caption><thead><tr><th scope="col">Jour</th>{rows[0].map((_, hour) => <th scope="col" key={hour}>{hour} h</th>)}</tr></thead><tbody>{rows.map((row, day) => <tr key={day}><th scope="row">{WEEKDAYS[day]}</th>{row.map((count, hour) => <td key={hour}>{count}</td>)}</tr>)}</tbody></>}>
+        table={<><caption>Départs selon le jour et l’heure</caption><thead><tr><th scope="col">Jour</th>{rows[0].map((_, hour) => <th scope="col" key={hour}>{hour} h</th>)}</tr></thead><tbody>{rows.map((row, day) => <tr key={day}><th scope="row">{WEEKDAYS[day]}</th>{row.map((count, hour) => <td key={hour}>{count}</td>)}</tr>)}</tbody></>}>
         {(width, active) => {
           const cellWidth = (width - left) / 24;
           const cell = cellHeight(width);
@@ -290,9 +294,9 @@ function Heatmap({ data }: { data: PeriodStats }) {
 function BikeTypes({ data }: { data: PeriodStats }) {
   const total = data.trips;
   const parts = [
-    { key: "electrical", label: "Électrique", count: data.bikeTypes.electrical },
-    { key: "mechanical", label: "Mécanique", count: data.bikeTypes.mechanical },
-    { key: "unknown", label: "Non renseigné", count: data.bikeTypes.unknown }
+    { key: "electrical", label: "Électrique", spoken: "en électrique", count: data.bikeTypes.electrical },
+    { key: "mechanical", label: "Mécanique", spoken: "en mécanique", count: data.bikeTypes.mechanical },
+    { key: "unknown", label: "Non renseigné", spoken: "sans type connu", count: data.bikeTypes.unknown }
   ].filter((part) => part.count > 0);
   const size = 168;
   const stroke = 24;
@@ -301,7 +305,7 @@ function BikeTypes({ data }: { data: PeriodStats }) {
   const share = (count: number) => `${Math.round(count / total * 100)}${" "}%`;
   return (
     <div className="donut">
-      <div className="donut-chart" style={{ width: size }}><Chart label={`Répartition par type de vélo : ${parts.map((part) => `${part.label.toLowerCase()} ${share(part.count)}`).join(", ")}`} height={size}
+      <div className="donut-chart" style={{ width: size }}><Chart label={`Trajets ${parts.map((part) => `${part.spoken} à ${share(part.count)}`).join(", ")}`} height={size}
         hit={(x, y) => {
           const [dx, dy] = [x - size / 2, y - size / 2];
           const distance = Math.hypot(dx, dy);
@@ -313,7 +317,7 @@ function BikeTypes({ data }: { data: PeriodStats }) {
         tip={(index) => {
           const before = parts.slice(0, index).reduce((sum, part) => sum + part.count, 0);
           const angle = ((before + parts[index].count / 2) / total) * 2 * Math.PI - Math.PI / 2;
-          return { x: size / 2 + Math.cos(angle) * radius, y: size / 2 + Math.sin(angle) * radius - 8, content: <><strong>{parts[index].label}</strong><span>{plural(parts[index].count, "trajet")} · {share(parts[index].count)}</span></> };
+          return { x: size / 2 + Math.cos(angle) * radius, y: size / 2 + Math.sin(angle) * radius - 8, content: <><strong>{parts[index].label}</strong><span>{plural(parts[index].count, "trajet")}, soit {share(parts[index].count)}</span></> };
         }}
         table={<><caption>Trajets par type de vélo</caption><tbody>{parts.map((part) => <tr key={part.key}><th scope="row">{part.label}</th><td>{part.count}</td></tr>)}</tbody></>}>
         {(_width, active) => {
@@ -349,7 +353,7 @@ function PointsChart({ data, available }: { data: PeriodStats; available: boolea
   const y = (value: number) => 12 + plot * (1 - (value - low) / span);
   const every = (width: number) => Math.max(1, Math.ceil(buckets.length * 38 / (width - AXIS)));
   return (
-    <Chart label={`Solde de points, de ${number(values[0])} à ${number(values.at(-1)!)}`} height={height}
+    <Chart label={`Solde passé de ${number(values[0])} à ${plural(values.at(-1)!, "point")}`} height={height}
       hit={(pointer, _y, width) => Math.max(0, Math.min(buckets.length - 1, Math.round((pointer - AXIS) / (width - AXIS - 8) * (buckets.length - 1))))}
       tip={(index, width) => ({ x: x(index, width), y: y(values[index]) - 6, content: <><strong>{capitalize(bucketLabel(unit, buckets[index].key))}</strong><span>{plural(values[index], "point")}</span></> })}
       table={<><caption>Solde de points par {unit === "day" ? "jour" : "mois"}</caption><thead><tr><th scope="col">Période</th><th scope="col">Points</th></tr></thead><tbody>{buckets.map((bucket, index) => <tr key={bucket.key}><th scope="row">{bucketLabel(unit, bucket.key)}</th><td>{values[index]}</td></tr>)}</tbody></>}>
@@ -372,13 +376,13 @@ function PointsChart({ data, available }: { data: PeriodStats; available: boolea
 function Records({ data }: { data: PeriodStats }) {
   const { longest, busiestDay, streak, bike } = data.records;
   const [bikeOpen, setBikeOpen] = useState(false);
-  const route = longest?.from && longest.to ? longest.from === longest.to ? longest.from : `${longest.from} → ${longest.to}` : null;
+  const route = longest?.from && longest.to ? longest.from === longest.to ? `aller-retour depuis ${longest.from}` : `de ${longest.from} à ${longest.to}` : null;
   return (
     <dl className="stat-records">
-      <div><dt>Plus long trajet</dt><dd><strong>{longest ? hours(longest.minutes) : "—"}</strong>{longest ? <small>{[longest.startedAt ? formatDate(longest.startedAt, { day: "numeric", month: "long", year: "numeric" }) : null, route].filter(Boolean).join(" · ")}</small> : null}</dd></div>
+      <div><dt>Plus long trajet</dt><dd><strong>{longest ? hours(longest.minutes) : "—"}</strong>{longest ? <small>{capitalize([longest.startedAt ? `le ${formatDate(longest.startedAt, { day: "numeric", month: "long", year: "numeric" })}` : null, route].filter(Boolean).join(", "))}</small> : null}</dd></div>
       <div><dt>Jour le plus actif</dt><dd><strong>{busiestDay ? plural(busiestDay.trips, "trajet") : "—"}</strong>{busiestDay ? <small>{capitalize(dayLabel(busiestDay.day, { weekday: "long", day: "numeric", month: "long", year: "numeric" }))}</small> : null}</dd></div>
-      <div><dt>Série de jours consécutifs</dt><dd><strong>{streak ? plural(streak.days, "jour") : "—"}</strong>{streak && streak.days > 1 ? <small>Du {dayLabel(streak.from, { day: "numeric", month: "long" })} au {dayLabel(streak.to, { day: "numeric", month: "long", year: "numeric" })}</small> : null}</dd></div>
-      <div><dt>Vélo le plus emprunté</dt><dd>{bike ? <><button className="stat-bike" onClick={() => setBikeOpen(true)} aria-label={`Voir la fiche du vélo ${bike.number}`}>N° {bike.number}</button><small>{plural(bike.count, "trajet")}{bike.type === "electrical" ? " · Électrique" : bike.type === "mechanical" ? " · Mécanique" : ""}</small></> : <strong>—</strong>}</dd></div>
+      <div><dt>Plus longue série</dt><dd><strong>{streak ? plural(streak.days, "jour") : "—"}</strong>{streak && streak.days > 1 ? <small>Du {dayLabel(streak.from, { day: "numeric", month: "long" })} au {dayLabel(streak.to, { day: "numeric", month: "long", year: "numeric" })}</small> : null}</dd></div>
+      <div><dt>Vélo le plus emprunté</dt><dd>{bike ? <><button className="stat-bike" onClick={() => setBikeOpen(true)} aria-label={`Voir la fiche du vélo ${bike.number}`}>N° {bike.number}</button><small>{plural(bike.count, "trajet")}{bike.type === "electrical" ? " en électrique" : bike.type === "mechanical" ? " en mécanique" : ""}</small></> : <strong>—</strong>}</dd></div>
       {bikeOpen && bike ? <BikeDrawer number={bike.number} onClose={() => setBikeOpen(false)}/> : null}
     </dl>
   );
