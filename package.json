@@ -6,7 +6,7 @@
   "homepage": "https://velovplus.vercel.app",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/DailyXplorer/velov-compagnon.git"
+    "url": "git+https://github.com/DailyXplorer/velov-plus.git"
   },
   "type": "module",
   "engines": {
