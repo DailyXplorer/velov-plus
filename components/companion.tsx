@@ -172,6 +172,7 @@ export function Companion({ initialSession }: { initialSession: boolean }) {
     session.current.end();
     forgetStats();
     setState({ kind: "loading" });
+    dashboardInFlight.current = false;
     void loadDashboard();
     void loadStations();
     void loadBookings();
