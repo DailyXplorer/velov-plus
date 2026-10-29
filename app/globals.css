@@ -5,7 +5,6 @@
   --line: rgba(28, 23, 23, .08);
   --red: #df2537;
   --red-deep: #c91f30;
-  --red-tint: #f9e0e3;
   --mist: #f5f2f2;
   --white: #fff;
   --on-dark: rgba(255, 255, 255, .7);
@@ -495,7 +494,6 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
 .card-tag.bike-pick { z-index: auto; }
 .account-logout { max-width: 560px; margin-top: 40px; }
 .account-logout > .button { width: 100%; min-height: 48px; margin-left: 0; color: var(--red-deep); box-shadow: inset 0 0 0 1px var(--red); }
-.account-logout > .button:hover { color: var(--red-deep); background: var(--red-tint); box-shadow: inset 0 0 0 1px var(--red); }
 .user-position.leaflet-marker-icon { display: grid; place-items: center; border: 0; background: transparent; }
 .user-position > span { display: block; width: 18px; height: 18px; border: 3px solid var(--red); border-radius: 50%; background: var(--white); box-shadow: 0 0 0 7px rgba(223, 37, 55, .16); }
 .station-distance { color: var(--ink-soft); font-size: 13px; font-weight: 500; white-space: nowrap; }
