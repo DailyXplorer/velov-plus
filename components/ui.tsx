@@ -35,8 +35,9 @@ export function CardTag({ icon: TagIcon, children }: { icon: Icon; children: Rea
   return <span className="card-tag"><span className="card-tag-icon"><TagIcon size={13} weight="bold" aria-hidden="true"/></span>{children}</span>;
 }
 
-/** `hideLabel` keeps the label for screen readers only, when the selected value already says what the control is. */
-export function SelectField<T extends string>({ label, hideLabel = false, value, options, onChange }: { label: string; hideLabel?: boolean; value: T; options: { value: T; label: string }[]; onChange: (value: T) => void }) {
+/** `hideLabel` keeps the label for screen readers only, when the selected value already says what the control is.
+ * `short` is the trigger's label on phones; the popover always lists the full labels. */
+export function SelectField<T extends string>({ label, hideLabel = false, value, options, onChange, className = "" }: { label: string; hideLabel?: boolean; value: T; options: { value: T; label: string; short?: string }[]; onChange: (value: T) => void; className?: string }) {
   const id = useId();
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
@@ -97,14 +98,18 @@ export function SelectField<T extends string>({ label, hideLabel = false, value,
   }
 
   return (
-    <div className="select-field">
+    <div className={`select-field ${className}`}>
       <span className={hideLabel ? "sr-only" : "select-label"} id={`${id}-label`}>{label}</span>
       <div className="select-control" ref={root}>
         <button ref={trigger} type="button" className="select-trigger" aria-haspopup="listbox" aria-expanded={open}
           aria-controls={open ? `${id}-list` : undefined} aria-labelledby={`${id}-label ${id}-value`}
           onClick={() => (open ? close() : show())} onKeyDown={onTriggerKeyDown}>
           <span className="select-value" id={`${id}-value`}>
-            {options.map((option, index) => <span key={option.value} aria-hidden={index !== selected || undefined}>{option.label}</span>)}
+            {options.map((option, index) => (
+              <span key={option.value} aria-hidden={index !== selected || undefined}>
+                {option.short ? <><span className="select-long">{option.label}</span><span className="select-short">{option.short}</span></> : option.label}
+              </span>
+            ))}
           </span>
           <span className="select-chevron"><ArrowRightIcon size={13} weight="bold" aria-hidden="true"/></span>
         </button>

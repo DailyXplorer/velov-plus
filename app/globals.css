@@ -201,13 +201,20 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
 .movement-amount.is-credit { color: var(--red); }
 /* Search, filter and location on one row; the search takes what is left and the row wraps when it would get too narrow. */
 .stations-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 20px; }
-.stations-toolbar .select-field { flex: none; }
 .stations-toolbar .button-secondary { background: var(--white); box-shadow: var(--shadow-ring); }
 .stations-toolbar .button-secondary:hover { box-shadow: var(--shadow-ring-hover); }
-.search-field { display: flex; flex: 1 1 260px; align-items: center; gap: 10px; min-width: 0; padding: 0 7px 0 16px; cursor: text; }
+/* One pill: search on the left, the filter as a borderless trigger after a divider, its popover under the pill's right edge. */
+.search-field { position: relative; display: flex; flex: 0 1 560px; align-items: center; min-width: 0; padding: 0 7px 0 16px; }
+.search-input { display: flex; flex: 1 1 45%; align-items: center; gap: 10px; min-width: 45%; cursor: text; }
 .search-field input { width: 100%; min-width: 0; padding: 10px 0; border: 0; outline: none; background: transparent; color: var(--ink); font-size: inherit; letter-spacing: inherit; }
 .search-field .icon-button { width: 28px; height: 28px; color: var(--ink); background: var(--mist); }
 .search-field .icon-button:hover { background: var(--ink-line); }
+.select-inline { flex: 0 1 auto; gap: 0; }
+.select-inline::before { content: ""; flex: none; width: 1px; height: 22px; margin-left: 10px; background: var(--ink-line); }
+.select-inline .select-control { position: static; }
+.select-inline .select-trigger, .select-inline .select-trigger:hover, .select-inline .select-trigger[aria-expanded="true"] { min-height: 0; height: 42px; padding: 0 0 0 14px; background: transparent; box-shadow: none; font-size: 14px; }
+.select-inline .select-popover { left: auto; right: 0; min-width: 220px; }
+.select-short { display: none; }
 .stations-explorer { display: grid; grid-template-columns: 296px minmax(0, 1fr); gap: 24px; height: 560px; }
 .stations-list { min-width: 0; overflow-y: auto; padding: 0 6px 0 0; }
 .station-item { display: block; width: 100%; padding: 16px 15px; border: 0; border-radius: 12px; background: var(--white); text-align: left; transition: background-color .2s ease; }
@@ -352,10 +359,14 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
   .earn-rule strong { font-size: 23px; }
   .movement-description strong { font-size: 13px; }
   .movement-description small { font-size: 11px; }
-  /* Search and the location button on the first row, the filter alone on the second. */
-  .stations-toolbar { gap: 8px; }
-  .stations-toolbar .search-field { flex-basis: calc(100% - 50px); }
-  .stations-toolbar .select-field { order: 1; }
+  .stations-toolbar { flex-wrap: nowrap; gap: 8px; }
+  .stations-toolbar .search-field { flex: 1 1 0; padding-left: 14px; }
+  .select-inline::before { margin-left: 8px; }
+  .select-inline .select-trigger, .select-inline .select-trigger:hover, .select-inline .select-trigger[aria-expanded="true"] { gap: 8px; padding-left: 10px; }
+  .select-inline .select-long { display: none; }
+  .select-inline .select-short { display: inline; }
+  /* Sized to the chosen value: every saved pixel goes to the input. */
+  .select-inline .select-value > [aria-hidden] { display: none; }
   .stations-toolbar .button { width: 42px; padding: 0; }
   .location-label { display: none; }
   /* 16px keeps iOS from zooming into a focused field. */

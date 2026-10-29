@@ -255,12 +255,15 @@ export function StationsPage({ resource, reload, reloading, favorites: favoriteL
   return (
     <div className="page-content stations-page">
       <div className="stations-toolbar">
-        <label className="search-field"><MagnifyingGlassIcon size={19} weight="light" aria-hidden="true"/>
-          <input aria-label="Rechercher une station" placeholder="Rechercher une station" value={query} onChange={(event) => { setQuery(event.target.value); }}/>
-          {query ? <button className="icon-button" aria-label="Effacer la recherche" onClick={() => setQuery("")}><XIcon size={16} weight="light"/></button> : null}
-        </label>
-        <SelectField label="Afficher" hideLabel value={filter} onChange={(value) => { setFilter(value); }}
-          options={[{ value: "all", label: "Toutes les stations" }, { value: "favorites", label: "Favorites" }, { value: "available", label: "Vélos disponibles" }, { value: "electrical", label: "Vélos électriques" }, { value: "stands", label: "Places libres" }]}/>
+        {/* The filter sits outside the label: a click in its popover would otherwise also focus the input. */}
+        <div className="search-field">
+          <label className="search-input"><MagnifyingGlassIcon size={19} weight="light" aria-hidden="true"/>
+            <input aria-label="Rechercher une station" placeholder={phone ? "Rechercher" : "Rechercher une station"} value={query} onChange={(event) => { setQuery(event.target.value); }}/>
+            {query ? <button className="icon-button" aria-label="Effacer la recherche" onClick={() => setQuery("")}><XIcon size={16} weight="light"/></button> : null}
+          </label>
+          <SelectField className="select-inline" label="Afficher" hideLabel value={filter} onChange={(value) => { setFilter(value); }}
+            options={[{ value: "all", label: "Toutes les stations", short: "Toutes" }, { value: "favorites", label: "Favorites" }, { value: "available", label: "Vélos disponibles", short: "Vélos dispo" }, { value: "electrical", label: "Vélos électriques", short: "Électriques" }, { value: "stands", label: "Places libres", short: "Places" }]}/>
+        </div>
         <Button variant="secondary" pending={locating} onClick={locate} aria-label="Stations autour de moi" title="Autour de moi"><NavigationArrowIcon size={18} weight="light"/><span className="location-label">Autour de moi</span></Button>
       </div>
       {locationError ? <p className="inline-notice" role="status">{locationError}</p> : null}
