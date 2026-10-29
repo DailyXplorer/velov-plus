@@ -68,12 +68,20 @@ test("after a failure whose outcome is uncertain, the dialog says so and offers 
   assert.match(invite, /: uncertain \? <Button variant="secondary"[^\n]*>Vérifier mon solde<\/Button>\n\s+: !settled \? <Button[^\n]*>Confirmer</);
 });
 
-test("the exceptions keep their result: the invite code with Copier and Fermer, the inline rating thanks", () => {
+test("the invite code keeps its result with Copier and Fermer", () => {
   const invite = source("components/invite-friend.tsx");
   assert.match(invite, /settled \? "Fermer" : "Annuler"/);
   assert.match(invite, /"Copié" : "Copier"/);
+});
+
+test("a successful rating shows nothing: the trip-ended sheet closes and the detail sheet drops the rating card", () => {
   const rating = source("components/trip-sheet.tsx");
-  assert.match(rating, /Merci ! \+5 points<\/p>/);
+  assert.doesNotMatch(rating, /Merci|trip-rate-done|kind: "done" \}/);
+  assert.match(rating, /function rated\(\) \{\n\s+ratedHere\.add\(trip\.id\);\n\s+onRated\(\);\n\s+\}/);
+  assert.match(rating, /<RateBike trip=\{trip\} bikeNumber=\{trip\.bikeNumber\} onLater=\{close\} onRated=\{close\}\/>/);
+  assert.match(rating, /const rated = trip\.isRated === true \|\| ratedHere\.has\(trip\.id\) \|\| ratedNow === trip\.id;/);
+  assert.match(rating, /\{!rated && [^\n]*<RateBike [^\n]*onRated=\{\(\) => setRatedNow\(trip\.id\)\}\/>/);
+  assert.doesNotMatch(source("app/globals.css"), /trip-rate-done/);
 });
 
 test("the unlock instruction is given before confirming, since the sheet closes on success", () => {

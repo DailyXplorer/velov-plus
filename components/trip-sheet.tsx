@@ -32,10 +32,10 @@ function Stop({ label, station, stand }: { label: string; station: string | null
   return <div><small>{label}</small><span>{station ?? "Non renseignée"}{stand != null ? <span className="trip-stand">Borne {stand}</span> : null}</span></div>;
 }
 
-type RatingStep = { kind: "choose"; failure?: Outcome } | { kind: "sending" } | { kind: "uncertain"; failure: Outcome; checking: boolean } | { kind: "done" };
+type RatingStep = { kind: "choose"; failure?: Outcome } | { kind: "sending" } | { kind: "uncertain"; failure: Outcome; checking: boolean };
 const starNumbers: Stars[] = [1, 2, 3, 4, 5];
 
-function RateBike({ trip, bikeNumber, onLater }: { trip: Trip; bikeNumber: number; onLater: () => void }) {
+function RateBike({ trip, bikeNumber, onLater, onRated }: { trip: Trip; bikeNumber: number; onLater: () => void; onRated: () => void }) {
   const [stars, setStars] = useState<Stars | null>(null);
   const [step, setStep] = useState<RatingStep>({ kind: "choose" });
   const inFlight = useRef(false);
@@ -53,7 +53,7 @@ function RateBike({ trip, bikeNumber, onLater }: { trip: Trip; bikeNumber: numbe
 
   function rated() {
     ratedHere.add(trip.id);
-    setStep({ kind: "done" });
+    onRated();
   }
 
   async function verify(failure: Outcome) {
@@ -66,7 +66,6 @@ function RateBike({ trip, bikeNumber, onLater }: { trip: Trip; bikeNumber: numbe
     else setStep(settled.kind === "refused" ? { kind: "choose", failure: settled.outcome } : { kind: "uncertain", failure, checking: false });
   }
 
-  if (step.kind === "done") return <p className="trip-rate-done" role="status"><CheckIcon size={16} weight="bold" aria-hidden="true"/>Merci ! +5 points</p>;
   const sending = step.kind === "sending" || step.kind === "uncertain";
   return (
     <section className="trip-rate" aria-labelledby="trip-rate-title">
@@ -107,8 +106,9 @@ function CopyCode({ token }: { token: string }) {
 
 export function TripSheet({ trip, onClose }: { trip: Trip; onClose: () => void }) {
   const [bikeOpen, setBikeOpen] = useState(false);
+  const [ratedNow, setRatedNow] = useState<string | null>(null);
   const points = pointsLine(trip);
-  const rated = trip.isRated === true || ratedHere.has(trip.id);
+  const rated = trip.isRated === true || ratedHere.has(trip.id) || ratedNow === trip.id;
   const sameStation = trip.startStationNumber != null && trip.startStationNumber === trip.endStationNumber;
   const subject = `Trajet litigieux${trip.token ? ` ${trip.token}` : ""}`;
   return (
@@ -135,7 +135,7 @@ export function TripSheet({ trip, onClose }: { trip: Trip; onClose: () => void }
             <a className="text-link" href={`mailto:contact.velov@jcdecaux.com?subject=${encodeURIComponent(subject)}`}>Contacter le service client</a>
           </div>
         ) : null}
-        {!rated && trip.bikeNumber != null && canRate(trip) ? <RateBike trip={trip} bikeNumber={trip.bikeNumber} onLater={() => { dismissTrip(localStorage, trip.id); onClose(); }}/> : null}
+        {!rated && trip.bikeNumber != null && canRate(trip) ? <RateBike trip={trip} bikeNumber={trip.bikeNumber} onLater={() => { dismissTrip(localStorage, trip.id); onClose(); }} onRated={() => setRatedNow(trip.id)}/> : null}
         <details className="bike-more">
           <summary>Détails<CaretDownIcon size={14} weight="bold" aria-hidden="true"/></summary>
           <div className="detail-type">
@@ -171,7 +171,7 @@ export function TripEndedSheet({ trip, onClose }: { trip: Trip; onClose: () => v
         <span><small>Durée</small><strong>{trip.duration != null ? `${trip.duration} min` : "—"}</strong></span>
         <span><small>Prix</small><strong>{trip.price != null ? formatPrice(trip.price) : "—"}</strong></span>
       </div>
-      {rateable && trip.bikeNumber != null ? <RateBike trip={trip} bikeNumber={trip.bikeNumber} onLater={close}/>
+      {rateable && trip.bikeNumber != null ? <RateBike trip={trip} bikeNumber={trip.bikeNumber} onLater={close} onRated={close}/>
         : <div className="modal-actions"><Button variant="secondary" onClick={close}>Fermer</Button></div>}
     </Modal>
   );
