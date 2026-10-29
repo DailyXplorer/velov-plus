@@ -114,7 +114,7 @@ export function Overview({ data, stations, navigate, reload, reloading }: { data
         <div className="overview-map">
           <StationMap stations={nearby} selected={chosen?.id ?? null} onSelect={setSelectedStation}/>
           {stations.kind === "error" ? <div className="map-error" role="status">{stations.message}<Button variant="secondary" pending={reloading} onClick={reload}>Réessayer</Button></div> : null}
-          {phone ? <button className="map-explore" onClick={() => navigate("stations")}><span>Toucher pour explorer</span></button> : null}
+          {phone ? <button className="map-explore" aria-label="Explorer les stations" onClick={() => navigate("stations")}/> : null}
           {chosen ? (
             <div className="map-station-card">
               <div className="station-card-heading"><strong>{chosen.name}</strong><button className="icon-button" aria-label="Voir les stations" onClick={() => navigate("stations")}><CaretRightIcon size={18} weight="light"/></button></div>
