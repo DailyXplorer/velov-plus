@@ -98,7 +98,7 @@ test("F1: unlock and booking go through the shared operation store, and the draw
   assert.match(bike, /useOperation\(`book:\$\{place\.bikeNumber\}`\)/);
   assert.doesNotMatch(bike, /inFlight/);
   assert.match(bike, /reserving && !wantsUnlock \?/);
-  assert.match(bike, /useEffect\(\(\) => \{ if \(bookedNow\) operations\.clear\(`book:\$\{place\.bikeNumber\}`\); \}/);
+  assert.match(bike, /useEffect\(\(\) => \{ if \(bookedNow\) \{ operations\.clear\(`book:\$\{place\.bikeNumber\}`\); setFailure\(null\); setStep\(\{ kind: "start" \}\); \} \}/);
   assert.match(bike, /<Modal titleId="booking-unlock-title" onClose=\{sending \? \(\) => \{\} : onClose\}>/);
   const drawer = source("components/station-bikes.tsx");
   assert.match(drawer, /function back\(\) \{\n\s+if \(sending\) return;/);
@@ -112,7 +112,8 @@ test("F2: the invite state lives in the store, Obtenir un code keeps it, and a r
   const invite = source("components/invite-friend.tsx");
   assert.match(invite, /runOnce\(operations, operationKey, [\s\S]*?\{ keep: true, meta: \{ cost, balance: balance \?\? -1 \} \}\)/);
   assert.match(invite, /function open\(\) \{\n\s+if \(!operation\) setOutcome\(null\);/);
-  assert.match(invite, /uncertain && verification\?\.kind === "not-debited" \? <Button onClick=\{retry\}>Je n’ai pas été débité, réessayer<\/Button>/);
+  assert.match(invite, /uncertain && verification\?\.kind === "not-debited" \? <Button onClick=\{retry\}>Réessayer<\/Button>/);
+  assert.doesNotMatch(invite, /débité, réessayer/);
   assert.match(invite, /function retry\(\) \{\n\s+if \(!operationKey \|\| verification\?\.kind !== "not-debited"\) return;/);
   assert.doesNotMatch(invite, /pendingAccounts|finally \{/);
   assert.match(invite, /inviteDebit\(before, \{ balance: data\.rewards\.balance, movements: data\.rewards\.movements \}, Date\.now\(\)\)/);
@@ -146,4 +147,15 @@ test("F4: contact and extra time keep their state per account outside the dialog
   assert.match(via, /\{ keep: true, meta: \{ number: station\.number, name: station\.name \} \}/);
   assert.match(via, /\{\(reviewing \|\| held\) && station \?/);
   assert.doesNotMatch(via, /setOpen\(false\); setReviewing\(false\); setFailure\(null\); \} \}\n[^\n]*setFailure\(null\);\s*\}/);
+});
+
+test("a booking confirmed by the bookings reread leaves the uncertain message for the booked sheet", () => {
+  const bike = source("components/bike-actions.tsx");
+  assert.match(bike, /const bookedNow = booking !== null && reserving\?\.status === "uncertain";/);
+  assert.match(bike, /if \(bookedNow\) \{ operations\.clear\([^)]*\); setFailure\(null\); setStep\(\{ kind: "start" \}\);/);
+  assert.match(bike, /\{booking \? <p className="bike-action-mine"><BookedUntil endsAt=\{booking\.endsAt\}\/><\/p> : null\}/);
+});
+
+test("the README says unlock and booking come back two minutes after an uncertain result", () => {
+  assert.match(source("README.md"), /Le déverrouillage et la réservation font exception\. Une fois passé le délai de soixante secondes pour retirer le vélo, ils sont de nouveau proposés deux minutes après un résultat incertain, même si aucune relecture ne l’a vérifié\./);
 });

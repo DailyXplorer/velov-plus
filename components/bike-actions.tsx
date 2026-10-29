@@ -101,7 +101,7 @@ export function BikeActions({ place, booking = null, initial, onDone }: { place:
   const held = unlocking ? { action: "unlock" as const, operation: unlocking } : reserving && !wantsUnlock ? { action: "book" as const, operation: reserving } : null;
   const bookedNow = booking !== null && reserving?.status === "uncertain";
 
-  useEffect(() => { if (bookedNow) operations.clear(`book:${place.bikeNumber}`); }, [bookedNow, place.bikeNumber]);
+  useEffect(() => { if (bookedNow) { operations.clear(`book:${place.bikeNumber}`); setFailure(null); setStep({ kind: "start" }); } }, [bookedNow, place.bikeNumber]);
   const step: Step = held && chosen.kind !== "expired" ? { kind: held.operation.status === "sending" ? "sending" : "confirm", action: held.action } : chosen;
   const failure = held ? held.operation.outcome : refused;
 

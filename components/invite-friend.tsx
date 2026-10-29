@@ -132,7 +132,7 @@ export function InviteFriend({ cost, balance, account, onChanged }: { onChanged:
       {warning ? <p className="form-error" role="alert">{warning}</p> : null}
       <div className="modal-actions">
         <Button variant="ghost" disabled={blocked} onClick={close}>{settled ? "Fermer" : "Annuler"}</Button>
-        {uncertain && verification?.kind === "not-debited" ? <Button onClick={retry}>Je n’ai pas été débité, réessayer</Button>
+        {uncertain && verification?.kind === "not-debited" ? <Button onClick={retry}>Réessayer</Button>
           : uncertain ? <Button variant="secondary" pending={verification?.kind === "checking"} onClick={() => void verify()}>Vérifier mon solde</Button>
           : !settled ? <Button pending={pending} disabled={!canObtain} onClick={() => void confirm()}>Confirmer</Button> : null}
       </div>
