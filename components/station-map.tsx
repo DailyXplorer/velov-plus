@@ -57,7 +57,7 @@ export default function StationMap({ stations, selected, onSelect, onClear, user
     const hint = document.createElement("div");
     hint.className = "map-wheel-hint";
     hint.textContent = /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘ + molette pour zoomer" : "Ctrl + molette pour zoomer";
-    host.appendChild(hint);
+    (host.parentElement ?? host).appendChild(hint); // above the station card, which sits outside the map's stacking context
     let hide = 0;
     const onWheel = (event: WheelEvent) => {
       if (event.ctrlKey || event.metaKey || !host.contains(event.target as Node)) return;

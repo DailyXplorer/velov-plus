@@ -629,6 +629,6 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
   .mobile-navigation button { color: var(--ink); }
   .mobile-navigation button.active { color: var(--white); }
 }
-.map-wheel-hint { position: absolute; inset: 0; z-index: 1000; display: grid; place-items: center; color: var(--white); background: rgba(28, 23, 23, .45); font-family: var(--font); font-size: 18px; opacity: 0; pointer-events: none; transition: opacity .25s ease; }
+.map-wheel-hint { position: absolute; inset: 0; z-index: 6; border-radius: inherit; display: grid; place-items: center; color: var(--white); background: rgba(28, 23, 23, .45); font-family: var(--font); font-size: 18px; opacity: 0; pointer-events: none; transition: opacity .25s ease; }
 .map-wheel-hint.is-visible { opacity: 1; }
 @media (prefers-reduced-motion: reduce) { .map-wheel-hint { transition: none; } }
