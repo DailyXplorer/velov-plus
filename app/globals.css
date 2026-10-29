@@ -606,7 +606,6 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
 @media (max-width: 620px) {
   .points-summary { gap: 10px; }
   .points-summary > div { gap: 16px; padding: 16px 16px 18px; }
-  .points-balance, .points-total { font-size: 40px; }
 }
 .brand-plus { color: var(--red); }
 /* Logout: filled red, white text and icon (owner request). */
@@ -738,3 +737,6 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
 /* Station counts: each uppercase label on one line ("Places libres" used to wrap). */
 .station-numbers { grid-template-columns: repeat(3, auto); justify-content: space-between; gap: 8px 12px; }
 .station-numbers small { white-space: nowrap; }
+/* Points figures: no "points" unit, and big numbers shrink to fit their card instead of overflowing. */
+.points-balance, .points-total { font-size: clamp(28px, 30cqi, 64px) !important; white-space: nowrap; }
+.points-summary > div { container-type: inline-size; }

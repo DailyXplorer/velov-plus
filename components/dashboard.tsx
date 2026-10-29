@@ -164,8 +164,8 @@ export function PointsPage({ data, onAutoSpend, onChanged }: { onChanged: () => 
   return (
     <div className="page-content">
       <div className="points-summary">
-        <div><Eyebrow icon={StarFourIcon}>Solde actuel</Eyebrow><strong className="points-balance">{data.rewards.balance ?? "—"}<span>points</span></strong></div>
-        <div><Eyebrow icon={TrendUpIcon}>Total gagné</Eyebrow><strong className="points-total">{data.rewards.total?.toLocaleString("fr-FR") ?? "—"}<span>points</span></strong></div>
+        <div><Eyebrow icon={StarFourIcon}>Solde actuel</Eyebrow><strong className="points-balance">{data.rewards.balance?.toLocaleString("fr-FR") ?? "—"}</strong></div>
+        <div><Eyebrow icon={TrendUpIcon}>Total gagné</Eyebrow><strong className="points-total">{data.rewards.total?.toLocaleString("fr-FR") ?? "—"}</strong></div>
       </div>
       <AutoSpendSetting value={data.rewards.autoSpend} onChanged={onAutoSpend}/>
       <InviteFriend key={data.profile.email} account={data.profile.email} onChanged={onChanged} cost={invite?.points ?? null} balance={data.rewards.balance}/>
@@ -439,8 +439,8 @@ export function PointsSkeleton() {
   return (
     <div className="page-content" aria-busy="true" aria-label="Chargement des points">
       <div className="points-summary" aria-hidden="true">
-        <div className="skeleton"><Eyebrow icon={StarFourIcon}>Solde actuel</Eyebrow><strong className="points-balance">0<span>points</span></strong></div>
-        <div className="skeleton"><Eyebrow icon={TrendUpIcon}>Total gagné</Eyebrow><strong className="points-total">0<span>points</span></strong></div>
+        <div className="skeleton"><Eyebrow icon={StarFourIcon}>Solde actuel</Eyebrow><strong className="points-balance">0</strong></div>
+        <div className="skeleton"><Eyebrow icon={TrendUpIcon}>Total gagné</Eyebrow><strong className="points-total">0</strong></div>
       </div>
       <div className="setting-row skeleton" aria-hidden="true"><div><span className="metric-label">Utilisation automatique</span><strong className="setting-value">Activée</strong></div><span className="switch"/></div>
       <div className="soon-row invite-row skeleton" aria-hidden="true">
