@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
+import { type ReactNode, createContext, useContext, useEffect, useState } from "react";
 import { z } from "zod";
 import { ClockIcon, LockOpenIcon, TimerIcon, WarningIcon, XIcon } from "./icons";
 import { BOOKING_MINUTES, BOOKING_POINTS, RELEASE_DISTANCE, type Booking, type Outcome, bookingSchema, capitalize, formatDate } from "@/lib/models";
@@ -57,7 +57,7 @@ function Raw({ outcome, extra }: { outcome: Outcome; extra?: string }) {
   return <p className="bike-action-raw">{parts.join(" · ")}</p>;
 }
 
-function Confirm({ action, place, onCancel, onClose, onConfirm, onVerify, sending, checking, uncertain }: { action: Action; place: Place; onCancel: () => void; onClose: () => void; onConfirm: () => void; onVerify: () => void; sending: boolean; checking: boolean; uncertain: boolean }) {
+function Confirm({ action, place, onCancel, onClose, onConfirm, onVerify, sending, checking, uncertain, children }: { action: Action; place: Place; onCancel: () => void; onClose: () => void; onConfirm: () => void; onVerify: () => void; sending: boolean; checking: boolean; uncertain: boolean; children: ReactNode }) {
   const distance = useKnownDistance(place);
   const far = distance != null && distance > RELEASE_DISTANCE;
   return (
@@ -66,6 +66,7 @@ function Confirm({ action, place, onCancel, onClose, onConfirm, onVerify, sendin
       {action === "book" ? <p className="bike-action-note">{BOOKING_POINTS} points pour garder ce vélo {BOOKING_MINUTES} minutes.</p>
         : <p className="bike-action-note bike-action-warning">Vous aurez ensuite 60 secondes pour appuyer sur le bouton de la borne {place.standNumber} et retirer le vélo.</p>}
       {action === "unlock" && far ? <p className="bike-action-far" role="alert"><WarningIcon size={16} weight="bold" aria-hidden="true"/>Vous semblez être à plus de {RELEASE_DISTANCE} m de la station. Si quelqu’un d’autre prend le vélo, le trajet vous sera facturé.</p> : null}
+      {children}
       <div className="bike-action-buttons">
         {uncertain ? <><Button variant="ghost" onClick={onClose}>Fermer</Button><Button variant="secondary" pending={checking} onClick={onVerify}>Vérifier</Button></> : <>
           <Button variant="ghost" disabled={sending} onClick={onCancel}>Annuler</Button>
@@ -154,9 +155,10 @@ export function BikeActions({ place, booking = null, initial, onDone }: { place:
         </>
       ) : (
         <>
-          <Confirm action={step.action} place={place} sending={step.kind === "sending"} checking={checking} onVerify={() => void verify(step.action)} uncertain={failure !== null && isUncertain(failure)} onCancel={() => { setFailure(null); setNotice(null); setStep({ kind: "start" }); }} onClose={onDone} onConfirm={() => void send(step.action)}/>
-          {notice ? <p className="form-error" role="alert">{notice}</p> : null}
-          {failure ? <><p className="form-error" role="alert">{failure.message ?? (step.action === "book" ? "Réservation impossible." : "Déverrouillage impossible.")}</p><Raw outcome={failure}/>{isUncertain(failure) ? <p className="uncertain-note">{step.action === "unlock" ? UNCERTAIN_UNLOCK : UNCERTAIN}</p> : null}</> : null}
+          <Confirm action={step.action} place={place} sending={step.kind === "sending"} checking={checking} onVerify={() => void verify(step.action)} uncertain={failure !== null && isUncertain(failure)} onCancel={() => { setFailure(null); setNotice(null); setStep({ kind: "start" }); }} onClose={onDone} onConfirm={() => void send(step.action)}>
+            {notice ? <p className="form-error" role="alert">{notice}</p> : null}
+            {failure ? <><p className="form-error" role="alert">{failure.message ?? (step.action === "book" ? "Réservation impossible." : "Déverrouillage impossible.")}</p><Raw outcome={failure}/>{isUncertain(failure) ? <p className="uncertain-note">{step.action === "unlock" ? UNCERTAIN_UNLOCK : UNCERTAIN}</p> : null}</> : null}
+          </Confirm>
         </>
       )}
     </section>

@@ -146,7 +146,7 @@ function BikeSheet({ item, actions }: { item: AssessedBike; actions?: ReactNode 
       {actions}
       <dl className="account-details bike-details">
         <div><dt>Note</dt><dd>{bike.rating && rating != null ? (
-          <><span className="bike-rating"><Stars value={rating}/>{formatScore(rating)}<span className="bike-out-of">/5</span></span><small>{bike.rating.count} avis{fromNow(bike.rating.lastAt) ? ` · Dernier avis ${fromNow(bike.rating.lastAt)}` : ""}</small></>
+          <><span className="bike-rating"><Stars value={rating}/><span>{formatScore(rating)}<span className="bike-out-of">/5</span></span></span><small>{bike.rating.count} avis{fromNow(bike.rating.lastAt) ? ` · Dernier avis ${fromNow(bike.rating.lastAt)}` : ""}</small></>
         ) : "Pas encore d’avis"}</dd></div>
         {bike.type === "electrical" ? <div><dt>Batterie</dt><dd>{bike.batteryPercent != null ? <BatteryLevel percent={bike.batteryPercent}/> : "Non renseigné"}</dd></div> : null}
         <DateFact label="Dernier trajet" value={bike.lastTripAt} withAgo/>
@@ -194,7 +194,7 @@ function BikeSheetSkeleton() {
     <div className="bike-sheet" aria-busy="true" aria-label="Chargement du vélo">
       <div className="detail-type"><span className="eyebrow skeleton" aria-hidden="true"><span className="eyebrow-icon"/>Mécanique</span></div>
       <dl className="account-details bike-details">
-        <div><dt>Note</dt><dd><span className="bike-rating skeleton-text" aria-hidden="true"><Stars value={4.5}/>4,5<span className="bike-out-of">/5</span></span><small><Ghost>12 avis · Dernier avis il y a 3 j</Ghost></small></dd></div>
+        <div><dt>Note</dt><dd><span className="bike-rating skeleton-text" aria-hidden="true"><Stars value={4.5}/><span>4,5<span className="bike-out-of">/5</span></span></span><small><Ghost>12 avis · Dernier avis il y a 3 j</Ghost></small></dd></div>
         <div><dt>Dernier trajet</dt><dd>{twoLines}</dd></div>
         <div><dt>Prochain contrôle</dt><dd>{twoLines}</dd></div>
         <div><dt>Borne</dt><dd><Ghost>12</Ghost></dd></div>

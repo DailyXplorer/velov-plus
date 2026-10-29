@@ -298,7 +298,7 @@ export function Companion({ initialSession }: { initialSession: boolean }) {
             </div>
             {logoutError ? <p className="form-error" role="alert">{logoutError}</p> : null}
             <div className="modal-actions">
-              <Button variant="secondary" onClick={() => setLogoutOpen(false)}>Annuler</Button>
+              <Button variant="ghost" disabled={loggingOut} onClick={() => setLogoutOpen(false)}>Annuler</Button>
               <Button pending={loggingOut} onClick={() => void logout()}>Se déconnecter</Button>
             </div>
           </Modal>

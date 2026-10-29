@@ -22,7 +22,7 @@
   -moz-osx-font-smoothing: grayscale;
   color-scheme: light;
 }
-::selection { color: var(--ink); background: rgba(223, 37, 55, .99); }
+::selection { color: var(--white); background: rgba(223, 37, 55, .99); }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html { scrollbar-gutter: stable; }
 body { margin: 0; background: var(--white); font-family: var(--font); font-size: 14px; line-height: 1.5; letter-spacing: -.02em; }
@@ -134,7 +134,10 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
 .station-pin-selected { color: var(--white); background: var(--ink); }
 .map-station-card, .selected-station-panel { position: absolute; z-index: 2; bottom: 20px; left: 16px; width: min(320px, calc(100% - 32px)); padding: 16px 18px 18px; border-radius: var(--radius); background: var(--white); box-shadow: var(--shadow-ring); }
 .station-card-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 34px; }
-.station-card-heading > strong, .station-card-heading h2 { min-width: 0; font-size: 19px; line-height: 1.25; }
+.station-card-heading > strong, .station-title > h2 { min-width: 0; font-size: 19px; line-height: 1.25; }
+.station-title { flex: 1; min-width: 0; }
+.station-title > h2 { display: inline; }
+.station-title > .favorite-button { display: inline-grid; width: 34px; height: 34px; margin: -6px 0 -5px 0; vertical-align: middle; }
 .station-card-heading > .icon-button { width: 40px; height: 40px; margin: -5px -8px -5px 0; }
 .station-numbers { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 14px; }
 .station-numbers > span { display: grid; grid-template-columns: 18px 1fr; align-items: center; gap: 5px 6px; }
@@ -220,6 +223,7 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
 .station-item.selected { background: var(--mist); box-shadow: inset 0 0 0 1px var(--ink-line); }
 .station-item-title { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .station-item-title strong { font-size: 14px; font-weight: 500; }
+.station-item-title .favorite-mark { margin: -2px 0 0 6px; color: var(--red); }
 .station-item-title > svg { color: var(--ink-soft); }
 .station-meta { display: block; margin-top: 4px; color: var(--ink-soft); font-size: 12px; }
 .station-numbers-compact { gap: 10px; margin-top: 14px; }
@@ -228,7 +232,7 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
 .station-numbers-compact small { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); }
 .station-numbers-compact svg { width: 16px; height: 16px; }
 .explorer-map { position: relative; min-width: 0; min-height: 350px; overflow: hidden; border-radius: var(--radius); background: var(--mist); box-shadow: var(--shadow-ring); }
-.selected-station-panel .button { width: 100%; margin-top: 18px; }
+.selected-station-panel > .button { width: 100%; margin-top: 18px; }
 .closed-station { color: var(--ink-soft); font-size: 13px; }
 .inline-notice, .notice-error { margin-bottom: 20px; color: #9e5b50; font-size: 13px; }
 .notice-error { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
@@ -325,7 +329,8 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
   .summary-card { min-height: 168px; padding: 14px 14px 16px; }
   .summary-card:nth-child(3) { grid-row: 2; grid-column: 1 / -1; min-height: 150px; }
   .metric-value { margin-top: 20px; font-size: 40px; }
-  .metric-detail { font-size: 11px; }
+  .metric-detail { gap: 6px; font-size: 11px; }
+  .summary-card .metric-detail > .circle-arrow { width: 24px; height: 24px; }
   .map-section, .recent-trips { margin-top: 32px; }
   .overview-map { height: 310px; }
   .map-station-card { bottom: 22px; left: 12px; width: calc(100% - 24px); padding: 12px 16px 16px; }
@@ -401,6 +406,7 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
 .account-logout { display: none; }
 @media (max-width: 900px) { .account-logout { display: block; } }
 .circle-arrow.is-outline { color: var(--red); background: transparent; box-shadow: inset 0 0 0 1px var(--red); }
+.summary-card .circle-arrow.is-outline { color: var(--white); box-shadow: inset 0 0 0 1px var(--white); }
 .stations-explorer { position: relative; display: block; height: 620px; }
 .stations-explorer .explorer-map { height: 100%; }
 .stations-explorer .stations-list { position: absolute; z-index: 5; top: 12px; left: 12px; width: min(340px, calc(100% - 24px)); max-height: calc(100% - 24px); overflow-y: auto; padding: 6px; border-radius: var(--radius); background: var(--white); box-shadow: var(--shadow-ring); }
@@ -410,7 +416,7 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
 .metric-subscription { max-width: none; margin-top: 26px; font-size: 28px; line-height: 1; letter-spacing: -.02em; }
 @media (max-width: 1150px) { .metric-subscription { font-size: 24px; } }
 @media (max-width: 620px) { .metric-subscription { margin-top: 20px; font-size: 20px; } }
-.selected-station-panel .button + .button { margin-top: 8px; }
+.selected-station-panel > .button + .button { margin-top: 8px; }
 .map-station-card > .button { width: 100%; margin-top: 14px; }
 .modal.bikes-drawer { width: min(440px, 100%); max-width: none; height: 100dvh; max-height: none; margin: 0 0 0 auto; overflow-y: auto; overscroll-behavior: contain; border-radius: var(--radius) 0 0 var(--radius); animation: drawer-in .28s cubic-bezier(.2, .8, .2, 1); }
 .bikes-drawer .modal-content { min-height: 100%; padding-top: 0; }
@@ -432,6 +438,8 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
 .bike-meta { display: flex; align-items: center; gap: 8px; margin-top: 5px; color: var(--ink-soft); font-size: 13px; }
 .bike-reserved { display: inline-flex; align-items: center; padding: 3px 8px; border-radius: 999px; color: var(--red-deep); box-shadow: inset 0 0 0 1px var(--red); font-size: 12px; line-height: 1.2; }
 .bike-row-avoid > * { opacity: .6; }
+.bike-row-avoid .bike-score svg { color: var(--ink-soft); }
+.bike-row-avoid .bike-reserved { color: var(--ink-soft); box-shadow: inset 0 0 0 1px var(--ink-line); }
 .bike-verdict { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-top: 8px; color: var(--ink-soft); font-size: 12px; line-height: 1.3; }
 .card-tag.bike-pick { gap: 6px; padding: 3px 10px 3px 3px; box-shadow: inset 0 0 0 1px var(--ink-line); font-size: 12px; }
 .bike-pick .card-tag-icon { width: 20px; height: 20px; }
@@ -499,16 +507,18 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
   .overview-map .leaflet-control-zoom { display: none; }
   .map-explore { position: absolute; inset: 0; z-index: 3; display: flex; align-items: center; justify-content: center; padding: 12px; border: 0; background: transparent; }
   .map-explore > span { display: inline-flex; align-items: center; min-height: 40px; padding: 0 18px; border-radius: 999px; color: var(--red-deep); background: var(--white); box-shadow: var(--shadow-ring); font-size: 14px; font-weight: 500; }
-  .app-main:has(.page-slot:not([hidden]) > .stations-page) { display: flex; flex-direction: column; height: 100dvh; min-height: 0; }
-  .app-main:has(.page-slot:not([hidden]) > .stations-page) > .main-content { display: flex; flex: 1; flex-direction: column; min-height: 0; padding-bottom: calc(77px + env(safe-area-inset-bottom)); }
+  .app-main:has(.page-slot:not([hidden]) > .stations-page), .app-main:has(.main-content > .stations-page) { display: flex; flex-direction: column; height: 100dvh; min-height: 0; }
+  .app-main:has(.page-slot:not([hidden]) > .stations-page) > .main-content, .app-main:has(.main-content > .stations-page) > .main-content { display: flex; flex: 1; flex-direction: column; min-height: 0; padding-bottom: calc(77px + env(safe-area-inset-bottom)); }
   .stations-page { display: flex; flex: 1; flex-direction: column; min-height: 0; }
   .stations-page .stations-toolbar, .stations-page .inline-notice { margin-bottom: 12px; }
   .stations-page .stations-explorer { flex: 1; height: auto; min-height: 0; }
   .stations-page .explorer-map { min-height: 0; }
   .station-sheet { position: absolute; z-index: 4; right: 8px; bottom: 8px; left: 8px; max-height: calc(100% - 16px); overflow-y: auto; padding: 8px 10px 12px 16px; border-radius: var(--radius); background: var(--white); box-shadow: var(--shadow-ring); }
   .station-sheet-heading { display: flex; align-items: center; gap: 8px; }
-  .station-sheet-heading h2 { flex: 1; min-width: 0; overflow: hidden; font-size: 18px; line-height: 1.25; white-space: nowrap; text-overflow: ellipsis; }
-  .station-sheet-heading .icon-button { width: 36px; height: 36px; }
+  .station-sheet-heading > .station-title { display: flex; align-items: center; }
+  .station-sheet-heading > .station-title > h2 { display: block; flex: 0 1 auto; min-width: 0; overflow: hidden; font-size: 18px; line-height: 1.25; white-space: nowrap; text-overflow: ellipsis; }
+  .station-sheet-heading > .station-title > .favorite-button { flex: none; margin: 0; }
+  .station-sheet-heading > .icon-button { width: 36px; height: 36px; }
   .station-sheet-facts { display: flex; align-items: center; gap: 12px; padding-right: 6px; }
   .station-sheet .station-numbers { flex: 1; margin-top: 0; }
   .station-sheet-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; padding-right: 6px; }
@@ -525,8 +535,6 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
 .write-done { display: flex; align-items: center; gap: 8px; margin-top: 18px; color: var(--red-deep); font-size: 15px; }
 .modal .bike-action-raw { margin-top: 6px; }
 .favorite-button.is-favorite, .favorite-button.is-favorite:hover, .favorite-mark { color: var(--red); }
-.station-item-title .favorite-mark { margin-left: auto; }
-.station-card-heading > .favorite-button { margin: -5px -8px -5px auto; }
 .account-details dd > small { display: block; margin-top: 3px; color: var(--ink-soft); font-size: 12px; }
 .account-details dd { text-align: right; }
 .account-section > .button, .account-contact { margin-top: 16px; }
@@ -589,7 +597,7 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
 .modal-actions, .bike-action-buttons, .profile-form-actions { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(120px, 1fr); justify-content: end; }
 .modal-actions > .button, .bike-action-buttons > .button, .profile-form-actions > .button { width: 100%; min-height: 42px; padding-inline: 20px; }
 @media (max-width: 620px) {
-  .modal-actions, .bike-action-buttons { grid-auto-columns: 1fr; justify-content: stretch; }
+  .modal-actions, .bike-action-buttons { grid-auto-columns: minmax(0, 1fr); justify-content: stretch; }
   .profile-form-actions { grid-auto-flow: row; }
 }
 .stats-page { --stat-gap: 16px; display: grid; gap: var(--stat-gap); }
@@ -614,9 +622,8 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
 .heat-cell { fill: var(--red); }
 .heat-cell.is-empty { fill: var(--mist); }
 .heat-cell.is-active { fill: var(--red-deep); fill-opacity: 1; }
-.chart-tip { position: absolute; z-index: 3; display: flex; flex-direction: column; gap: 2px; padding: 8px 11px; border-radius: 10px; background: var(--white); box-shadow: var(--shadow-ring); font-size: 12px; line-height: 1.3; white-space: nowrap; pointer-events: none; translate: -50% calc(-100% - 8px); }
-.chart-tip.is-start { translate: -14px calc(-100% - 8px); }
-.chart-tip.is-end { translate: calc(-100% + 14px) calc(-100% - 8px); }
+.chart-lane { padding-top: 56px; }
+.chart-tip { position: absolute; z-index: 3; bottom: calc(100% - 50px); left: 0; display: flex; flex-direction: column; gap: 2px; width: max-content; padding: 8px 11px; border-radius: 10px; background: var(--white); box-shadow: var(--shadow-ring); font-size: 12px; line-height: 1.3; pointer-events: none; }
 .chart-tip strong { font-weight: 500; }
 .chart-tip span { color: var(--ink-soft); }
 .donut { display: flex; flex-direction: column; align-items: center; gap: 20px; }

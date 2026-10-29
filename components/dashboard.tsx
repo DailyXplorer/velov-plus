@@ -264,7 +264,7 @@ export function StationsPage({ resource, reload, reloading, favorites: favoriteL
           <div className="stations-list" role="list" aria-label="Résultats de recherche">
             {filtered.slice(0, 6).map((station) => (
               <button className={`station-item ${chosen?.id === station.id ? "selected" : ""}`} key={station.id} onClick={() => { setSelected(station.id); setQuery(""); }}>
-                <div className="station-item-title"><strong>{station.name}</strong>{favorites.has(station.number) ? <StarIcon className="favorite-mark" size={14} weight="fill" aria-label="Favorite"/> : null}<CaretRightIcon size={16} weight="light"/></div>
+                <div className="station-item-title"><strong>{station.name}{favorites.has(station.number) ? <StarIcon className="favorite-mark" size={14} weight="fill" aria-label="Favorite"/> : null}</strong><CaretRightIcon size={16} weight="light"/></div>
                 <small className="station-meta">{position ? `${formatDistance(distanceTo(station, position))} · ` : ""}N° {station.number}{!station.open ? " · Fermée" : ""}</small>
               </button>
             ))}
@@ -276,9 +276,8 @@ export function StationsPage({ resource, reload, reloading, favorites: favoriteL
           {chosen && phone ? (
             <section className="station-sheet" aria-label={chosen.name}>
               <div className="station-sheet-heading">
-                <h2>{chosen.name}</h2>
+                <StationTitle station={chosen} favorite={favorites.has(chosen.number)} account={account} onFavorite={onFavorite}/>
                 {!chosen.open ? <span className="closed-station">Fermée</span> : null}
-                <FavoriteButton station={chosen} favorite={favorites.has(chosen.number)} account={account} onChanged={onFavorite}/>
                 <button className="icon-button" aria-label="Fermer" onClick={() => setSelected(null)}><XIcon size={18} weight="light"/></button>
               </div>
               <div className="station-sheet-facts">
@@ -292,7 +291,7 @@ export function StationsPage({ resource, reload, reloading, favorites: favoriteL
             </section>
           ) : chosen ? (
             <div className="selected-station-panel">
-              <div className="station-card-heading"><h2>{chosen.name}</h2>{!chosen.open ? <span className="closed-station">Fermée</span> : null}<FavoriteButton station={chosen} favorite={favorites.has(chosen.number)} account={account} onChanged={onFavorite}/></div>
+              <div className="station-card-heading"><StationTitle station={chosen} favorite={favorites.has(chosen.number)} account={account} onFavorite={onFavorite}/>{!chosen.open ? <span className="closed-station">Fermée</span> : null}</div>
               {chosenDistance ? <p className="station-distance">À {chosenDistance}</p> : null}
               <StationNumbers station={chosen}/>
               <Button variant="secondary" onClick={() => setBikesOpen(true)}>Voir les vélos</Button>
@@ -304,6 +303,10 @@ export function StationsPage({ resource, reload, reloading, favorites: favoriteL
       </div>
     </div>
   );
+}
+
+function StationTitle({ station, favorite, account, onFavorite }: { station: Station; favorite: boolean; account: string; onFavorite: Favorites["onFavorite"] }) {
+  return <div className="station-title"><h2>{station.name}</h2><FavoriteButton station={station} favorite={favorite} account={account} onChanged={onFavorite}/></div>;
 }
 
 function shortPlan(title?: string) {

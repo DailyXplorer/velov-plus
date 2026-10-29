@@ -126,6 +126,7 @@ test("R2: the four settings write through the shared operation store and reopen 
   assert.match(source("components/trip-sheet.tsx"), /await settleHeld\(operations, `rate:\$\{trip\.id\}`, /);
   const dashboard = source("components/dashboard.tsx");
   for (const tag of ["AutoSpendSetting", "ProfileCoordinates", "AutoRenewal"]) assert.match(dashboard, new RegExp(`<${tag} [^\\n]*account=\\{data\\.profile\\.email\\}`), tag);
-  assert.equal(dashboard.match(/<FavoriteButton [^\n]*account=\{account\}/g)?.length, 2);
+  assert.equal(dashboard.match(/<FavoriteButton [^\n]*account=\{account\}/g)?.length, 1);
+  assert.equal(dashboard.match(/<StationTitle [^\n]*account=\{account\}/g)?.length, 2);
   assert.match(source("components/companion.tsx"), /<StationsPage [^\n]*account=\{state\.data\.profile\.email\}/);
 });
