@@ -8,7 +8,6 @@ import { UNCERTAIN, isUncertain, noAnswer, routeFailure } from "@/lib/outcome";
 import { describeLocationFailure, findPosition, formatDistance, haversine, type Point } from "@/lib/geo";
 import { Button, Modal, SelectField } from "./ui";
 
-/** Mounted only during an ongoing trip. Every confirmation is one request; success closes the dialog, a failure stays with its raw status, and only a sure refusal may be confirmed again. */
 export function ViaAction({ stations }: { stations: Station[] }) {
   const titleId = useId();
   const [open, setOpen] = useState(false);

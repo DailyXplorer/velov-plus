@@ -6,7 +6,6 @@ import { errorResponse, getSession, jsonResponse, type Session } from "@/lib/ses
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-// The release alone may wait 30 s, then 2 s and a read: a shorter limit would cut its answer, not the release.
 export const maxDuration = 60;
 export async function POST(request: NextRequest) {
   let session: Session | null = null;

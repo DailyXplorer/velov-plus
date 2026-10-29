@@ -2,9 +2,8 @@ import assert from "node:assert/strict";
 import { afterEach, beforeEach, test } from "node:test";
 import { patchAutoSpend, patchProfile, postPeriodReport, putStationBookmark } from "../lib/cyclocity.ts";
 import { VelovError } from "../lib/auth-protocol.ts";
-import { normalizePhone, profileBodySchema } from "../lib/models.ts";
+import { normalizePhone, profileBodySchema, receiptBodySchema } from "../lib/models.ts";
 
-// Nothing here may reach Cyclocity: every call goes through the recorder, and the real fetch is made to fail loudly.
 const realFetch = globalThis.fetch;
 beforeEach(() => { globalThis.fetch = (() => { throw new Error("network call in a unit test"); }) as typeof fetch; });
 afterEach(() => { globalThis.fetch = realFetch; });
@@ -24,7 +23,6 @@ const auth = { accountId: "acc-1", token: "client", identity: "user" };
 const ACCOUNT = "https://api.cyclocity.fr/contracts/lyon/accounts/acc-1";
 const pdf = Buffer.from("%PDF-1.4 receipt").toString("base64");
 
-/** Every write of this file, with a reply that makes it succeed. */
 const writes: { name: string; ok: Reply; run: (send: typeof fetch) => Promise<unknown> }[] = [
   { name: "autoSpend", ok: { status: 200, body: { balance: 6, autoSpend: false } }, run: (send) => patchAutoSpend({ ...auth, autoSpend: false }, send) },
   { name: "bookmark add", ok: { status: 200, text: "2002" }, run: (send) => putStationBookmark({ ...auth, stationNumber: 2002, on: true }, send) },
@@ -98,7 +96,7 @@ test("a profile change is a PATCH of the account with only the changed fields, i
 });
 
 test("a refused profile keeps Vélo’v's code and raw message", async () => {
-  const outcome = await patchProfile({ ...auth, body: { phoneNumber: "+33639980000" } }, recorder({ status: 400, body: { code: "accounts.exception.validation.failed", message: "Account invalid phone number" } }).send);
+  const outcome = await patchProfile({ ...auth, body: { phoneNumber: "+33600000009" } }, recorder({ status: 400, body: { code: "accounts.exception.validation.failed", message: "Account invalid phone number" } }).send);
   assert.deepEqual([outcome.ok, outcome.httpStatus, outcome.code, outcome.detail], [false, 400, "accounts.exception.validation.failed", "Account invalid phone number"]);
   assert.match(outcome.message ?? "", /téléphone/);
 });
@@ -136,4 +134,11 @@ test("French phone numbers are written in the international form the API expects
   assert.equal(normalizePhone("0041 79 123 45 67", "CH"), "+41791234567");
   assert.equal(normalizePhone("+33 6 12 34 56 78", "BE"), "+33612345678");
   assert.equal(normalizePhone("0612345678", "BE"), "0612345678");
+});
+
+test("receipt ids travel in a URL path, so only word characters and hyphens are accepted", () => {
+  assert.ok(receiptBodySchema.safeParse({ subscriptionId: "3f2a-41_b", periodId: "9c1d" }).success);
+  for (const id of ["../accounts", "a/b", "a?b", "a b", "", "x".repeat(65)]) {
+    assert.equal(receiptBodySchema.safeParse({ subscriptionId: id, periodId: "9c1d" }).success, false, id);
+  }
 });

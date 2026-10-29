@@ -35,8 +35,6 @@ export function CardTag({ icon: TagIcon, children }: { icon: Icon; children: Rea
   return <span className="card-tag"><span className="card-tag-icon"><TagIcon size={13} weight="bold" aria-hidden="true"/></span>{children}</span>;
 }
 
-/** `hideLabel` keeps the label for screen readers only, when the selected value already says what the control is.
- * `short` is the trigger's label on phones; the popover always lists the full labels. */
 export function SelectField<T extends string>({ label, hideLabel = false, value, options, onChange, className = "" }: { label: string; hideLabel?: boolean; value: T; options: { value: T; label: string; short?: string }[]; onChange: (value: T) => void; className?: string }) {
   const id = useId();
   const [open, setOpen] = useState(false);
@@ -92,8 +90,7 @@ export function SelectField<T extends string>({ label, hideLabel = false, value,
     event.preventDefault();
   }
 
-  // Space selects on keyup so the trigger, focused again by then, does not reopen on the same keystroke.
-  function onListKeyUp(event: KeyboardEvent) {
+  function chooseOnSpaceKeyUpSoTriggerStaysClosed(event: KeyboardEvent) {
     if (event.key === " ") choose(active);
   }
 
@@ -115,7 +112,7 @@ export function SelectField<T extends string>({ label, hideLabel = false, value,
         </button>
         {open ? (
           <ul ref={listbox} id={`${id}-list`} className="select-popover" role="listbox" tabIndex={-1} aria-labelledby={`${id}-label`}
-            aria-activedescendant={`${id}-option-${active}`} onKeyDown={onListKeyDown} onKeyUp={onListKeyUp}>
+            aria-activedescendant={`${id}-option-${active}`} onKeyDown={onListKeyDown} onKeyUp={chooseOnSpaceKeyUpSoTriggerStaysClosed}>
             {options.map((option, index) => (
               <li key={option.value} id={`${id}-option-${index}`} role="option" aria-selected={index === selected}
                 className={`select-option${index === active ? " is-active" : ""}`}
@@ -130,7 +127,6 @@ export function SelectField<T extends string>({ label, hideLabel = false, value,
   );
 }
 
-/** The select's trigger while loading: every option stacked inside, invisibly, so it is as wide as the loaded one. */
 export function SelectSkeleton({ options, className = "" }: { options: { label: string; short?: string }[]; className?: string }) {
   return (
     <div className={`select-field ${className}`} aria-hidden="true">
@@ -150,7 +146,6 @@ export function SelectSkeleton({ options, className = "" }: { options: { label: 
   );
 }
 
-/** Loading text: the placeholder keeps the line box of the text it stands for, painted as a bar. */
 export function Ghost({ children }: { children: ReactNode }) {
   return <span className="skeleton-text" aria-hidden="true">{children}</span>;
 }

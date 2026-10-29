@@ -4,7 +4,6 @@ import { CLIENT_ID, OIDC, SessionRevoked, VelovError, endSession, readJsonBody, 
 import { type Session, errorResponse, setSessionCookies } from "../lib/session.ts";
 import { NextResponse } from "next/server.js";
 
-// Nothing here may reach the identity provider: every call goes through a mock, and the real fetch fails loudly.
 const realFetch = globalThis.fetch;
 beforeEach(() => { globalThis.fetch = (() => { throw new Error("network call in a unit test"); }) as typeof fetch; });
 afterEach(() => { globalThis.fetch = realFetch; });
@@ -50,7 +49,6 @@ test("parallel requests with one refresh token share a single refresh", async ()
   release();
   for (const result of await Promise.all(pending)) assert.deepEqual(result, tokens);
   assert.equal(calls, 1);
-  // A request that started just before the cookies were rewritten still finds the rotated tokens.
   assert.deepEqual(await refresh("shared-refresh", http), tokens);
   assert.equal(calls, 1);
 });
@@ -98,7 +96,6 @@ test("a request body is read up to 4 KB of JSON, nothing more", async () => {
   assert.equal(await readJsonBody(post("{not json")), undefined);
   assert.equal(await readJsonBody(post('{"bikeNumber":1}', "text/plain")), undefined);
   assert.equal(await readJsonBody(post(JSON.stringify({ padding: "x".repeat(4096) }))), undefined);
-  // No Content-Length to trust: the stream itself is cut at the limit.
   const chunks = [new TextEncoder().encode('{"padding":"'), new TextEncoder().encode("x".repeat(5000)), new TextEncoder().encode('"}')];
   const stream = new ReadableStream({ pull(controller) { const chunk = chunks.shift(); if (chunk) controller.enqueue(chunk); else controller.close(); } });
   assert.equal(await readJsonBody(new Request("https://app.example/api", { method: "POST", headers: { "content-type": "application/json" }, body: stream, duplex: "half" } as RequestInit)), undefined);

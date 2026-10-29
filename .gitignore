@@ -1,7 +1,15 @@
 node_modules/
 .next/
+out/
 .vercel/
 .env*
 *.tsbuildinfo
 coverage/
-__pycache__/
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+npm-debug.log*
+.DS_Store
+AGENTS.md
+CLAUDE.md

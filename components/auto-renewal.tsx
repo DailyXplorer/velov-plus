@@ -13,7 +13,6 @@ export function AutoRenewal({ subscriptionId, value, allowed, onSaved }: { subsc
   const [asking, setAsking] = useState(false);
   const [pending, setPending] = useState(false);
   const [failure, setFailure] = useState<AutoRenewalResult | null>(null);
-  // Vélo’v’s answer to the last change, shown until the account is read again.
   const [saved, setSaved] = useState<AutoRenewalResult | null>(null);
   const inFlight = useRef(false);
   const titleId = useId();

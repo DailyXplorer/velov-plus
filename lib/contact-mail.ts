@@ -2,7 +2,6 @@ import { accountCall, BASE, type Auth } from "./cyclocity.ts";
 import { type ContactBody, contactMessage } from "./contact-models.ts";
 import { MAIL_ACCEPT, MAIL_FIELDS } from "./guesses.ts";
 
-/** FormData supplies its own multipart boundary. One request, including on a lost response or expired session. */
 export async function postContactMail({ body, ...auth }: Auth & { body: ContactBody }, send: typeof fetch = fetch) {
   const form = new FormData();
   form.set(MAIL_FIELDS.complaintType, body.complaintType);

@@ -1,15 +1,23 @@
 {
-  "name": "velov-compagnon",
+  "name": "velov-plus",
   "version": "0.1.0",
+  "description": "Compagnon personnel et non officiel du Vélo’v de Lyon : stations, réservation, déverrouillage, trajets, points et statistiques.",
   "private": true,
+  "homepage": "https://velovplus.vercel.app",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DailyXplorer/velov-compagnon.git"
+  },
   "type": "module",
-  "engines": { "node": ">=22.13.0" },
+  "engines": {
+    "node": ">=22.13.0"
+  },
   "scripts": {
     "dev": "next dev --hostname 127.0.0.1",
     "build": "next build",
     "start": "next start --hostname 127.0.0.1",
     "typecheck": "tsc --noEmit",
-    "test:auth": "node --experimental-strip-types --test test/auth.test.ts"
+    "test": "node --experimental-strip-types --test test/*.test.ts"
   },
   "dependencies": {
     "@hugeicons/core-free-icons": "4.4.0",

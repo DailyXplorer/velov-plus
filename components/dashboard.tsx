@@ -20,7 +20,6 @@ type StationData = { stations: Station[]; updatedAt: string };
 type Navigation = (page: Page) => void;
 type Reload = { reload: () => void; reloading: boolean };
 type Favorites = { favorites: number[]; onFavorite: (number: number, favorite: boolean) => void };
-// One reference while stations load, so the map does not rebuild its pins on every render.
 const NO_STATIONS: Station[] = [];
 const MISSING = "Indisponible pour le moment";
 const bikeFilters = [{ value: "all", label: "Tous les vélos" }, { value: "mechanical", label: "Vélos mécaniques" }, { value: "electrical", label: "Vélos électriques" }];
@@ -32,7 +31,6 @@ function subscribePhone(changed: () => void) {
   query.addEventListener("change", changed);
   return () => query.removeEventListener("change", changed);
 }
-/** Phones get no preselected station and a compact sheet; the CSS breakpoint matches. */
 function useIsPhone() {
   return useSyncExternalStore(subscribePhone, () => window.matchMedia(phoneQuery).matches, () => false);
 }
@@ -215,7 +213,6 @@ export function StationsPage({ resource, reload, reloading, favorites: favoriteL
   const [locationError, setLocationError] = useState<{ message: string; raw?: string } | null>(null);
   const stations = resource.kind === "ready" ? resource.data.stations : NO_STATIONS;
   const favorites = useMemo(() => new Set(favoriteList), [favoriteList]);
-  // Favourites first, then open stations, then the nearest (or by name).
   const filtered = useMemo(() => {
     const normalize = (value: string) => value.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
     return stations.filter((station) => normalize(`${station.name} ${station.address} ${station.number}`).includes(normalize(query)) && matchesFilter(station, filter, favorites))
@@ -250,7 +247,6 @@ export function StationsPage({ resource, reload, reloading, favorites: favoriteL
   return (
     <div className="page-content stations-page">
       <div className="stations-toolbar">
-        {/* The filter sits outside the label: a click in its popover would otherwise also focus the input. */}
         <div className="search-field">
           <label className="search-input"><MagnifyingGlassIcon size={19} weight="light" aria-hidden="true"/>
             <input aria-label="Rechercher une station" placeholder={phone ? "Rechercher" : "Rechercher une station"} value={query} onChange={(event) => { setQuery(event.target.value); }}/>
@@ -310,7 +306,6 @@ export function StationsPage({ resource, reload, reloading, favorites: favoriteL
   );
 }
 
-/** Card headline: plan name without the brand prefix and payment suffix ("Vélo’v Plus 1 an Jeunes – paiement comptant" -> "Plus 1 an Jeunes"). */
 function shortPlan(title?: string) {
   if (!title) return "Aucun";
   return title.split(/\s[–-]\s/)[0].replace(/^V[ée]lo[’']v\s+/i, "") || title;
@@ -325,7 +320,6 @@ export function AccountPage({ data, onLogout, onSaved }: { data: Dashboard; onLo
           <h2>Profil</h2>
           <p className="profile-name">{formatName(`${data.profile.firstName} ${data.profile.lastName}`) || "Compte Vélo’v"}</p>
           <p className="profile-email">{data.profile.email}</p>
-          {/* Only what needs attention: an active account, a complete profile and a valid card go without saying. */}
           {data.profile.locked || !data.profile.complete || data.paymentValid === false ? (
             <dl className="account-details">
               {data.profile.locked ? <div><dt>Compte</dt><dd>À vérifier</dd></div> : null}
@@ -354,10 +348,6 @@ export function AccountPage({ data, onLogout, onSaved }: { data: Dashboard; onLo
 }
 
 
-/*
- * Loading skeletons: each page's own containers and classes, with as many items as a typical account shows,
- * so nothing moves when the data arrives. Static labels stay real; what the data fills in is a ghost bar.
- */
 
 const GHOST_ROUTES = [["Bellecour", "Part-Dieu Villette"], ["Hôtel de Ville", "Saxe-Gambetta"], ["Croix-Rousse", "Terreaux"], ["Perrache", "Jean Macé"]];
 

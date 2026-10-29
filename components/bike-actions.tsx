@@ -7,7 +7,6 @@ import { formatDistance, haversine } from "@/lib/geo";
 import { UNCERTAIN, UNCERTAIN_UNLOCK, isUncertain, noAnswer, routeFailure } from "@/lib/outcome";
 import { Button, CardTag, Modal } from "./ui";
 
-/** Present only while signed in: the bookings, a way to reload them after a booking or a release, and the start of the dock watch after a release. */
 export const BookingsContext = createContext<{ bookings: Booking[]; changed: () => void; unlocked: (tripId: string | null) => void } | null>(null);
 
 export type Place = { stationNumber: number; stationName: string; standNumber: number; bikeNumber: number; lat: number | null; lon: number | null };
@@ -16,7 +15,6 @@ type Step = { kind: "start" } | { kind: "confirm"; action: Action } | { kind: "s
 
 const signIn = "Connectez-vous pour réserver ou déverrouiller un vélo.";
 
-/** Seconds left until a date, ticking every second; null without a date. */
 export function useSecondsLeft(until: string | null) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -33,7 +31,6 @@ function clock(seconds: number) {
   return `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
 }
 
-/** The distance to the station, only when the browser already allows geolocation: never prompts. */
 function useKnownDistance(place: Place) {
   const [distance, setDistance] = useState<number | null>(null);
   useEffect(() => {
@@ -54,7 +51,6 @@ function Raw({ outcome, extra }: { outcome: Outcome; extra?: string }) {
   return <p className="bike-action-raw">{parts.join(" · ")}</p>;
 }
 
-/** `uncertain`: the last confirmation may have gone through, so only closing is offered. */
 function Confirm({ action, place, onCancel, onClose, onConfirm, sending, uncertain }: { action: Action; place: Place; onCancel: () => void; onClose: () => void; onConfirm: () => void; sending: boolean; uncertain: boolean }) {
   const distance = useKnownDistance(place);
   const far = distance != null && distance > RELEASE_DISTANCE;
@@ -80,8 +76,6 @@ function BookedUntil({ endsAt }: { endsAt: string | null }) {
   return <><strong>Vélo réservé jusqu’à <span className="clock">{formatDate(endsAt, { hour: "2-digit", minute: "2-digit" })}</span></strong><span className="bike-action-countdown"><ClockIcon size={15} weight="bold" aria-hidden="true"/>{left > 0 ? <>Il reste <span className="clock">{clock(left)}</span></> : "Réservation expirée"}</span></>;
 }
 
-/** Book or release one bike: a confirmation step and exactly one request per confirmation; success hands over to the page, a failure stays with its raw answer.
- * A sure refusal may be confirmed again; an uncertain failure only closes, and after a booking the bookings are read once more. */
 export function BikeActions({ place, booking = null, initial, onDone }: { place: Place; booking?: Booking | null; initial?: Action; onDone: () => void }) {
   const account = useContext(BookingsContext);
   const [step, setStep] = useState<Step>(initial ? { kind: "confirm", action: initial } : { kind: "start" });
@@ -116,7 +110,6 @@ export function BikeActions({ place, booking = null, initial, onDone }: { place:
     }
     setFailure({ ...outcome, message: outcome.message ?? (action === "book" ? "Réservation impossible." : "Déverrouillage impossible.") });
     setStep({ kind: "confirm", action });
-    // Only the booking's own state can be read back; the borne is checked by the user.
     if (action === "book" && isUncertain(outcome)) account?.changed();
   }
 
@@ -144,7 +137,6 @@ export function placeOf(booking: Booking): Place | null {
   return booking.bikeNumber != null && booking.standNumber != null ? { stationNumber: booking.stationNumber, stationName: booking.stationName, standNumber: booking.standNumber, bikeNumber: booking.bikeNumber, lat: booking.lat, lon: booking.lon } : null;
 }
 
-/** "Réservé · mm:ss · Déverrouiller" on one red line, hidden once the booking has run out; the unlock confirmation names the bike, borne and station. */
 export function BookingBanner({ booking, onUnlock }: { booking: Booking; onUnlock: () => void }) {
   const left = useSecondsLeft(booking.endsAt);
   const place = placeOf(booking);
@@ -158,7 +150,6 @@ export function BookingBanner({ booking, onUnlock }: { booking: Booking; onUnloc
   );
 }
 
-/** Kept apart from the banner: the release consumes the booking, and its failure must outlive the banner. */
 export function UnlockModal({ booking, onClose }: { booking: Booking; onClose: () => void }) {
   const place = placeOf(booking);
   if (!place) return null;

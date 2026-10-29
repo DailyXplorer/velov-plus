@@ -12,16 +12,13 @@ type StationMapProps = {
   stations: Station[];
   selected: string | null;
   onSelect: (id: string) => void;
-  /** Tap on the map background (not a pin). */
   onClear?: () => void;
   userPosition?: UserPosition | null;
-  /** Points to frame; a new array reference refits the view. */
   fit?: Point[] | null;
 };
 
 const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-// A pin's look depends only on its count and selection: one icon per pair, shared by every marker.
 const icons = new Map<string, L.DivIcon>();
 function pinIcon(total: number, selected: boolean) {
   const key = `${total}:${selected}`;
@@ -52,12 +49,11 @@ export default function StationMap({ stations, selected, onSelect, onClear, user
     L.control.zoom({ position: "topright" }).addTo(instance);
     instance.on("click", () => clear.current?.());
     map.current = instance;
-    // Cooperative wheel (like Google Maps embeds): a plain wheel scrolls the page, Ctrl/⌘ + wheel or a trackpad pinch zooms the map.
     const host = element.current;
     const hint = document.createElement("div");
     hint.className = "map-wheel-hint";
     hint.textContent = /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘ + molette pour zoomer" : "Ctrl + molette pour zoomer";
-    (host.parentElement ?? host).appendChild(hint); // above the station card, which sits outside the map's stacking context
+    (host.parentElement ?? host).appendChild(hint);
     let hide = 0;
     const onWheel = (event: WheelEvent) => {
       if (event.ctrlKey || event.metaKey || !host.contains(event.target as Node)) return;
@@ -66,7 +62,6 @@ export default function StationMap({ stations, selected, onSelect, onClear, user
       window.clearTimeout(hide);
       hide = window.setTimeout(() => hint.classList.remove("is-visible"), 1200);
     };
-    // Listen on the parent in the capture phase so the event never reaches Leaflet's own listener on the map container.
     const wheelHost = host.parentElement ?? host;
     wheelHost.addEventListener("wheel", onWheel, { capture: true });
     let frame = 0;
@@ -94,7 +89,6 @@ export default function StationMap({ stations, selected, onSelect, onClear, user
     shown.current = chosen;
   }, [stations]);
 
-  // A new selection restyles two pins, not the whole map.
   useEffect(() => {
     if (shown.current === selected) return;
     const previous = shown.current ? markers.current.get(shown.current) : undefined;
@@ -113,14 +107,12 @@ export default function StationMap({ stations, selected, onSelect, onClear, user
     return () => { accuracy.remove(); dot.remove(); };
   }, [userPosition]);
 
-  // Pans on a new selection only: a refreshed station list must not move the map.
-  useEffect(() => {
+  useEffect(function panOnNewSelectionOnly() {
     const station = current.current.stations.find((station) => station.id === selected);
     if (station && map.current) map.current.panTo([station.lat, station.lon], { animate: !reducedMotion(), duration: 0.5 });
   }, [selected]);
 
-  // Declared after the pan effect so a refit triggered alongside a selection wins (setView stops the pan).
-  useEffect(() => {
+  useEffect(function refitAfterPanSoRefitWins() {
     const instance = map.current;
     if (!instance || !fit?.length) return;
     const height = instance.getSize().y;

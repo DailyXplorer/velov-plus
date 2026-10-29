@@ -8,7 +8,6 @@ const rank: Record<Verdict, number> = { recommended: 0, neutral: 1, avoid: 2 };
 const outOfFive = (value: number) => (value / 20).toLocaleString("fr-FR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 const hoursSince = (value: string | null, now: number) => value ? (now - new Date(value).getTime()) / HOUR : null;
 
-/** nextCheck is a routine 5-day mark after each control, so only a long overrun means anything. */
 const OVERDUE_GRACE = 30 * 24 * HOUR;
 export function isCheckOverdue(bike: Bike, now = Date.now()) {
   return bike.nextCheckAt != null && now - new Date(bike.nextCheckAt).getTime() > OVERDUE_GRACE;
@@ -18,7 +17,6 @@ function avoidReasons(bike: Bike, now: number) {
   const reasons: string[] = [];
   const idle = hoursSince(bike.lastTripAt, now);
   if (bike.isReserved) reasons.push("Réservé");
-  // An unknown status is no reason to avoid a bike; only a known other one is.
   if (bike.status != null && bike.status !== "AVAILABLE") reasons.push(bike.statusLabel ? `Indisponible (${bike.statusLabel})` : "Indisponible");
   if (bike.rating && bike.rating.value < 60 && bike.rating.count >= 5) reasons.push(`Note basse (${outOfFive(bike.rating.value)}/5)`);
   if (isCheckOverdue(bike, now)) reasons.push("Contrôle en retard");
@@ -27,7 +25,6 @@ function avoidReasons(bike: Bike, now: number) {
   return reasons;
 }
 
-/** Shrinks ratings with few votes toward 70, then rewards a recent trip and a charged battery. */
 function scoreBike(bike: Bike, now: number) {
   const weight = Math.min(bike.rating?.count ?? 0, 20) / 20;
   const idle = hoursSince(bike.lastTripAt, now);
@@ -45,7 +42,6 @@ function strengths(bike: Bike, now: number) {
   ].filter((reason) => reason !== null);
 }
 
-/** Rates every bike of a station: the best mechanical and electric are recommended, the doubtful ones are to avoid. Sorted for display. */
 export function assessBikes(bikes: Bike[], now = Date.now()): AssessedBike[] {
   const assessed = bikes.map((bike): AssessedBike => {
     const reasons = avoidReasons(bike, now);

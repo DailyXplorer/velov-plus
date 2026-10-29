@@ -21,7 +21,6 @@ const steps: [Intl.RelativeTimeFormatUnit, number][] = [["minute", 60], ["hour",
 
 type Settled<T> = { ok: true; value: T } | { ok: false; error: unknown };
 
-/** Keeps only the newest load: a new one or unmounting aborts the one before, whose answer is then dropped. */
 function useLatestLoad<T>(load: (signal: AbortSignal) => Promise<T>, done: (result: Settled<T>) => void) {
   const [refreshing, setRefreshing] = useState(false);
   const current = useRef<AbortController | null>(null);
@@ -43,7 +42,6 @@ function useLatestLoad<T>(load: (signal: AbortSignal) => Promise<T>, done: (resu
   return { run, refreshing };
 }
 
-/** Numbers of the bikes this account has booked: its own booking is no reason to avoid a bike. */
 function useOwnBikes() {
   const bookings = useContext(BookingsContext)?.bookings;
   return useMemo(() => new Set(bookings?.flatMap((booking) => booking.bikeNumber != null ? [booking.bikeNumber] : [])), [bookings]);
@@ -61,7 +59,6 @@ function formatScore(value: number) {
   return value.toLocaleString("fr-FR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 }
 
-/** Relative to now, in the past ("il y a 3 h") or the future ("dans 2 j"). */
 function fromNow(value: string | null) {
   if (!value) return null;
   const minutes = (new Date(value).getTime() - Date.now()) / 60_000;
@@ -120,7 +117,6 @@ function DateFact({ label, value, withAgo = false, children }: { label: string; 
   return <div><dt>{label}</dt><dd>{children}{value ? since ? <>{capitalize(since)}<small>{exact}</small></> : exact : "Non renseigné"}</dd></div>;
 }
 
-/** Verdict as a mark next to the bike number: it qualifies the bike, not its type. */
 function VerdictMark({ verdict }: { verdict: AssessedBike["verdict"] }) {
   if (verdict === "neutral") return null;
   const recommended = verdict === "recommended";
@@ -129,7 +125,6 @@ function VerdictMark({ verdict }: { verdict: AssessedBike["verdict"] }) {
   return <span className={recommended ? "verdict-mark" : "verdict-mark verdict-mark-avoid"} role="img" aria-label={label} title={label}><MarkIcon size={18} weight="bold" aria-hidden="true"/></span>;
 }
 
-/** Offered on a bike hooked to a borne and free, or booked by this account (a reserved bike stays AVAILABLE, § 5.2). */
 function StationActions({ bike, station, onDone }: { bike: Bike; station: Station; onDone: () => void }) {
   const account = useContext(BookingsContext);
   if (!account) return <p className="bike-action-signin">Connectez-vous pour réserver ou déverrouiller un vélo.</p>;
@@ -142,7 +137,6 @@ function BikeSheet({ item, actions }: { item: AssessedBike; actions?: ReactNode 
   const { bike } = item;
   const type = types[bike.type];
   const rating = score(bike);
-  // Booked by this account: the booking block says it all, no verdict and no second "Réservé".
   const mine = useOwnBikes().has(bike.number);
   return (
     <div className="bike-sheet">
@@ -171,7 +165,6 @@ function BikeSheet({ item, actions }: { item: AssessedBike; actions?: ReactNode 
   );
 }
 
-/** One row per bike the station reported, in the list's own rows; the list opens on one recommended bike per type present. */
 function BikesSkeleton({ station }: { station: Station }) {
   const count = station.mechanical + station.electrical;
   const picks = Number(station.mechanical > 0) + Number(station.electrical > 0);
@@ -194,7 +187,6 @@ function BikesSkeleton({ station }: { station: Station }) {
   );
 }
 
-/** The sheet of a mechanical bike with ratings: dates as two lines, as they load. */
 function BikeSheetSkeleton() {
   const twoLines = <><Ghost>Il y a 2 h</Ghost><small><Ghost>12 oct. 2026, 08:42</Ghost></small></>;
   return (
@@ -226,7 +218,6 @@ export function StationBikes({ station, onClose }: { station: Station; onClose: 
 
   useEffect(() => { void load(); }, [load]);
 
-  // Back from a bike sheet, keyboard focus returns to that bike's row.
   useEffect(() => {
     if (selected !== null || returnTo.current === null) return;
     list.current?.querySelector<HTMLElement>(`[data-bike="${returnTo.current}"]`)?.focus();
@@ -276,7 +267,6 @@ export function StationBikes({ station, onClose }: { station: Station; onClose: 
   );
 }
 
-/** One bike's live sheet, opened on its own (from a trip). */
 export function BikeDrawer({ number, onClose }: { number: number; onClose: () => void }) {
   const [bike, setBike] = useState<Resource<Bike>>({ kind: "loading" });
   const own = useOwnBikes();
@@ -290,7 +280,6 @@ export function BikeDrawer({ number, onClose }: { number: number; onClose: () =>
   const item = useMemo(() => {
     if (bike.kind !== "ready") return null;
     const assessed = assessForAccount([bike.data], own)[0];
-    // Alone, a bike is no station's best pick: keep only the warnings.
     return assessed.verdict === "recommended" ? { ...assessed, verdict: "neutral" as const, reasons: [] } : assessed;
   }, [bike, own]);
 

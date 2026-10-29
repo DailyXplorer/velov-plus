@@ -47,7 +47,6 @@ test("periods: 30 days by day and 12 months by month, in Paris time", () => {
   assert.equal(days.series.unit, "day");
   assert.equal(days.series.buckets.length, 30);
   assert.deepEqual([days.series.buckets[0].key, days.series.buckets.at(-1)!.key], ["2026-09-30", "2026-10-29"]);
-  // 23:30 UTC is already the next day in Lyon; 22:30 UTC on 29/09 is 00:30 on 30/09, the first day of the window.
   assert.equal(days.series.buckets.at(-1)!.trips, 1);
   assert.equal(days.trips, 2);
   const months = periodStats("12m", input(trips));

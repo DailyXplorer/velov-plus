@@ -19,7 +19,6 @@ const number = (value: number) => value.toLocaleString("fr-FR");
 const plural = (count: number, word: string) => `${number(count)} ${word}${count > 1 ? "s" : ""}`;
 const dayLabel = (day: string, options: Intl.DateTimeFormatOptions = { day: "numeric", month: "short" }) => formatDate(`${day}T12:00:00Z`, options);
 const monthLabel = (month: string, options: Intl.DateTimeFormatOptions = { month: "short" }) => formatDate(`${month}-15T12:00:00Z`, options);
-/** Axis label for a month: its initial only (J F M A…), like Apple Santé; the full month is in the tooltip. */
 const monthInitial = (month: string) => monthLabel(month, { month: "narrow" }).toLocaleUpperCase("fr-FR");
 const bucketLabel = (unit: "day" | "month", key: string) => unit === "day" ? dayLabel(key, { weekday: "long", day: "numeric", month: "long" }) : monthLabel(key, { month: "long", year: "numeric" });
 function hours(minutes: number) {
@@ -29,7 +28,6 @@ function kilometres(metres: number) {
   return (metres / 1000).toLocaleString("fr-FR", { maximumFractionDigits: metres < 100_000 ? 1 : 0 });
 }
 
-// Fetched once per account and tab: a period change or a return to the page reads nothing.
 let cached: { account: string; stats: Stats } | null = null;
 
 export function StatsPage({ account }: { account: string }) {
@@ -83,7 +81,6 @@ const HEADLINES: { icon: Icon; label: string; value: string; unit?: string }[] =
 ];
 const GHOST_STATIONS = ["Bellecour", "Part-Dieu Villette", "Hôtel de Ville", "Saxe-Gambetta", "Croix-Rousse"];
 
-/** The page as it loads: the same grids, cards and panels as StatsView with a typical account, data as ghosts. */
 export function StatsSkeleton() {
   return (
     <div className="page-content stats-page" aria-busy="true" aria-label="Chargement des statistiques">
@@ -150,7 +147,6 @@ function Panel({ title, wide = false, full = false, children }: { title: string;
   );
 }
 
-/** The chart's width in CSS pixels, so the SVG is drawn at its real size: crisp text, round bars. */
 function useWidth() {
   const ref = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
@@ -167,10 +163,6 @@ function useWidth() {
 
 type Tip = { x: number; y: number; content: ReactNode };
 
-/**
- * Hover with a mouse, tap with a finger: `hit` turns a point into a datum, `tip` places its tooltip.
- * The SVG is one image for screen readers; its numbers are in the hidden table instead.
- */
 function Chart({ label, height, table, hit, tip, children }: {
   label: string; height: number | ((width: number) => number); table: ReactNode;
   hit: (x: number, y: number, width: number) => number | null;
@@ -202,7 +194,6 @@ function Chart({ label, height, table, hit, tip, children }: {
   );
 }
 
-/** 0, then a round half and top: 47 -> 25, 50. */
 function niceMax(value: number) {
   if (value <= 0) return 1;
   const step = 10 ** Math.floor(Math.log10(value));

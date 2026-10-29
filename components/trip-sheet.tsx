@@ -9,7 +9,6 @@ import { Button, Eyebrow, Modal, TextButton } from "./ui";
 import { BikeDrawer } from "./station-bikes";
 
 const statuses: Record<string, string> = { REQUESTED: "Demandé", STARTED: "En cours", PAUSED: "En pause", FINISHED: "Terminé", AUTO_FINISHED: "Terminé automatiquement", REJECTED: "Refusé", TIMEOUT: "Expiré", ERROR: "En erreur", WARNING: "Avertissement", REVERSED: "Annulé" };
-// Dashboard data comes back stale until the next reload; remember ratings sent from this tab.
 const ratedHere = new Set<string>();
 
 function tripTimes(trip: Trip) {
@@ -33,7 +32,6 @@ function Stop({ label, station, stand }: { label: string; station: string | null
 type RatingStep = { kind: "choose"; failure?: RateFailure } | { kind: "sending" } | { kind: "done" };
 const starNumbers: Stars[] = [1, 2, 3, 4, 5];
 
-/** Five stars, then one tap on "Envoyer" sends one note: the stars are the choice, the button is the confirmation. */
 function RateBike({ trip, bikeNumber, onLater }: { trip: Trip; bikeNumber: number; onLater: () => void }) {
   const [stars, setStars] = useState<Stars | null>(null);
   const [step, setStep] = useState<RatingStep>({ kind: "choose" });
@@ -136,10 +134,8 @@ export function TripSheet({ trip, onClose }: { trip: Trip; onClose: () => void }
   );
 }
 
-/** Opened when the bike is docked, or on load for a recent unrated trip: where, how long, how much, and the stars. Any close counts as "Plus tard". */
 export function TripEndedSheet({ trip, onClose }: { trip: Trip; onClose: () => void }) {
   const close = () => { dismissTrip(localStorage, trip.id); onClose(); };
-  // Decided once: the card stays for its "Merci" after a note, whatever reloads behind the sheet.
   const [rateable] = useState(() => trip.isRated !== true && !ratedHere.has(trip.id) && canRate(trip));
   return (
     <Modal titleId="trip-ended-title" onClose={close}>

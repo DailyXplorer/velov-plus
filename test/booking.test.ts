@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import { afterEach, beforeEach, test } from "node:test";
-import { postBooking, postRelease } from "../lib/cyclocity.ts";
+import { readFileSync } from "node:fs";
+import { ACTION_TIMEOUT_MS, postBooking, postRelease } from "../lib/cyclocity.ts";
 import { VelovError } from "../lib/auth-protocol.ts";
 
-// Nothing here may reach Cyclocity: every call goes through the recorder, and the real fetch is made to fail loudly.
 const realFetch = globalThis.fetch;
 beforeEach(() => { globalThis.fetch = (() => { throw new Error("network call in a unit test"); }) as typeof fetch; });
 afterEach(() => { globalThis.fetch = realFetch; });
@@ -129,4 +129,11 @@ test("a booking is never retried either", async () => {
   const expired = recorder({ status: 401 });
   await assert.rejects(postBooking(booking, expired.send), (error) => error instanceof VelovError && error.code === "expired");
   assert.equal(expired.calls.length, 1);
+});
+
+test("the booking and unlock routes outlive the action timeout, so the platform never cuts an answer that may confirm a booking or a release", () => {
+  for (const route of ["app/api/bookings/route.ts", "app/api/unlock/route.ts"]) {
+    const maxDuration = Number(/export const maxDuration = (\d+);/.exec(readFileSync(route, "utf8"))?.[1]);
+    assert.ok(maxDuration * 1000 >= 2 * ACTION_TIMEOUT_MS, `${route}: maxDuration ${maxDuration}`);
+  }
 });

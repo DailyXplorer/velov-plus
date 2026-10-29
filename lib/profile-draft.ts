@@ -1,4 +1,3 @@
-// The "Modifier mes coordonnées" form without React: what the user typed, and the PATCH body it becomes.
 import { ADDRESS_MAX, NAME_MAX, type Dashboard, type ProfileBody, formatName, normalizePhone, profileBodySchema } from "./models.ts";
 
 export const countries = [
@@ -9,14 +8,12 @@ export const countryName = (code: string | null) => countries.find((country) => 
 type Profile = Dashboard["profile"];
 export type Draft = { firstName: string; lastName: string; address: string; complement: string; zipCode: string; city: string; country: string; phone: string };
 
-/** The current values; names are shown capitalised (Vélo’v stores them in lower case) and only sent if the user edits them. */
 export function draftOf(profile: Profile): Draft {
   return { firstName: formatName(profile.firstName), lastName: formatName(profile.lastName), address: profile.address ?? "", complement: profile.addressComplement ?? "", zipCode: profile.zipCode ?? "", city: profile.city ?? "", country: profile.country ?? "FR", phone: profile.phoneNumber ?? "" };
 }
 
 const nameError = (field: unknown) => `${field === "firstName" ? "Prénom" : "Nom"} invalide : lettres, espaces, apostrophes et traits d’union uniquement, ${NAME_MAX} caractères au plus.`;
 
-/** The PATCH body with only the fields that changed, or the first problem to fix. */
 export function changesOf(profile: Profile, draft: Draft): { body: ProfileBody } | { error: string } | null {
   const body: ProfileBody = {};
   const trimmed = { address: draft.address.trim(), complement: draft.complement.trim(), zipCode: draft.zipCode.trim(), city: draft.city.trim() };

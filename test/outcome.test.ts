@@ -5,7 +5,6 @@ import { postContactMail } from "../lib/contact-mail.ts";
 import { postPromoCode } from "../lib/promo.ts";
 import { isUncertain, noAnswer, routeFailure } from "../lib/outcome.ts";
 
-// Every Vélo’v answer below is mocked: the real fetch fails loudly.
 const realFetch = globalThis.fetch;
 beforeEach(() => { globalThis.fetch = (() => { throw new Error("network call in a unit test"); }) as typeof fetch; });
 afterEach(() => { globalThis.fetch = realFetch; });

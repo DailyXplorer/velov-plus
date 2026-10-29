@@ -1,11 +1,8 @@
-// Trip statistics: pure aggregation of the whole history, free of "server-only" so tests and the client can import it.
 import { z } from "zod";
 import { haversine, type Point } from "./geo.ts";
 import type { Trip } from "./models.ts";
 
-/** Vélo’v gives no distance: the straight line between the two stations, lengthened for the streets. */
 export const DETOUR_FACTOR = 1.3;
-/** Order of magnitude for a petrol car in town, in grams of CO₂ per km. */
 export const CO2_GRAMS_PER_KM = 200;
 export const MAX_PAGES = 50;
 export const PERIODS = ["30d", "12m", "all"] as const;
@@ -15,20 +12,16 @@ const TOP = 5;
 const count = z.number().int().nonnegative();
 export const periodStatsSchema = z.object({
   trips: count, minutes: count,
-  // metres: summed over the `known` trips, those whose two stations are known.
   distance: z.object({ metres: z.number(), known: count }),
   co2Grams: z.number(), spentCents: z.number(), savedCents: z.number(), pointsEarned: z.number(),
   series: z.object({ unit: z.enum(["day", "month"]), buckets: z.array(z.object({ key: z.string(), minutes: count, trips: count })) }),
-  // Seven rows, Monday first, of 24 hours (Paris time).
   heatmap: z.array(z.array(count)),
   bikeTypes: z.object({ mechanical: count, electrical: count, unknown: count }),
-  // Departures and arrivals together.
   stations: z.array(z.object({ name: z.string(), count })),
   records: z.object({ longestMinutes: count.nullable(), busiestDayTrips: count.nullable(), streakDays: count.nullable(), bike: z.number().nullable() })
 });
 export const statsSchema = z.object({
   periods: z.object({ "30d": periodStatsSchema, "12m": periodStatsSchema, all: periodStatsSchema }),
-  // Today's points balance, else the sum of the movements; null when neither could be read.
   balance: z.number().nullable()
 });
 export type PeriodStats = z.infer<typeof periodStatsSchema>;
@@ -36,10 +29,6 @@ export type Stats = z.infer<typeof statsSchema>;
 export type Movement = { date: string | null; amount: number };
 export type StatsInput = { trips: Trip[]; coords: Map<number, Point>; movements: Movement[] | null; balance: number | null; now: Date };
 
-/**
- * Reads a paged list once, page after page: stops at the first empty page, at a page that brings nothing new
- * (a server that ignores `page` repeats itself), or after `maxPages`. A failure after the first page keeps what was read.
- */
 export async function collectPages<T>(fetchPage: (page: number) => Promise<T[]>, idOf: (item: T) => string, maxPages = MAX_PAGES): Promise<{ items: T[]; complete: boolean }> {
   const items: T[] = [];
   const seen = new Set<string>();
@@ -56,7 +45,6 @@ export async function collectPages<T>(fetchPage: (page: number) => Promise<T[]>,
   return { items, complete: false };
 }
 
-/** Metres: null without both stations or their coordinates, 0 for a loop back to the same station. */
 export function estimateDistance(trip: Pick<Trip, "startStationNumber" | "endStationNumber">, coords: Map<number, Point>) {
   const { startStationNumber: start, endStationNumber: end } = trip;
   if (start == null || end == null) return null;
@@ -69,7 +57,6 @@ export function estimateDistance(trip: Pick<Trip, "startStationNumber" | "endSta
 const parisParts = new Intl.DateTimeFormat("en-US", { timeZone: "Europe/Paris", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", hourCycle: "h23", weekday: "short" });
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
-/** Calendar day ("2026-10-29"), month ("2026-10"), hour and weekday (Monday 0) in Lyon. */
 export function parisTime(value: string | Date) {
   const parts = Object.fromEntries(parisParts.formatToParts(new Date(value)).map((part) => [part.type, part.value]));
   return { day: `${parts.year}-${parts.month}-${parts.day}`, month: `${parts.year}-${parts.month}`, hour: Number(parts.hour), weekday: WEEKDAYS.indexOf(parts.weekday) };
@@ -92,7 +79,6 @@ function range(first: string, last: string, next: (key: string) => string) {
   return keys;
 }
 
-/** Every departure and arrival, most used first, ties by name so the order is stable. */
 function favouriteStations(trips: Trip[]) {
   const tally = new Map<string, { name: string; count: number }>();
   for (const trip of trips) {
@@ -107,7 +93,6 @@ function favouriteStations(trips: Trip[]) {
   return [...tally.values()].sort((left, right) => right.count - left.count || left.name.localeCompare(right.name, "fr")).slice(0, TOP);
 }
 
-/** Longest run of consecutive days, null without any day. */
 function longestStreak(days: string[]) {
   let best = 0;
   let current = 0;

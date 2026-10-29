@@ -1,6 +1,5 @@
 export type Point = { lat: number; lon: number };
 
-/** Great-circle distance in metres. */
 export function haversine(from: Point, to: Point) {
   const radians = Math.PI / 180;
   const latitude = (to.lat - from.lat) * radians;
@@ -9,7 +8,6 @@ export function haversine(from: Point, to: Point) {
   return 6_371_000 * 2 * Math.atan2(Math.sqrt(arc), Math.sqrt(1 - arc));
 }
 
-/** "350 m", "1,2 km", "14 km". */
 export function formatDistance(metres: number) {
   if (metres < 1000) return `${Math.max(10, Math.round(metres / 10) * 10)} m`;
   return `${(metres / 1000).toLocaleString("fr-FR", { maximumFractionDigits: metres < 10_000 ? 1 : 0 })} km`;
@@ -18,7 +16,6 @@ export function formatDistance(metres: number) {
 const PERMISSION_DENIED = 1;
 const POSITION_UNAVAILABLE = 2;
 const TIMEOUT = 3;
-/** Wi-Fi or cell positioning answers fast and works on Macs, which have no GPS. */
 export const QUICK_FIX: PositionOptions = { enableHighAccuracy: false, timeout: 10_000, maximumAge: 60_000 };
 export const PRECISE_FIX: PositionOptions = { enableHighAccuracy: true, timeout: 15_000, maximumAge: 0 };
 
@@ -29,7 +26,6 @@ function attempt(geolocation: Locator, options: PositionOptions) {
   return new Promise<GeolocationPosition>((resolve, reject) => geolocation.getCurrentPosition(resolve, reject, options));
 }
 
-/** A quick fix first; a timeout or a missing position retries once with high accuracy. A refusal never retries. */
 export async function findPosition(geolocation: Locator) {
   try {
     return await attempt(geolocation, QUICK_FIX);
@@ -47,7 +43,6 @@ function failureMessage(code: number) {
   return "Impossible de vous localiser pour le moment.";
 }
 
-/** "Safari macOS", "Chrome Android". */
 export function shortAgent(userAgent: string) {
   const browser = /Edg/.test(userAgent) ? "Edge" : /OPR|Opera/.test(userAgent) ? "Opera" : /SamsungBrowser/.test(userAgent) ? "Samsung Internet"
     : /Firefox|FxiOS/.test(userAgent) ? "Firefox" : /Chrome|CriOS/.test(userAgent) ? "Chrome" : /Safari/.test(userAgent) ? "Safari" : "Navigateur inconnu";
@@ -58,10 +53,8 @@ export function shortAgent(userAgent: string) {
 
 type Browser = { userAgent: string; permissions?: Pick<Permissions, "query"> };
 
-/** The French message, and the raw line the owner can report: code, browser message, browser, permission state when the browser tells it. */
 export async function describeLocationFailure(error: unknown, browser: Browser) {
   const { code, message } = (error ?? {}) as Partial<PositionFailure>;
-  // Some browsers throw instead of rejecting for an unsupported permission name.
   const permission = await Promise.resolve().then(() => browser.permissions?.query({ name: "geolocation" })).then((status) => status?.state, () => undefined);
   const raw = [`Code ${code ?? "—"}`, message || "—", shortAgent(browser.userAgent), permission && `Permission ${permission}`].filter(Boolean).join(" · ");
   return { message: failureMessage(code ?? 0), raw };

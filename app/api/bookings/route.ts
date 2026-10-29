@@ -6,7 +6,6 @@ import { errorResponse, getSession, jsonResponse, type Session } from "@/lib/ses
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-// The booking POST alone may wait 30 s; a shorter limit would cut its answer, not the booking.
 export const maxDuration = 60;
 export async function GET(request: NextRequest) {
   let session: Session | null = null;

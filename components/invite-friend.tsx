@@ -33,7 +33,6 @@ export function InviteFriend({ cost, balance, account, onChanged }: { onChanged:
 
   async function confirm() {
     if (cost === null || inFlight.current || !storageKey || pendingAccounts.has(storageKey)) return;
-    // Fail before the debit if persistence is already unavailable; never erase previous codes.
     try { preparePromoStorage(localStorage, storageKey); }
     catch { setWarning("Ce navigateur ne peut pas enregistrer le code. Vos points n’ont pas été utilisés."); return; }
     inFlight.current = true;
@@ -47,7 +46,6 @@ export function InviteFriend({ cost, balance, account, onChanged }: { onChanged:
       const parsed = promoResultSchema.safeParse(data);
       const result: PromoResult = parsed.success ? parsed.data : { ...routeFailure(response.status, data, "Réponse inattendue. Vos points ont peut-être été débités."), promoCode: null };
       if (result.promoCode) {
-        // Persist before any further request or navigation. No subscription process is sent.
         const saved = { code: result.promoCode, createdAt: new Date().toISOString() };
         setCodes((current) => current.some((item) => item.code === saved.code) ? current : [...current, saved]);
         try { setCodes(savePromoCode(localStorage, storageKey, result.promoCode)); }
@@ -73,7 +71,6 @@ export function InviteFriend({ cost, balance, account, onChanged }: { onChanged:
     try { await navigator.clipboard.writeText(code); setCopied(code); }
     catch { setWarning("Copie impossible. Sélectionnez le code pour le copier."); }
   }
-  // A debit that may have happened is never offered again from the same dialog.
   const settled = outcome !== null && (outcome.ok || isUncertain(outcome));
   const canObtain = cost !== null && storageKey !== null && balance !== null && balance >= cost && Number.isSafeInteger(cost) && cost >= 0;
   const codeList = codes.length ? <div className="promo-codes"><p className="metric-label">Code à transmettre à votre ami</p>{codes.map((entry) => <div className="promo-code" key={entry.code}><code>{entry.code}</code><Button variant="secondary" onClick={() => void copy(entry.code)}><CopyIcon size={16} aria-hidden="true"/>{copied === entry.code ? "Copié" : "Copier"}</Button></div>)}<small className="soon-note">Enregistré sur ce navigateur.</small></div> : null;

@@ -2,7 +2,6 @@ import { z } from "zod";
 
 const errorSchema = z.object({ error: z.string() });
 
-/** status 0: no answer at all (network, timeout, or the caller aborted). */
 export class ApiError extends Error {
   readonly status: number;
   constructor(message: string, status: number) {
@@ -11,7 +10,6 @@ export class ApiError extends Error {
   }
 }
 
-/** GETs one of our API routes within 25 s. Any failure becomes an ApiError with a French message, never a raw parse error. */
 export async function getJson<T>(url: string, schema: z.ZodType<T>, unavailable: string, signal?: AbortSignal): Promise<T> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 25_000);

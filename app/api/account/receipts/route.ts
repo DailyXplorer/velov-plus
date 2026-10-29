@@ -7,7 +7,6 @@ import { errorResponse, getSession, jsonResponse, setSessionCookies, type Sessio
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
-/** The PDF itself on success; otherwise the outcome as JSON, like every other account write. */
 export async function POST(request: NextRequest) {
   let session: Session | null = null;
   try {

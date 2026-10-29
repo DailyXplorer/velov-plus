@@ -3,7 +3,6 @@ import { afterEach, beforeEach, mock, test } from "node:test";
 import { appToken, fetchTransient, getStations, getWithAppToken } from "../lib/upstream.ts";
 import { VelovError } from "../lib/auth-protocol.ts";
 
-// Nothing here may reach Cyclocity: each test installs its own fetch, and the real one fails loudly.
 const realFetch = globalThis.fetch;
 type Call = { url: string; init: RequestInit };
 let calls: Call[] = [];

@@ -1,7 +1,3 @@
-/**
- * One load per key at a time, its result kept for `ttl` ms. A failed load is never kept;
- * with `stale`, it falls back to the last value, however old.
- */
 export function memo<T>(ttl: number, { stale = false } = {}) {
   const values = new Map<string, { value: T; expiresAt: number }>();
   const pending = new Map<string, Promise<T>>();

@@ -8,7 +8,6 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 30;
 type Context = { params: Promise<{ number: string }> };
 
-/** POST adds the station to the favourites, DELETE removes it; neither takes a body. */
 async function bookmark(request: NextRequest, { params }: Context, on: boolean) {
   let session: Session | null = null;
   try {

@@ -3,7 +3,6 @@ import { test } from "node:test";
 import { PRECISE_FIX, QUICK_FIX, describeLocationFailure, findPosition, shortAgent } from "../lib/geo.ts";
 
 type Reply = { position: { lat: number } } | { code: number; message: string };
-/** Answers each getCurrentPosition call with the next scripted reply, and records the options it was given. */
 function fakeGeolocation(...replies: Reply[]) {
   const calls: (PositionOptions | undefined)[] = [];
   const geolocation = {

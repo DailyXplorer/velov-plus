@@ -11,7 +11,6 @@ const errorSchema = z.object({ error: z.string(), code: z.string().optional() })
 const failure = (httpStatus: number, code: string | null, message: string): Outcome => ({ ok: false, httpStatus, transactionState: null, code, message, detail: null });
 export const SOON = "Bientôt disponible";
 
-/** One request to our API, never repeated: the outcome says what Vélo’v answered, or why there was no answer. */
 async function sendWrite(url: string, method: "POST" | "PATCH" | "DELETE", body?: unknown): Promise<{ outcome: Outcome; data: unknown }> {
   let response: Response;
   try {
@@ -34,7 +33,6 @@ function RawStatus({ outcome }: { outcome: Outcome }) {
 
 type Step = { kind: "confirm" } | { kind: "sending" } | { kind: "failed"; outcome: Outcome };
 
-/** Every change to the account: a question, one request per "Confirmer"; success closes the dialog, a failure stays with its raw status. */
 function ConfirmDialog({ title, children, run, onClose }: { title: string; children?: ReactNode; run: () => Promise<Outcome>; onClose: () => void }) {
   const titleId = useId();
   const [step, setStep] = useState<Step>({ kind: "confirm" });
@@ -73,7 +71,6 @@ function Switch({ checked, label, disabled = false, onClick }: { checked: boolea
   return <button type="button" role="switch" className="switch" aria-checked={checked} aria-label={label} disabled={disabled} onClick={onClick}/>;
 }
 
-/** Points tab: "Utilisation automatique" as a real switch (PATCH /rewards). */
 export function AutoSpendSetting({ value, onChanged }: { value: boolean | null; onChanged: (value: boolean) => void }) {
   const [asking, setAsking] = useState(false);
   const next = !value;
@@ -99,7 +96,6 @@ export function AutoSpendSetting({ value, onChanged }: { value: boolean | null; 
   );
 }
 
-/** Star of the station sheet and panel: POST or DELETE /stationbookmarks/{n}/. */
 export function FavoriteButton({ station, favorite, onChanged }: { station: Station; favorite: boolean; onChanged: (number: number, favorite: boolean) => void }) {
   const [asking, setAsking] = useState(false);
   return (
@@ -119,14 +115,12 @@ export function FavoriteButton({ station, favorite, onChanged }: { station: Stat
   );
 }
 
-/** "Du 1 mars au 2 mars 2026": the period a receipt covers. */
 function periodLabel({ start, end }: Receipt) {
   const day = { day: "numeric", month: "short", year: "numeric" } as const;
   if (start && end) return `Du ${formatDate(start, day)} au ${formatDate(end, day)}`;
   return start ? `Depuis le ${formatDate(start, day)}` : end ? `Jusqu’au ${formatDate(end, day)}` : "Dates inconnues";
 }
 
-/** The receipt POST only reads: no confirmation, but one request per click and the PDF saved as a file. */
 function ReceiptRow({ receipt }: { receipt: Receipt }) {
   const [pending, setPending] = useState(false);
   const [failed, setFailed] = useState<Outcome | null>(null);
@@ -188,7 +182,6 @@ function Field({ label, value, onChange, maxLength, inputMode, autoComplete }: {
   return <label className="field"><span className="metric-label">{label}</span><input value={value} maxLength={maxLength} inputMode={inputMode} autoComplete={autoComplete} onChange={(event) => onChange(event.target.value)}/></label>;
 }
 
-/** First and last name, address, postcode, city, country and phone (PATCH /accounts/{id}); email and secret code stay with Vélo’v. */
 export function ProfileCoordinates({ profile, onSaved }: { profile: Profile; onSaved: () => void }) {
   const [draft, setDraft] = useState<Draft | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -239,7 +232,6 @@ export function ProfileCoordinates({ profile, onSaved }: { profile: Profile; onS
         <ConfirmDialog title="Enregistrer les modifications ?" onClose={() => setAsking(null)}
           run={async () => {
             const { outcome } = await sendWrite("/api/account/profile", "PATCH", asking);
-            // Back to the coordinates, read again from Vélo’v.
             if (outcome.ok) { setDraft(null); onSaved(); }
             return outcome;
           }}/>

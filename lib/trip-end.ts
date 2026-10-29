@@ -1,11 +1,9 @@
-// The end of a ride, kept free of React so tests can drive it: star ratings, the dock watch, and the "Plus tard" memory.
 import { z } from "zod";
 import { type RateBody, type Trip, canRate, tripSchema } from "./models.ts";
 
 export type Stars = 1 | 2 | 3 | 4 | 5;
 export type Vote = Omit<RateBody, "bikeNumber">;
 
-/** Vélo’v stores three levels only (100, 60, 30): 5 and 4 stars recommend, 3 and 2 report a minor problem, 1 a serious one. */
 export function starVote(stars: Stars): Vote {
   if (stars >= 4) return { recommended: true, rating: null };
   return { recommended: false, rating: stars === 1 ? 30 : 60 };
@@ -17,7 +15,6 @@ const errorSchema = z.object({ error: z.string(), code: z.string().optional() })
 const notSent = "La note n’a pas pu être envoyée.";
 export type RateFailure = { message: string; raw: string };
 
-/** One POST to our own route per call, never retried. null: the note is recorded. */
 export async function sendStars(tripId: string, bikeNumber: number, stars: Stars, send: typeof fetch = fetch): Promise<RateFailure | null> {
   let response: Response;
   try {
@@ -33,9 +30,8 @@ export async function sendStars(tripId: string, bikeNumber: number, stars: Stars
 type Store = Pick<Storage, "getItem" | "setItem">;
 const dismissedKey = (tripId: string) => `velov:trip-ended:v1:${tripId}`;
 
-/** Closing the "Trajet terminé" sheet, by "Plus tard" or otherwise, keeps it from opening again for that trip. */
 export function dismissTrip(storage: Store, tripId: string) {
-  try { storage.setItem(dismissedKey(tripId), "1"); } catch { /* Storage full or blocked: the sheet may open once more. */ }
+  try { storage.setItem(dismissedKey(tripId), "1"); } catch {}
 }
 
 export function wasDismissed(storage: Store, tripId: string) {
@@ -51,19 +47,16 @@ export function latestFinished(trips: Trip[]): Trip | null {
   return latest;
 }
 
-/** On app load: the latest finished trip, still rateable and never dismissed here. */
 export function tripToGreet(trips: Trip[], storage: Store, now = Date.now()): Trip | null {
   const latest = latestFinished(trips);
   return latest && canRate(latest, now) && !wasDismissed(storage, latest.id) ? latest : null;
 }
 
-/** GET /api/trips/current: the ongoing trips (null when Vélo’v did not answer), and the latest finished trip once none is ongoing. */
 export const tripCheckSchema = z.object({ ongoing: z.array(tripSchema).nullable(), latest: tripSchema.nullable() });
 export type TripCheck = z.infer<typeof tripCheckSchema>;
 
 export const WATCH_INTERVAL = 20_000;
 export const WATCH_CAP = 3 * 3_600_000;
-/** After an unlock the trip shows up ~10 s after the bike leaves the borne; past this, the release is taken as not used. */
 export const UNLOCK_GRACE = 2 * 60_000;
 
 type Timer = ReturnType<typeof setTimeout>;
@@ -77,15 +70,10 @@ export type DockWatchDeps = {
 };
 type Watch = { kind: "idle" } | { kind: "unlocked"; since: number; startedAt: number } | { kind: "riding"; tripId: string; startedAt: number };
 
-/**
- * Polls while a trip is ongoing, every 20 s and only while the page is visible, one request at a time, 3 h at most.
- * `docked` fires once, when a trip seen ongoing is gone; the watch then stops.
- */
 export function createDockWatch({ check, docked, visible, now = Date.now, setTimer = setTimeout, clearTimer = clearTimeout }: DockWatchDeps) {
   let watch: Watch = { kind: "idle" };
   let timer: Timer | null = null;
   let inFlight = false;
-  // Bumped by stop(): an answer to a request sent before it is ignored.
   let generation = 0;
 
   function cancel() {
@@ -109,7 +97,7 @@ export function createDockWatch({ check, docked, visible, now = Date.now, setTim
     const sent = generation;
     inFlight = true;
     let answer: TripCheck | null = null;
-    try { answer = await check(); } catch { /* Network or Vélo’v down: try again next round. */ }
+    try { answer = await check(); } catch {}
     finally { inFlight = false; }
     if (sent !== generation) return;
     const ongoing = answer?.ongoing;
@@ -123,14 +111,12 @@ export function createDockWatch({ check, docked, visible, now = Date.now, setTim
   }
 
   return {
-    /** A trip known to be ongoing, or null right after an unlock, before the trip shows up. */
     follow(tripId: string | null) {
       const startedAt = watch.kind === "idle" ? now() : watch.startedAt;
       if (tripId) watch = { kind: "riding", tripId, startedAt };
       else if (watch.kind === "idle") watch = { kind: "unlocked", since: now(), startedAt };
       if (timer === null && !inFlight) schedule();
     },
-    /** Call on visibilitychange: hidden pauses, visible checks at once. */
     visibilityChanged() {
       if (watch.kind === "idle") return;
       cancel();

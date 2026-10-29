@@ -4,7 +4,6 @@ import { COOKIE, clearSessionCookies, errorResponse, jsonResponse } from "@/lib/
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
-/** Cookies are cleared whatever Vélo’v answers; remoteLogout tells whether it confirmed the end of the session. */
 export async function POST(request: NextRequest) {
   try {
     requireSameOrigin(request);

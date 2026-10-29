@@ -21,7 +21,6 @@ const navigation = [
   { id: "stations", label: "Stations", mobile: "Stations", icon: MapPinIcon },
   { id: "account", label: "Compte", mobile: "Compte", icon: UserCircleIcon }
 ] satisfies { id: Page; label: string; mobile: string; icon: typeof HouseIcon }[];
-// While the account loads, the page being opened shows its own skeleton: the stats one is also what StatsPage shows next.
 const skeletons: Record<Page, () => ReactNode> = { overview: OverviewSkeleton, trips: TripsSkeleton, stats: StatsSkeleton, points: PointsSkeleton, stations: StationsSkeleton, account: AccountSkeleton };
 const logoutSchema = z.object({ remoteLogout: z.boolean().optional() });
 const remoteLogoutUnconfirmed = "Déconnexion effectuée. Vélo’v ne l’a pas encore confirmée.";
@@ -38,12 +37,10 @@ function subscribeHash(changed: () => void) {
 
 export function Companion({ initialSession }: { initialSession: boolean }) {
   const [state, setState] = useState<State>(initialSession ? { kind: "loading" } : { kind: "guest", message: null });
-  // The server cannot see the hash: until hydration there is no page, so no other page's skeleton flashes first.
   const page = useSyncExternalStore(subscribeHash, pageFromHash, () => null);
   const [stations, setStations] = useState<Resource<StationData>>({ kind: "loading" });
   const [stationsPending, setStationsPending] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  // One load of each at a time: a second click or a retry joins nothing and sends nothing.
   const dashboardInFlight = useRef(false);
   const stationsInFlight = useRef(false);
   const [logoutOpen, setLogoutOpen] = useState(false);
@@ -53,14 +50,12 @@ export function Companion({ initialSession }: { initialSession: boolean }) {
   const [unlocking, setUnlocking] = useState<Booking | null>(null);
   const [ended, setEnded] = useState<Trip | null>(null);
   const watch = useRef<ReturnType<typeof createDockWatch> | null>(null);
-  // Trips already seen docked: a dashboard read lagging behind Vélo’v must not start watching them again.
-  const docked = useRef(new Set<string>());
+  const dockedTrips = useRef(new Set<string>());
   const greeted = useRef(false);
 
-  // Read-only and best effort: without it the app only misses the booking banner.
   const loadBookings = useCallback(async () => {
     try { setBookings(await getJson("/api/bookings", z.array(bookingSchema), "")); }
-    catch { /* Keep the last known bookings. */ }
+    catch {}
   }, []);
   const account = useMemo(() => ({ bookings, changed: () => void loadBookings(), unlocked: (tripId: string | null) => watch.current?.follow(tripId) }), [bookings, loadBookings]);
 
@@ -78,7 +73,6 @@ export function Companion({ initialSession }: { initialSession: boolean }) {
     }
   }, []);
 
-  // An account write that succeeded: its effect is applied here instead of reading the whole account again.
   const patchData = useCallback((change: (data: Dashboard) => Dashboard) => {
     setState((current) => current.kind === "ready" ? { kind: "ready", data: change(current.data) } : current);
   }, []);
@@ -113,7 +107,7 @@ export function Companion({ initialSession }: { initialSession: boolean }) {
         throw error;
       }),
       docked: (tripId, latest) => {
-        docked.current.add(tripId);
+        dockedTrips.current.add(tripId);
         void loadDashboard().then((data) => {
           const trip = data?.trips?.find((item) => item.id === tripId) ?? (latest?.id === tripId ? latest : null);
           if (trip) setEnded(trip);
@@ -127,16 +121,15 @@ export function Companion({ initialSession }: { initialSession: boolean }) {
     return () => { document.removeEventListener("visibilitychange", changed); current.stop(); watch.current = null; };
   }, [loadDashboard]);
 
-  // Watch any ongoing trip the account reports; on the first load without one, offer to rate a recent unrated trip.
   useEffect(() => {
     if (state.kind === "guest") { watch.current?.stop(); return; }
     if (state.kind !== "ready") return;
-    const trip = state.data.ongoing?.find((item) => !docked.current.has(item.id));
+    const trip = state.data.ongoing?.find((item) => !dockedTrips.current.has(item.id));
     if (trip) watch.current?.follow(trip.id);
     if (greeted.current) return;
     greeted.current = true;
     if (!state.data.ongoing?.length && state.data.trips) {
-      try { const recent = tripToGreet(state.data.trips, localStorage); if (recent) setEnded(recent); } catch { /* No storage: no greeting. */ }
+      try { const recent = tripToGreet(state.data.trips, localStorage); if (recent) setEnded(recent); } catch {}
     }
   }, [state]);
 

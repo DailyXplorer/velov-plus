@@ -12,7 +12,6 @@ export function renewalStateOf(subscription: { isLocked?: boolean; periods?: { r
   return { autoRenewal: details?.autoRenewalValue ?? null, autoRenewalAllowed: subscription?.isLocked !== true && details?.autoRenewalBtn === true };
 }
 
-/** A failed verification is not a failed PATCH: never repeat the write or invent the state. */
 export async function completeRenewalChange(write: () => Promise<Outcome>, readState: () => Promise<RenewalState>): Promise<AutoRenewalResult> {
   const outcome = await write();
   if (!outcome.ok) return { ...outcome, autoRenewal: null, autoRenewalAllowed: false, verified: false };

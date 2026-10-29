@@ -1,4 +1,3 @@
-// Read-only Cyclocity calls: retries, the shared app token and the station list. Free of "server-only" so tests can import it.
 import { z } from "zod";
 import { type Station, stationTitle } from "./models.ts";
 import { BASE } from "./cyclocity.ts";
@@ -7,11 +6,6 @@ import { memo } from "./memo.ts";
 
 const ATTEMPT_TIMEOUT = 8_000;
 
-/**
- * Cyclocity's gateway answers a bare nginx 502 to roughly one request in five (measured, no 429 or rate-limit headers):
- * retry those and network failures, never a timeout, never another status. Reads only, plus the client token POST:
- * a state-changing call (rate, booking, release) must go out exactly once and never comes through here.
- */
 export async function fetchTransient(url: string, init: RequestInit = {}, attempts = 3): Promise<Response> {
   const method = (init.method ?? "GET").toUpperCase();
   if (method !== "GET" && !(method === "POST" && url.endsWith("/client_tokens"))) throw new Error(`fetchTransient refuses ${method} ${url}`);
@@ -29,7 +23,6 @@ export async function fetchTransient(url: string, init: RequestInit = {}, attemp
 
 export type AppToken = { get: () => Promise<string>; drop: (token: string) => void };
 
-/** The app token, shared by concurrent requests and kept 100 min. */
 export function appToken(request: () => Promise<string>): AppToken {
   let current: { token: string; expiresAt: number } | null = null;
   let pending: Promise<string> | null = null;
@@ -39,12 +32,10 @@ export function appToken(request: () => Promise<string>): AppToken {
       pending ??= request().then((token) => { current = { token, expiresAt: Date.now() + 100 * 60_000 }; return token; }).finally(() => { pending = null; });
       return pending;
     },
-    // Only the token that was refused: a concurrent request may already have replaced it.
     drop(token) { if (current?.token === token) current = null; }
   };
 }
 
-/** A GET with the app token. A 401 may come from a stale app token, so it is renewed and the call tried once more. */
 export async function getWithAppToken(tokens: AppToken, url: string, headers: (token: string) => Record<string, string>): Promise<Response> {
   for (let attempt = 1; ; attempt++) {
     const token = await tokens.get();
@@ -86,7 +77,6 @@ async function loadStations(): Promise<StationData> {
   return { stations, updatedAt };
 }
 
-// The only cache layer for GBFS: an outage serves the last list, however old, rather than none.
 const stations = memo<StationData>(45_000, { stale: true });
 export function getStations() {
   return stations("lyon", loadStations);

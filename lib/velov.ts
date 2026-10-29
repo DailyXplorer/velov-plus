@@ -20,7 +20,6 @@ import type { Session } from "./session";
 
 const date = z.string().nullish();
 const text = lenient(z.string());
-// The favourites list (`stations`) has only been seen empty: numbers, numeric strings or objects carrying a number are all read.
 const bookmark = z.union([z.number(), z.string(), z.object({ number: z.union([z.number(), z.string()]) }).transform((value) => value.number), z.object({ stationNumber: z.union([z.number(), z.string()]) }).transform((value) => value.stationNumber)]).catch(0);
 const rawProfile = z.object({ firstName: z.string().nullish(), lastName: z.string().nullish(), email: z.string(), isLocked: z.boolean().optional(), completion: z.number().optional(), phoneNumber: text, address: lenient(z.object({ name: text, complement: text })), zipCode: text, city: text, country: text, stations: lenient(z.array(bookmark)) });
 const rawRewards = z.object({ balance: z.number(), total: z.number().optional(), autoSpend: z.boolean().optional() });
@@ -59,7 +58,6 @@ async function getRawBikes(query: string, unavailable: string): Promise<z.infer<
   const response = await getWithAppToken(publicToken, `${BASE}/bikes?${query}`, (token) => ({ Authorization: `Taknv1 ${token}`, Accept: "application/vnd.bikes.v4+json", "User-Agent": BROWSER_AGENT }));
   if (!response.ok) throw new VelovError("unavailable", unavailable);
   const value: unknown = await response.json();
-  // One malformed bike should not hide the others.
   return z.array(z.unknown()).parse(value).flatMap((item) => { const bike = rawBike.safeParse(item); return bike.success ? [bike.data] : []; });
 }
 
@@ -67,7 +65,6 @@ async function getBikes(query: string, unavailable: string): Promise<Bike[]> {
   return (await getRawBikes(query, unavailable)).map(normalizeBike);
 }
 
-// Shown in the station drawer only: a booking reads its station's bikes afresh.
 const stationBikes = memo<Bike[]>(15_000);
 export function getStationBikes(station: number): Promise<Bike[]> {
   return stationBikes(String(station), async () => (await getBikes(`stationNumber=${station}`, "Les vélos de cette station sont momentanément indisponibles."))
@@ -85,7 +82,6 @@ function accountIdOf(session: Session) {
   return accountIds(session.email, () => read(`/accounts/${encodeURIComponent(session.email)}/id`, z.string().uuid(), session));
 }
 
-// Offers and reward rules are the same for every account.
 const offers = memo<z.infer<typeof offerSchema>[]>(10 * 60_000);
 const rules = memo<z.infer<typeof ruleSchema>[]>(10 * 60_000);
 
@@ -109,7 +105,6 @@ function toBooking(value: z.infer<typeof rawBooking>, stations: Map<number, Stat
   };
 }
 
-/** The account's bookings, with each bike's number found back from its id at the booking's station. */
 export async function getBookings(session: Session): Promise<Booking[]> {
   const accountId = await accountIdOf(session);
   const value = await read(`/accounts/${accountId}/bookings`, z.array(z.unknown()).nullable(), session, "*/*");
@@ -121,7 +116,6 @@ export async function getBookings(session: Session): Promise<Booking[]> {
   return bookings.map((booking) => toBooking(booking, stations, bikeNumbers));
 }
 
-/** The booking body wants the station's and the bike's ids, not their numbers (§ 5.9): both are read just before the one POST. */
 export async function bookBike(session: Session, body: BookBody): Promise<BookResult> {
   const accountId = await accountIdOf(session);
   const [subscriptionId, station, bikes] = await Promise.all([
@@ -141,7 +135,6 @@ export async function bookBike(session: Session, body: BookBody): Promise<BookRe
   return { ...outcome, booking: booking ? toBooking(booking, await stationsByNumber(), new Map([[bike.id, bike.number]])) : null };
 }
 
-/** One release, then one look at the ongoing trip: it usually appears ~10 s after the bike leaves the borne. */
 export async function unlockBike(session: Session, body: UnlockBody): Promise<UnlockResult> {
   const accountId = await accountIdOf(session);
   const account = `/accounts/${accountId}`;
@@ -154,7 +147,6 @@ export async function unlockBike(session: Session, body: UnlockBody): Promise<Un
   return { ...outcome, ongoing: ongoing?.map((trip) => normalizeTrip(trip, stations)) ?? null };
 }
 
-/** The dock watch's poll: the ongoing trips, and only once none is left the latest finished one (two small reads, no dashboard). */
 export async function getTripCheck(session: Session): Promise<TripCheck> {
   const account = `/accounts/${await accountIdOf(session)}`;
   const trips = (path: string) => read(`${account}/${path}`, z.array(rawTrip), session, "application/vnd.trip.v6+json");
@@ -199,7 +191,6 @@ function receiptsOf(subscriptions: z.infer<typeof rawSubscription>[], offerList:
   }] : [])).sort((left, right) => (right.start ?? "").localeCompare(left.start ?? "")).slice(0, 12);
 }
 
-/** Only the account id and the profile are needed: every other read degrades to a warning and a missing piece. */
 export async function getDashboard(session: Session): Promise<Dashboard> {
   const account = `/accounts/${await accountIdOf(session)}`;
   const warnings: string[] = [];
@@ -243,7 +234,6 @@ export async function getDashboard(session: Session): Promise<Dashboard> {
 }
 
 
-/** Verify permission before writing, then read the real server value rather than assuming the requested state. */
 export async function setAutoRenewal(session: Session, body: AutoRenewalBody) {
   const auth = await writer(session);
   const path = `/accounts/${encodeURIComponent(auth.accountId)}/subscriptions?periods=CURRENT&typeList=ST&typeList=LT&isLocked=false`;
@@ -253,7 +243,6 @@ export async function setAutoRenewal(session: Session, body: AutoRenewalBody) {
   return completeRenewalChange(() => patchAutoRenewal({ ...auth, ...body }), readState);
 }
 
-/** Find the subscription actually renting a bike, not simply the first valid ticket, and recheck the full station before writing. */
 export async function requestExtraTime(session: Session, body: ViaBody): Promise<Outcome> {
   const auth = await writer(session);
   const account = `/accounts/${auth.accountId}`;
@@ -263,18 +252,15 @@ export async function requestExtraTime(session: Session, body: ViaBody): Promise
   })));
   const active = renting.filter((item) => item.ongoing);
   if (active.length !== 1) return refusal("local.via.trip", active.length ? "Vous avez plusieurs trajets en cours. Utilisez l’app Vélo’v." : "Vous n’avez aucun trajet en cours.");
-  // v4 gives the UUID too; GBFS station.id is only a station number and cannot be used as the UUID fallback.
   const station = await read(`/stations/${body.stationNumber}`, z.object({ id: z.string(), number: z.number(), open: z.boolean(), availabilities: z.object({ main: z.object({ stands: z.number() }) }) }), session, "application/vnd.station.v4+json");
   if (station.number !== body.stationNumber || !station.open || station.availabilities.main.stands !== 0) return refusal("local.via.not.full", "Cette station n’est plus pleine ou est fermée. Choisissez-en une autre.");
   return postVia({ ...auth, subscriptionId: active[0].id, stationId: VIA_STATION_IDENTIFIER === "uuid" ? station.id : station.number });
 }
 
-/** Sends one customer-service message after the browser confirmation. */
 export async function contactSupport(session: Session, body: import("./contact-models").ContactBody): Promise<Outcome> {
   return postContactMail({ ...(await writer(session)), body });
 }
 
-/** Check the displayed price against the current configuration before the one debit. */
 export async function consumePromoCode(session: Session, expectedCost: number) {
   const auth = await writer(session);
   const [config, rewards] = await Promise.all([
@@ -288,10 +274,8 @@ export async function consumePromoCode(session: Session, expectedCost: number) {
 }
 
 const TRIP_PAGE_SIZE = 100;
-// Per account, 10 min: the whole history is read page after page, so not on every visit.
 const stats = memo<Stats>(10 * 60_000);
 
-/** The history read once, page after page; points and coordinates only enrich it and degrade to nothing. */
 export function getStats(session: Session): Promise<Stats> {
   return stats(session.email, async () => {
     const account = `/accounts/${await accountIdOf(session)}`;

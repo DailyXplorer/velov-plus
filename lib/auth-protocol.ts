@@ -27,7 +27,6 @@ export class VelovError extends Error {
   }
 }
 
-/** The identity provider refused the refresh token itself: only this ends the browser session. */
 export class SessionRevoked extends VelovError {
   constructor() { super("expired", "Votre session a expiré. Reconnectez-vous."); }
 }
@@ -41,12 +40,10 @@ export function safeIAMUrl(value: string) {
 export function requireSameOrigin(request: Request) {
   const origin = request.headers.get("origin");
   const expected = new URL(request.url);
-  // Next.js may use an internal hostname in request.url; Host is the public authority.
   expected.host = request.headers.get("host") ?? expected.host;
   if (origin !== expected.origin) throw new VelovError("origin", "Cette action n’est possible que depuis ce site.");
 }
 
-/** The JSON body of a request, read up to `limit` bytes; undefined when it is not JSON, too large or malformed. */
 export async function readJsonBody(request: Request, limit = 4096): Promise<unknown> {
   if (!request.headers.get("content-type")?.startsWith("application/json") || Number(request.headers.get("content-length") ?? "0") > limit || !request.body) return undefined;
   const reader = request.body.getReader();
@@ -161,7 +158,6 @@ export async function login(credentials: Credentials, deviceId: string = randomU
   return { tokens, deviceId };
 }
 
-// Parallel routes of one page all find the same expired access token: they share one refresh, so a rotated refresh token is spent once.
 const refreshes = memo<Tokens>(30_000);
 
 export function refresh(refreshToken: string, http: Http = fetch) {
@@ -174,7 +170,6 @@ export function refresh(refreshToken: string, http: Http = fetch) {
   });
 }
 
-/** Ends the session at the identity provider; true only when it confirmed. The refresh token is preferred, the id token is the fallback. */
 export async function endSession({ refreshToken, idToken }: { refreshToken?: string; idToken?: string }, http: Http = fetch) {
   try {
     if (refreshToken) {
@@ -185,7 +180,6 @@ export async function endSession({ refreshToken, idToken }: { refreshToken?: str
     const url = new URL(`${OIDC}/logout`);
     url.search = new URLSearchParams({ id_token_hint: idToken, post_logout_redirect_uri: "https://velov.grandlyon.com/openid_connect_logout" }).toString();
     const response = await http(url, { redirect: "manual", cache: "no-store", signal: AbortSignal.timeout(10_000) });
-    // Keycloak answers this one with a redirect to post_logout_redirect_uri.
     return response.ok || [302, 303].includes(response.status);
   } catch { return false; }
 }

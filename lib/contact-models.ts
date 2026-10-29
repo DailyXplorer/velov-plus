@@ -8,7 +8,6 @@ export const contactBodySchema = z.object({
 }).strict();
 export type ContactBody = z.infer<typeof contactBodySchema>;
 
-/** Only the selected trip token is appended, never unrelated account information. */
 export function contactMessage(body: ContactBody) {
   return [body.message.trim(), body.tripToken ? `Code du trajet : ${body.tripToken}` : null].filter(Boolean).join("\n\n");
 }

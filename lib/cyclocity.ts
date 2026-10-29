@@ -1,5 +1,4 @@
 import { AUTO_RENEWAL_FIELD, SUBSCRIPTION_MEDIA_TYPE } from "./guesses.ts";
-// The parts of the Cyclocity client that need no server secret, kept free of "server-only" so tests can import them.
 import { z } from "zod";
 import { VIA_MEDIA_TYPE, VIA_STATION_FIELD, VIA_SUCCESS_STATE, VIA_STATE_FIELD } from "./guesses.ts";
 import { type AutoSpendResult, type Outcome, type ProfileBody, type RateBody, type Station, type Trip, type UnlockBody, stationTitle } from "./models.ts";
@@ -8,8 +7,8 @@ import { VelovError } from "./auth-protocol.ts";
 
 export const API = "https://api.cyclocity.fr";
 export const BASE = `${API}/contracts/lyon`;
-// The bikes endpoint sits behind a WAF that answers non-browser user agents with an HTML 403.
 export const BROWSER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130 Safari/537.36";
+export const ACTION_TIMEOUT_MS = 30_000;
 export const lenient = <T extends z.ZodType>(schema: T) => schema.nullish().catch(null);
 
 const scalar = z.union([z.number(), z.string()]).nullish();
@@ -24,7 +23,6 @@ export const rawTrip = z.object({
   litigious: lenient(z.boolean()), isRated: lenient(z.boolean()), token: lenient(z.string()), origin: lenient(z.number())
 });
 
-/** Cyclocity date-times are UTC without a zone designator; a date alone ("2026-03-02") stays a calendar date. */
 export function utcDate(value: string | null | undefined) {
   if (!value) return null;
   if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
@@ -59,7 +57,6 @@ export function normalizeTrip(value: z.infer<typeof rawTrip>, stations: Map<numb
   };
 }
 
-/** Rates the bike of a trip, once: the caller asked for exactly one attempt. */
 export async function postRating({ accountId, tripId, body, token, identity }: { accountId: string; tripId: string; body: RateBody; token: string; identity: string }, send: typeof fetch = fetch) {
   const response = await send(`${BASE}/accounts/${encodeURIComponent(accountId)}/trips/${encodeURIComponent(tripId)}/rate`, {
     method: "POST",
@@ -71,7 +68,6 @@ export async function postRating({ accountId, tripId, body, token, identity }: {
   if (!response.ok) throw new VelovError("unavailable", "Vélo’v n’a pas enregistré la note. Réessayez dans un instant.");
 }
 
-/** Release refusals the official app translates (§ 5.6), plus the booking clash it shows with its generic message. */
 const releaseCodes: Record<string, string> = {
   "trips.exception.bookings.already.reserved": "Vélo réservé par un autre usager. Choisissez-en un autre.",
   "trips.exception.invalid.customer.maxBikesRented": "Impossible de libérer le vélo, un autre trajet est en cours.",
@@ -105,12 +101,11 @@ export function refusal(code: string, message: string): Outcome {
 async function answer(response: Response) {
   const text = await response.text().catch(() => "");
   let value: unknown = null;
-  try { value = JSON.parse(text); } catch { /* A gateway error page is not JSON. */ }
+  try { value = JSON.parse(text); } catch {}
   const body = errorBody.parse(value);
   return { value, code: body.code ?? response.headers.get("Bloot-Error-Code"), detail: body.message ?? (value === null && text ? text.slice(0, 160) : null), transactionState: body.transactionState ?? null };
 }
 
-/** Success is transactionState OK, never the HTTP status alone. */
 export function releaseOutcome(httpStatus: number, reply: { code: string | null; detail: string | null; transactionState: string | null }): Outcome {
   const { code, detail, transactionState } = reply;
   const ok = httpStatus === 200 && transactionState === "OK";
@@ -124,7 +119,6 @@ export function bookingOutcome(httpStatus: number, reply: { code: string | null;
   return { ok, httpStatus, transactionState: null, code: reply.code, message, detail: reply.detail };
 }
 
-/** Releases a bike, exactly once: the borne may already have opened, so a lost answer must never be retried. */
 export async function postRelease({ accountId, subscriptionId, body, token, identity }: { accountId: string; subscriptionId: string; body: UnlockBody; token: string; identity: string }, send: typeof fetch = fetch): Promise<Outcome> {
   let response: Response;
   try {
@@ -132,7 +126,7 @@ export async function postRelease({ accountId, subscriptionId, body, token, iden
       method: "POST",
       headers: { Authorization: `Taknv1 ${token}`, Identity: identity, "Content-Type": "application/vnd.trip.v6+json", Accept: "application/vnd.trip.v6+json", "Accept-Language": "fr", "User-Agent": BROWSER_AGENT },
       body: JSON.stringify({ stationNumber: body.stationNumber, standNumber: body.standNumber, bikeNumber: body.bikeNumber, typeFrom: "SMARTPHONE" }),
-      cache: "no-store", signal: AbortSignal.timeout(30_000)
+      cache: "no-store", signal: AbortSignal.timeout(ACTION_TIMEOUT_MS)
     });
   } catch (error) {
     return { ...refusal("network", "Vélo’v ne répond pas. Le vélo est peut-être déverrouillé : regardez la borne avant de réessayer."), detail: error instanceof Error ? error.name : null };
@@ -143,16 +137,14 @@ export async function postRelease({ accountId, subscriptionId, body, token, iden
 
 export type CreateBooking = { stationId: string; stationNumber: number; standNumber: number; subscriptionId: string; bikeId: string };
 
-/** Books a bike, exactly once: it costs points, and a lost answer may hide a booking that went through. */
 export async function postBooking({ accountId, body, token, identity }: { accountId: string; body: CreateBooking; token: string; identity: string }, send: typeof fetch = fetch): Promise<{ outcome: Outcome; booking: z.infer<typeof rawBooking> | null }> {
   let response: Response;
   try {
     response = await send(`${BASE}/accounts/${encodeURIComponent(accountId)}/bookings`, {
       method: "POST",
       headers: { Authorization: `Taknv1 ${token}`, Identity: identity, "Content-Type": "application/json; charset=UTF-8", "User-Agent": BROWSER_AGENT },
-      // Field order of the app's CreateBooking constructor.
       body: JSON.stringify({ stationId: body.stationId, stationNumber: body.stationNumber, standNumber: body.standNumber, subscriptionId: body.subscriptionId, bikeId: body.bikeId }),
-      cache: "no-store", signal: AbortSignal.timeout(30_000)
+      cache: "no-store", signal: AbortSignal.timeout(ACTION_TIMEOUT_MS)
     });
   } catch (error) {
     return { outcome: { ...refusal("network", "Vélo’v ne répond pas. Le vélo est peut-être réservé : actualisez la page avant de réessayer."), detail: error instanceof Error ? error.name : null }, booking: null };
@@ -170,7 +162,6 @@ const accountCodes: Record<string, string> = {
   "accounts.exception.notacceptable.account.phone.invalid": "Ce numéro de téléphone n’est pas valide."
 };
 
-/** One call that changes the account, exactly once: whatever happens, it is never sent again without a new confirmation. */
 export async function accountCall(url: string, init: { method: "POST" | "PATCH" | "DELETE"; headers: Record<string, string>; body?: BodyInit }, auth: Auth, failed: string, send: typeof fetch, preserveUnauthorized = false) {
   let response: Response;
   try {
@@ -186,14 +177,12 @@ export async function accountCall(url: string, init: { method: "POST" | "PATCH" 
 
 const accountUrl = (accountId: string) => `${BASE}/accounts/${encodeURIComponent(accountId)}`;
 
-/** PATCH /rewards with the app's UpdateReward body; Vélo’v answers the whole rewards object. */
 export async function patchAutoSpend({ autoSpend, ...auth }: Auth & { autoSpend: boolean }, send: typeof fetch = fetch): Promise<AutoSpendResult> {
   const { outcome, value } = await accountCall(`${accountUrl(auth.accountId)}/rewards`, { method: "PATCH", headers: { "Content-Type": "application/vnd.rewards.v5+json" }, body: JSON.stringify({ autoSpend }) }, auth, "Vélo’v n’a pas enregistré ce réglage.", send);
   const answered = z.object({ autoSpend: z.boolean() }).safeParse(value);
   return { ...outcome, autoSpend: answered.success ? answered.data.autoSpend : outcome.ok ? autoSpend : null };
 }
 
-/** Adds (POST) or removes (DELETE) a favourite station, with the app's trailing slash and Accept. */
 export async function putStationBookmark({ stationNumber, on, ...auth }: Auth & { stationNumber: number; on: boolean }, send: typeof fetch = fetch): Promise<Outcome> {
   const { outcome } = await accountCall(`${accountUrl(auth.accountId)}/stationbookmarks/${stationNumber}/`, { method: on ? "POST" : "DELETE", headers: { Accept: "application/vnd.account.v4+json" } }, auth, on ? "Vélo’v n’a pas ajouté cette station aux favoris." : "Vélo’v n’a pas retiré cette station des favoris.", send);
   return outcome;
@@ -201,7 +190,6 @@ export async function putStationBookmark({ stationNumber, on, ...auth }: Auth & 
 
 const report = z.object({ filename: lenient(z.string()), translations: z.object({ content: z.string().min(1) }) });
 
-/** The receipt of one subscription period: a POST without body that only reads, answered as base64 under Accept: application/json. */
 export async function postPeriodReport({ subscriptionId, periodId, ...auth }: Auth & { subscriptionId: string; periodId: string }, send: typeof fetch = fetch): Promise<{ outcome: Outcome; pdf: { filename: string; bytes: Buffer } | null }> {
   const { outcome, value } = await accountCall(`${accountUrl(auth.accountId)}/subscriptions/${encodeURIComponent(subscriptionId)}/periods/${encodeURIComponent(periodId)}/reports`, { method: "POST", headers: { Accept: "application/json" } }, auth, "Ce reçu n’est pas disponible.", send);
   if (!outcome.ok) return { outcome, pdf: null };
@@ -211,17 +199,14 @@ export async function postPeriodReport({ subscriptionId, periodId, ...auth }: Au
   return { outcome, pdf: { filename: parsed.data.filename?.replace(/[^\w.-]/g, "") || `recu-${periodId}.pdf`, bytes } };
 }
 
-/** PATCH /accounts/{id} with only the changed fields, in the order of the body the app sends. */
 export async function patchProfile({ body, ...auth }: Auth & { body: ProfileBody }, send: typeof fetch = fetch): Promise<Outcome> {
   const ordered = { firstName: body.firstName, lastName: body.lastName, country: body.country, zipCode: body.zipCode, city: body.city, phoneNumber: body.phoneNumber, address: body.address };
   const { outcome } = await accountCall(accountUrl(auth.accountId), { method: "PATCH", headers: { "Content-Type": "application/vnd.account.v4+json" }, body: JSON.stringify(ordered) }, auth, "Vélo’v n’a pas enregistré ces coordonnées.", send);
-  // The app only sends names to complete a new account: on a complete one, a 4xx is most likely the name refused.
   const renamed = body.firstName !== undefined || body.lastName !== undefined;
   return renamed && outcome.httpStatus >= 400 && outcome.httpStatus < 500 ? { ...outcome, message: "Vélo’v n’a pas accepté ce changement de nom." } : outcome;
 }
 
 
-/** Experimental subscription setting. Never try an alternative body after a refusal. */
 export async function patchAutoRenewal({ subscriptionId, autoRenewal, ...auth }: Auth & { subscriptionId: string; autoRenewal: boolean }, send: typeof fetch = fetch): Promise<Outcome> {
   const { outcome } = await accountCall(`${accountUrl(auth.accountId)}/subscriptions/${encodeURIComponent(subscriptionId)}`, {
     method: "PATCH", headers: { "Content-Type": SUBSCRIPTION_MEDIA_TYPE }, body: JSON.stringify({ [AUTO_RENEWAL_FIELD]: autoRenewal })
@@ -229,13 +214,11 @@ export async function patchAutoRenewal({ subscriptionId, autoRenewal, ...auth }:
   return outcome;
 }
 
-/** Request a full-station extension once. A missing answer can hide a granted extension: no retry or alternate body. */
 export async function postVia({ subscriptionId, stationId, ...auth }: Auth & { subscriptionId: string; stationId: string | number }, send: typeof fetch = fetch): Promise<Outcome> {
   const { outcome, value } = await accountCall(`${accountUrl(auth.accountId)}/subscriptions/${encodeURIComponent(subscriptionId)}/via`, {
     method: "POST", headers: { "Content-Type": VIA_MEDIA_TYPE }, body: JSON.stringify({ [VIA_STATION_FIELD]: stationId })
   }, auth, "Les 15 minutes supplémentaires n’ont pas été accordées.", send, true);
   if (!outcome.ok) return outcome;
-  // VLSKit SubscriptionService.requestExtraTime returns TransactionState, not an HTTP-only acknowledgement.
   const parsed = z.union([z.string(), z.object({ [VIA_STATE_FIELD]: z.string() }).transform((reply) => reply[VIA_STATE_FIELD])]).safeParse(value);
   const transactionState = parsed.success ? parsed.data : null;
   const ok = transactionState === VIA_SUCCESS_STATE;

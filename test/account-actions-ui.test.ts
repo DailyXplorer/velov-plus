@@ -32,7 +32,6 @@ test("a confirmed action closes its dialog: no success panel, no second button t
   for (const file of dialogs) {
     const component = source(`components/${file}.tsx`);
     assert.doesNotMatch(component, success, file);
-    // Only the invite code is information worth a "Fermer" button; elsewhere it appears only after an uncertain failure.
     if (file !== "invite-friend") assert.doesNotMatch(component.replace(/(?:isUncertain\(failure\)|uncertain) \? <Button variant="ghost" onClick=\{\w+\}>Fermer</g, ""), />Fermer<|"Fermer" :/, file);
   }
 });
@@ -63,7 +62,6 @@ test("after a failure whose outcome is uncertain, the dialog says so and offers 
   assert.match(bike, /\{uncertain \? <Button variant="ghost" onClick=\{onClose\}>Fermer<\/Button> : <>[\s\S]*?>Confirmer<\/Button>\s*<\/>\}/);
   assert.match(bike, /uncertain=\{failure !== null && isUncertain\(failure\)\}/);
   assert.match(bike, /step\.action === "unlock" \? UNCERTAIN_UNLOCK : UNCERTAIN/);
-  // A booking that may have gone through is read back once, through the bookings refresh that feeds the banner.
   assert.match(bike, /if \(action === "book" && isUncertain\(outcome\)\) account\?\.changed\(\);/);
   const invite = source("components/invite-friend.tsx");
   assert.match(invite, /const settled = outcome !== null && \(outcome\.ok \|\| isUncertain\(outcome\)\);/);

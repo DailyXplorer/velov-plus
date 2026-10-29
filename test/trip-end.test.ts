@@ -56,7 +56,6 @@ test("on load, the latest finished trip is offered until it is dismissed, and th
   dismissTrip(storage, "latest");
   assert.equal(wasDismissed(storage, "latest"), true);
   assert.equal(wasDismissed(storage, "older"), false);
-  // A fresh page reads the same storage: still dismissed, and the older trip is not offered in its place.
   assert.equal(tripToGreet([older, latest], storage, now), null);
   assert.equal(tripToGreet([trip("next", "2026-10-29T11:30:00Z"), latest], storage, now)?.id, "next");
 });
@@ -73,7 +72,6 @@ test("nothing is offered for a rated, old, bikeless or unfinished latest trip, n
   assert.equal(wasDismissed(broken, "a"), false);
 });
 
-/** A dock watch on a hand-driven clock: timers only fire through advance(), and each check waits for answer(). */
 function harness() {
   let clock = now;
   let visible = true;
