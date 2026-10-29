@@ -5,7 +5,7 @@ import dynamic from "next/dynamic";
 import { BicycleIcon, CaretRightIcon, LetterCirclePIcon, LightningIcon, MagnifyingGlassIcon, NavigationArrowIcon, SignOutIcon, StarFourIcon, StarIcon, TicketIcon, TrendUpIcon, XIcon } from "./icons";
 import { ViaAction } from "./via-action";
 import { type Dashboard, type Page, type Resource, type Station, type Trip, formatDate, formatName, formatPrice } from "@/lib/models";
-import { formatDistance, haversine, type Point } from "@/lib/geo";
+import { describeLocationFailure, findPosition, formatDistance, haversine, type Point } from "@/lib/geo";
 import { Button, CardTag, CircleArrow, EmptyState, Eyebrow, SectionHeading, SelectField, TextButton } from "./ui";
 import { StationBikes } from "./station-bikes";
 import { TripSheet } from "./trip-sheet";
@@ -201,12 +201,6 @@ function distanceTo(station: Station, position: Point) {
   return haversine(position, station);
 }
 
-function locationErrorMessage(error: GeolocationPositionError) {
-  if (error.code === error.PERMISSION_DENIED) return "Localisation refusée. Autorisez-la dans les réglages de votre navigateur.";
-  if (error.code === error.TIMEOUT) return "La localisation a pris trop de temps. Réessayez.";
-  return "Impossible de vous localiser pour le moment.";
-}
-
 export function StationsPage({ resource, reload, reloading, favorites: favoriteList, onFavorite }: { resource: Resource<StationData> } & Reload & Favorites) {
   const phone = useIsPhone();
   const [query, setQuery] = useState("");
@@ -216,7 +210,7 @@ export function StationsPage({ resource, reload, reloading, favorites: favoriteL
   const [position, setPosition] = useState<UserPosition | null>(null);
   const [fit, setFit] = useState<Point[] | null>(null);
   const [locating, setLocating] = useState(false);
-  const [locationError, setLocationError] = useState("");
+  const [locationError, setLocationError] = useState<{ message: string; raw?: string } | null>(null);
   const stations = resource.kind === "ready" ? resource.data.stations : NO_STATIONS;
   const favorites = useMemo(() => new Set(favoriteList), [favoriteList]);
   // Favourites first, then open stations, then the nearest (or by name).
@@ -238,18 +232,17 @@ export function StationsPage({ resource, reload, reloading, favorites: favoriteL
     setPosition(here);
     setSelected(open[0]?.id ?? null);
     setFit([here, ...open.slice(0, 1), ...withSupply]);
-    if (!open.length) setLocationError("Aucune station ouverte ne correspond à ce filtre.");
+    if (!open.length) setLocationError({ message: "Aucune station ouverte ne correspond à ce filtre." });
     setLocating(false);
   }
 
   function locate() {
-    setLocationError("");
-    if (!window.isSecureContext) { setLocationError("Localisation indisponible sur cette page. Recherchez une station par son nom."); return; }
-    if (!("geolocation" in navigator)) { setLocationError("Ce navigateur ne permet pas la localisation. Recherchez une station par son nom."); return; }
+    setLocationError(null);
+    if (!window.isSecureContext) { setLocationError({ message: "Localisation indisponible sur cette page. Recherchez une station par son nom." }); return; }
+    if (!("geolocation" in navigator)) { setLocationError({ message: "Ce navigateur ne permet pas la localisation. Recherchez une station par son nom." }); return; }
     setLocating(true);
-    navigator.geolocation.getCurrentPosition((result) => located(result.coords),
-      (error) => { setLocationError(locationErrorMessage(error)); setLocating(false); },
-      { enableHighAccuracy: true, timeout: 20_000, maximumAge: 30_000 });
+    findPosition(navigator.geolocation).then((result) => located(result.coords),
+      async (error: unknown) => { setLocationError(await describeLocationFailure(error, navigator)); setLocating(false); });
   }
 
   return (
@@ -266,7 +259,7 @@ export function StationsPage({ resource, reload, reloading, favorites: favoriteL
         </div>
         <Button variant="secondary" pending={locating} onClick={locate} aria-label="Stations autour de moi" title="Autour de moi"><NavigationArrowIcon size={18} weight="light"/><span className="location-label">Autour de moi</span></Button>
       </div>
-      {locationError ? <p className="inline-notice" role="status">{locationError}</p> : null}
+      {locationError ? <div className="inline-notice" role="status"><p>{locationError.message}</p>{locationError.raw ? <p className="bike-action-raw">{locationError.raw}</p> : null}</div> : null}
       {resource.kind === "error" ? <div className="notice-error" role="status">{resource.message}<Button variant="secondary" pending={reloading} onClick={reload}>Réessayer</Button></div> : null}
       <div className="stations-explorer">
         {query && resource.kind === "ready" ? (

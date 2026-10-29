@@ -5,7 +5,7 @@ import { TimerIcon } from "./icons";
 import { type Outcome, type Station, capitalize, outcomeSchema } from "@/lib/models";
 import { fullStations } from "@/lib/via-models";
 import { UNCERTAIN, isUncertain, noAnswer, routeFailure } from "@/lib/outcome";
-import { formatDistance, haversine, type Point } from "@/lib/geo";
+import { describeLocationFailure, findPosition, formatDistance, haversine, type Point } from "@/lib/geo";
 import { Button, Modal, SelectField } from "./ui";
 
 /** Mounted only during an ongoing trip. Every confirmation is one request; success closes the dialog, a failure stays with its raw status, and only a sure refusal may be confirmed again. */
@@ -15,7 +15,7 @@ export function ViaAction({ stations }: { stations: Station[] }) {
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState("");
   const [position, setPosition] = useState<Point | null>(null);
-  const [locationError, setLocationError] = useState("");
+  const [locationError, setLocationError] = useState<{ message: string; raw?: string } | null>(null);
   const [locating, setLocating] = useState(false);
   const [reviewing, setReviewing] = useState(false);
   const [pending, setPending] = useState(false);
@@ -26,9 +26,10 @@ export function ViaAction({ stations }: { stations: Station[] }) {
 
   function close() { if (!inFlight.current) { setOpen(false); setReviewing(false); setFailure(null); } }
   function locate() {
-    if (!navigator.geolocation) { setLocationError("Localisation indisponible. Recherchez une station par son nom."); return; }
+    if (!navigator.geolocation) { setLocationError({ message: "Localisation indisponible. Recherchez une station par son nom." }); return; }
     setLocating(true);
-    navigator.geolocation.getCurrentPosition(({ coords }) => { setPosition({ lat: coords.latitude, lon: coords.longitude }); setLocationError(""); setLocating(false); }, () => { setLocationError("Position indisponible. Recherchez une station par son nom."); setLocating(false); }, { timeout: 15_000, maximumAge: 30_000 });
+    findPosition(navigator.geolocation).then(({ coords }) => { setPosition({ lat: coords.latitude, lon: coords.longitude }); setLocationError(null); setLocating(false); },
+      async (error: unknown) => { setLocationError(await describeLocationFailure(error, navigator)); setLocating(false); });
   }
   async function confirm() {
     if (inFlight.current || !station) return;
@@ -60,7 +61,7 @@ export function ViaAction({ stations }: { stations: Station[] }) {
           <p>Choisissez la station pleine où vous vouliez rendre votre vélo.</p>
           <label className="field"><span className="metric-label">Rechercher une station pleine</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Nom, adresse ou numéro"/></label>
           <Button variant="ghost" pending={locating} onClick={locate}>Les plus proches</Button>
-          {locationError ? <p className="soon-note">{locationError}</p> : null}
+          {locationError ? <><p className="soon-note">{locationError.message}</p>{locationError.raw ? <p className="bike-action-raw">{locationError.raw}</p> : null}</> : null}
           {choices.length ? <SelectField label="Station pleine" hideLabel value={selected} onChange={setSelected} options={[{ value: "", label: "Choisir une station" }, ...choices.map((item) => ({ value: String(item.number), label: `${item.name} · N° ${item.number}${position ? ` · ${formatDistance(haversine(position, item))}` : ""}` }))]}/> : <p>Aucune station pleine ne correspond à votre recherche.</p>}
           <div className="modal-actions"><Button variant="ghost" onClick={close}>Annuler</Button><Button disabled={!station} onClick={() => setReviewing(true)}>Continuer</Button></div>
         </>}
