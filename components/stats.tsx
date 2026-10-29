@@ -78,7 +78,7 @@ export function StatsView({ stats }: { stats: Stats }) {
 
 const HEADLINES: { icon: Icon; label: string; value: string; unit?: string }[] = [
   { icon: BicycleIcon, label: "Trajets", value: "0" }, { icon: ClockIcon, label: "Minutes à vélo", value: "0" },
-  { icon: RouteIcon, label: "Distance estimée", value: "0", unit: "km" }, { icon: LeafIcon, label: "CO₂ évité", value: "0", unit: "kg" },
+  { icon: RouteIcon, label: "Distance", value: "0", unit: "km" }, { icon: LeafIcon, label: "CO₂ évité", value: "0", unit: "kg" },
   { icon: CoinsIcon, label: "Dépenses", value: "0,00 €" }, { icon: StarFourIcon, label: "Points gagnés", value: "0" }
 ];
 const GHOST_STATIONS = ["Bellecour", "Part-Dieu Villette", "Hôtel de Ville", "Saxe-Gambetta", "Croix-Rousse"];
