@@ -170,7 +170,7 @@ export function PointsPage({ data, onAutoSpend, onChanged }: { onChanged: () => 
       {rules.length ? (
         <section className="earn-section">
           <SectionHeading title="Gagner des points"/>
-          <div className="earn-grid">{rules.map((rule) => <div className="earn-rule" key={rule.name}><span>{rewardLabel(rule.label)}</span><strong>+{rule.points}</strong></div>)}</div>
+          <div className="earn-grid">{rules.map((rule) => <div className="earn-rule" key={rule.name}><span>{rule.label === "Vélo évalué" ? "Évaluation d’un vélo après un trajet" : rule.label}</span><strong>+{rule.points}</strong></div>)}</div>
         </section>
       ) : null}
       <section className="points-history">

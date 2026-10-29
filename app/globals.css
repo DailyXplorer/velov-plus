@@ -26,6 +26,7 @@
 }
 ::selection { color: var(--ink); background: rgba(223, 37, 55, .99); }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html { scrollbar-gutter: stable; } /* the modal scroll lock must not shift the page when the scrollbar disappears */
 body { margin: 0; background: var(--white); font-family: var(--font); font-size: 14px; line-height: 1.5; letter-spacing: -.02em; }
 button, input, select { font: inherit; letter-spacing: inherit; }
 button { color: inherit; cursor: pointer; }
