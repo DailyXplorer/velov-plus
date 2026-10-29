@@ -1,11 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type PointerEvent, type ReactNode } from "react";
-import { BicycleIcon, ClockIcon, type Icon, RouteIcon, StarFourIcon } from "./icons";
+import { BicycleIcon, ClockIcon, CoinsIcon, type Icon, LeafIcon, RouteIcon, StarFourIcon } from "./icons";
 import { Button, CardTag, EmptyState, SelectField } from "./ui";
 import { BikeDrawer } from "./station-bikes";
 import { ApiError, getJson } from "./get-json";
-import { capitalize, formatDate } from "@/lib/models";
+import { capitalize, formatDate, formatPrice } from "@/lib/models";
 import { type Period, type PeriodStats, type Stats, statsSchema } from "@/lib/stats";
 
 const unavailable = "Vos statistiques sont momentanément indisponibles.";
@@ -48,7 +48,7 @@ export function StatsPage({ account }: { account: string }) {
 
   if (state.kind === "loading") return (
     <div className="page-content" aria-busy="true" aria-label="Chargement des statistiques">
-      <div className="stat-cards">{[0, 1, 2, 3].map((item) => <div className="skeleton stat-skeleton" key={item}/>)}</div>
+      <div className="stat-cards">{[0, 1, 2, 3, 4, 5].map((item) => <div className="skeleton stat-skeleton" key={item}/>)}</div>
       <div className="skeleton skeleton-map"/>
     </div>
   );
@@ -65,30 +65,32 @@ export function StatsView({ stats }: { stats: Stats }) {
       <div className="filter-line">
         <SelectField label="Période" hideLabel value={period} onChange={setPeriod} options={periods}/>
       </div>
-      <Headline data={data}/>
+      <Headline data={data} balance={stats.balance}/>
       {!data.trips ? (
         <EmptyState>{ever ? "Aucun trajet sur cette période." : "Vos statistiques apparaîtront après votre premier trajet."}</EmptyState>
       ) : (
         <div className="stat-grid">
-          <Panel title={data.series.unit === "day" ? "Minutes par jour" : "Minutes par mois"} full><MinutesChart data={data}/></Panel>
-          <Panel title="Quand vous roulez" wide><Heatmap data={data}/></Panel>
-          <Panel title="Type de vélo"><BikeTypes data={data}/></Panel>
+          <Panel title={data.series.unit === "day" ? "Temps à vélo par jour" : "Temps à vélo par mois"} full><MinutesChart data={data}/></Panel>
+          <Panel title="Horaires de départ" wide><Heatmap data={data}/></Panel>
+          <Panel title="Répartition par type de vélo"><BikeTypes data={data}/></Panel>
           <Panel title="Records" full><Records data={data}/></Panel>
-          {data.stations.length ? <Panel title="Stations favorites" full><Ranking items={data.stations}/></Panel> : null}
+          {data.stations.length ? <Panel title="Stations les plus utilisées" full><Ranking items={data.stations}/></Panel> : null}
         </div>
       )}
     </div>
   );
 }
 
-function Headline({ data }: { data: PeriodStats }) {
-  const time = data.minutes >= 60 ? { value: number(Math.round(data.minutes / 60)), unit: "h" } : { value: number(data.minutes), unit: "min" };
+function Headline({ data, balance }: { data: PeriodStats; balance: number | null }) {
+  const kg = data.co2Grams / 1000;
   return (
     <div className="stat-cards">
-      <StatCard icon={BicycleIcon} label="Trajets" value={number(data.trips)}/>
-      <StatCard icon={ClockIcon} label="Temps à vélo" {...time} detail={data.trips ? `≈ ${number(Math.round(data.minutes / data.trips))} min par trajet` : undefined}/>
-      <StatCard icon={RouteIcon} label="Km estimés" value={kilometres(data.metres)} unit="km"/>
-      <StatCard icon={StarFourIcon} label="Points gagnés" value={number(data.pointsEarned)}/>
+      <StatCard icon={BicycleIcon} label="Trajets" value={number(data.trips)} detail={data.trips ? `${hours(Math.round(data.minutes / data.trips))} en moyenne` : "Aucun trajet"}/>
+      <StatCard icon={ClockIcon} label="Minutes à vélo" value={number(data.minutes)} detail={data.minutes >= 60 ? `Soit ${hours(data.minutes)}` : "Moins d’une heure"}/>
+      <StatCard icon={RouteIcon} label="Distance estimée" value={kilometres(data.distance.metres)} unit="km" detail={`Sur ${plural(data.distance.known, "trajet")}`}/>
+      <StatCard icon={LeafIcon} label="CO₂ évité" value={kg >= 1 ? kg.toLocaleString("fr-FR", { maximumFractionDigits: kg < 10 ? 1 : 0 }) : number(data.co2Grams)} unit={kg >= 1 ? "kg" : "g"} detail="Plutôt qu’en voiture"/>
+      <StatCard icon={CoinsIcon} label="Dépenses" value={formatPrice(data.spentCents)} detail={data.savedCents ? `${formatPrice(data.savedCents)} économisés` : data.spentCents ? "Aucune réduction" : "Aucun supplément"}/>
+      <StatCard icon={StarFourIcon} label="Points gagnés" value={number(data.pointsEarned)} detail={balance != null ? `Solde de ${plural(balance, "point")}` : undefined}/>
     </div>
   );
 }

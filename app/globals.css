@@ -637,7 +637,7 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
 /* Statistiques: red headline cards, then white panels ringed in ink-line; charts are hand-drawn SVG. One gap everywhere. */
 .stats-page { --stat-gap: 16px; display: grid; gap: var(--stat-gap); }
 .stats-page > .filter-line { margin-bottom: 8px; }
-.stat-cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--stat-gap); }
+.stat-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--stat-gap); }
 .summary-card.stat-card, .stat-skeleton { min-height: 164px; }
 .stat-card .metric-value { margin-top: 22px; font-size: 48px; white-space: nowrap; }
 .metric-unit { margin-left: 6px; font-size: .45em; letter-spacing: -.01em; }

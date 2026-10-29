@@ -5,6 +5,8 @@ import type { Trip } from "./models.ts";
 
 /** Vélo’v gives no distance: the straight line between the two stations, lengthened for the streets. */
 export const DETOUR_FACTOR = 1.3;
+/** Order of magnitude for a petrol car in town, in grams of CO₂ per km. */
+export const CO2_GRAMS_PER_KM = 200;
 export const MAX_PAGES = 50;
 export const PERIODS = ["30d", "12m", "all"] as const;
 export type Period = (typeof PERIODS)[number];
@@ -12,8 +14,10 @@ const TOP = 5;
 
 const count = z.number().int().nonnegative();
 export const periodStatsSchema = z.object({
-  // metres: summed over the trips whose two stations are known.
-  trips: count, minutes: count, metres: z.number(), pointsEarned: z.number(),
+  trips: count, minutes: count,
+  // metres: summed over the `known` trips, those whose two stations are known.
+  distance: z.object({ metres: z.number(), known: count }),
+  co2Grams: z.number(), spentCents: z.number(), savedCents: z.number(), pointsEarned: z.number(),
   series: z.object({ unit: z.enum(["day", "month"]), buckets: z.array(z.object({ key: z.string(), minutes: count, trips: count })) }),
   // Seven rows, Monday first, of 24 hours (Paris time).
   heatmap: z.array(z.array(count)),
@@ -22,11 +26,15 @@ export const periodStatsSchema = z.object({
   stations: z.array(z.object({ name: z.string(), count })),
   records: z.object({ longestMinutes: count.nullable(), busiestDayTrips: count.nullable(), streakDays: count.nullable(), bike: z.number().nullable() })
 });
-export const statsSchema = z.object({ periods: z.object({ "30d": periodStatsSchema, "12m": periodStatsSchema, all: periodStatsSchema }) });
+export const statsSchema = z.object({
+  periods: z.object({ "30d": periodStatsSchema, "12m": periodStatsSchema, all: periodStatsSchema }),
+  // Today's points balance, else the sum of the movements; null when neither could be read.
+  balance: z.number().nullable()
+});
 export type PeriodStats = z.infer<typeof periodStatsSchema>;
 export type Stats = z.infer<typeof statsSchema>;
 export type Movement = { date: string | null; amount: number };
-export type StatsInput = { trips: Trip[]; coords: Map<number, Point>; movements: Movement[] | null; now: Date };
+export type StatsInput = { trips: Trip[]; coords: Map<number, Point>; movements: Movement[] | null; balance: number | null; now: Date };
 
 /**
  * Reads a paged list once, page after page: stops at the first empty page, at a page that brings nothing new
@@ -135,7 +143,8 @@ export function periodStats(period: Period, { trips: history, coords, movements,
     days.set(at.day, (days.get(at.day) ?? 0) + 1);
   }
 
-  const metres = trips.reduce((sum, trip) => sum + (estimateDistance(trip, coords) ?? 0), 0);
+  const distances = trips.flatMap((trip) => estimateDistance(trip, coords) ?? []);
+  const metres = distances.reduce((sum, value) => sum + value, 0);
   const bikes = new Map<number, { number: number; count: number; last: string }>();
   for (const trip of trips) {
     if (trip.bikeNumber == null) continue;
@@ -153,7 +162,10 @@ export function periodStats(period: Period, { trips: history, coords, movements,
   return {
     trips: trips.length,
     minutes: trips.reduce((sum, trip) => sum + (trip.duration ?? 0), 0),
-    metres: Math.round(metres),
+    distance: { metres: Math.round(metres), known: distances.length },
+    co2Grams: Math.round(metres / 1000 * CO2_GRAMS_PER_KM),
+    spentCents: trips.reduce((sum, trip) => sum + Math.max(0, trip.price ?? 0), 0),
+    savedCents: trips.reduce((sum, trip) => sum + Math.max(0, trip.discount), 0),
     pointsEarned: earned,
     series: { unit, buckets: [...buckets.values()] },
     heatmap,
@@ -169,5 +181,8 @@ export function periodStats(period: Period, { trips: history, coords, movements,
 }
 
 export function buildStats(input: StatsInput): Stats {
-  return { periods: { "30d": periodStats("30d", input), "12m": periodStats("12m", input), all: periodStats("all", input) } };
+  return {
+    periods: { "30d": periodStats("30d", input), "12m": periodStats("12m", input), all: periodStats("all", input) },
+    balance: input.balance ?? input.movements?.reduce((sum, movement) => sum + movement.amount, 0) ?? null
+  };
 }

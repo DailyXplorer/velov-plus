@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { DETOUR_FACTOR, buildStats, collectPages, estimateDistance, parisTime, periodStats, type StatsInput } from "../lib/stats.ts";
+import { CO2_GRAMS_PER_KM, DETOUR_FACTOR, buildStats, collectPages, estimateDistance, parisTime, periodStats, type StatsInput } from "../lib/stats.ts";
 import { haversine } from "../lib/geo.ts";
 import type { Trip } from "../lib/models.ts";
 
@@ -16,7 +16,7 @@ function trip(startedAt: string, change: Partial<Trip> = {}): Trip {
     duration: 12, price: 0, fullPrice: 0, discount: 0, pointsEarned: 0, pointsSpent: 0, litigious: false, isRated: true, token: null, origin: 4, ...change
   };
 }
-const input = (trips: Trip[], change: Partial<StatsInput> = {}): StatsInput => ({ trips, coords, movements: null, now, ...change });
+const input = (trips: Trip[], change: Partial<StatsInput> = {}): StatsInput => ({ trips, coords, movements: null, balance: null, now, ...change });
 
 test("distance: haversine × 1.3 between stations, 0 for a loop, unknown without a station or its coordinates", () => {
   const across = estimateDistance({ startStationNumber: 2002, endStationNumber: 3001 }, coords);
@@ -26,7 +26,7 @@ test("distance: haversine × 1.3 between stations, 0 for a loop, unknown without
   assert.equal(estimateDistance({ startStationNumber: 2002, endStationNumber: 9999 }, coords), null);
 });
 
-test("totals count every kept trip; distance only between known stations", () => {
+test("totals count every kept trip; distance, CO₂ and spending over the kept trips", () => {
   const wiped = { startStation: null, endStation: null, startStationNumber: null, endStationNumber: null, bikeNumber: null };
   const stats = periodStats("all", input([
     trip("2026-10-20T07:00:00Z", { duration: 10, price: 100, discount: 50, pointsEarned: 5 }),
@@ -36,8 +36,9 @@ test("totals count every kept trip; distance only between known stations", () =>
   ]));
   assert.equal(stats.trips, 3);
   assert.equal(stats.minutes, 60);
-  assert.equal(stats.metres, Math.round(haversine(bellecour, partDieu) * DETOUR_FACTOR));
-  assert.equal(stats.pointsEarned, 5);
+  assert.deepEqual(stats.distance, { metres: Math.round(haversine(bellecour, partDieu) * DETOUR_FACTOR), known: 2 });
+  assert.equal(stats.co2Grams, Math.round(stats.distance.metres / 1000 * CO2_GRAMS_PER_KM));
+  assert.deepEqual([stats.spentCents, stats.savedCents, stats.pointsEarned], [100, 50, 5]);
 });
 
 test("periods: 30 days by day and 12 months by month, in Paris time", () => {
@@ -91,6 +92,13 @@ test("points earned: credits of the period from the movements", () => {
   const movements = [{ date: "2026-10-10T08:00:00Z", amount: 20 }, { date: "2026-10-20T08:00:00Z", amount: -10 }, { date: "2025-01-05T08:00:00Z", amount: 50 }];
   assert.equal(periodStats("30d", input([], { movements })).pointsEarned, 20);
   assert.equal(periodStats("all", input([], { movements })).pointsEarned, 70);
+});
+
+test("points balance: today's balance, else the sum of the movements, else unknown", () => {
+  const movements = [{ date: "2026-10-10T08:00:00Z", amount: 20 }, { date: "2026-10-20T08:00:00Z", amount: -10 }, { date: null, amount: 50 }];
+  assert.equal(buildStats(input([], { movements, balance: 540 })).balance, 540);
+  assert.equal(buildStats(input([], { movements })).balance, 60);
+  assert.equal(buildStats(input([])).balance, null);
 });
 
 test("an empty history gives zeros, not errors", () => {
