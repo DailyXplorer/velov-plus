@@ -7,7 +7,7 @@ const sans = DM_Sans({ subsets: ["latin"], variable: "--font-sans", display: "sw
 const mono = Azeret_Mono({ weight: "500", subsets: ["latin"], variable: "--font-mono", display: "swap" });
 
 export const metadata: Metadata = {
-  title: "Vélo’v",
+  title: "Vélo’v+",
   description: "Compte Vélo’v, trajets et points.",
   robots: { index: false, follow: false },
   icons: { icon: "/icon.svg" }

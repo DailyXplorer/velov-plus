@@ -606,3 +606,4 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
   .points-summary > div { gap: 16px; padding: 16px 16px 18px; }
   .points-balance, .points-total { font-size: 40px; }
 }
+.brand-plus { color: var(--red); }

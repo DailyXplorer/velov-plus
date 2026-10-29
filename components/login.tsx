@@ -39,7 +39,7 @@ export function Login({ onConnected }: { onConnected: () => void }) {
   return (
     <main className="login-layout">
       <section className="login-content" aria-labelledby="login-title">
-        <h1 id="login-title">Vélo’v</h1>
+        <h1 id="login-title">Vélo’v<span className="brand-plus">+</span></h1>
         <form onSubmit={submit} className="login-form" aria-label="Connexion Vélo’v">
           <input
             name="email" type="email" autoComplete="username" aria-label="Adresse email"
