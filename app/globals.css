@@ -612,8 +612,6 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
 .stat-panel.is-wide { grid-column: span 2; }
 .stat-panel.is-full { grid-column: 1 / -1; }
 .stat-panel > h2 { margin-bottom: 22px; font-size: 20px; line-height: 1.2; }
-.stat-panel > h2 { transition: opacity .15s ease; }
-.stat-panel:has(.chart-tip) > h2 { opacity: 0; }
 .stat-panel .empty-state { padding: 28px 8px; }
 .chart { position: relative; width: 100%; touch-action: pan-y; user-select: none; -webkit-user-select: none; }
 .chart svg { display: block; overflow: visible; }
@@ -624,8 +622,9 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
 .heat-cell { fill: var(--mist); }
 .heat-cell.is-active { fill: var(--red-deep); }
 .heat-mark { fill: var(--red); pointer-events: none; }
-.chart-tip { position: absolute; z-index: 3; top: 0; left: 0; display: flex; flex-direction: column; gap: 2px; width: max-content; padding: 8px 11px; border-radius: 10px; background: var(--white); box-shadow: var(--shadow-ring); font-size: 12px; line-height: 1.3; pointer-events: none; }
-.chart-tip strong { font-weight: 500; }
+.chart-tip { position: absolute; z-index: 3; top: 0; left: 0; display: flex; flex-direction: column; gap: 2px; width: max-content; padding: 7px 11px; border: 1px solid var(--ink-line); border-radius: 12px; background: var(--white); font-family: var(--font); font-size: 12px; line-height: 1.3; pointer-events: none; }
+.chart-guide { position: absolute; z-index: 2; width: 1px; background: var(--ink-line); pointer-events: none; }
+.chart-tip strong { color: var(--ink); font-weight: 500; }
 .chart-tip span { color: var(--ink-soft); }
 .donut { display: flex; flex-direction: column; align-items: center; gap: 20px; }
 .donut-part { fill: none; stroke: #e9e4e4; transition: stroke-width .15s ease; }

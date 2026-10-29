@@ -121,7 +121,7 @@ export function StatsSkeleton() {
 function ChartSkeleton({ height, plotTop = 0, className = "" }: { height: number | ((width: number) => number); plotTop?: number; className?: string }) {
   const [ref, width] = useWidth();
   const pixels = typeof height === "number" ? height : width ? height(width) : 0;
-  return <div className={`chart skeleton ${className}`} ref={ref} style={{ height: pixels || undefined, marginTop: PLOT_GAP - plotTop }} aria-hidden="true"/>;
+  return <div className={`chart skeleton ${className}`} ref={ref} style={{ height: pixels || undefined, marginTop: TIP_BAND + PLOT_GAP - plotTop }} aria-hidden="true"/>;
 }
 
 function Headline({ data, balance }: { data: PeriodStats; balance: number | null }) {
@@ -171,11 +171,12 @@ function useWidth() {
   return [ref, width] as const;
 }
 
-type Tip = { x: number; content: ReactNode };
-const TIP_GAP = 6;
+type Tip = { x: number; y?: number; content: ReactNode };
+const TIP_GAP = 10;
+const TIP_BAND = 42;
 const PLOT_GAP = 16;
 
-function placeTip(tip: HTMLElement, chart: HTMLElement, x: number, plotTop: number) {
+function placeTip(tip: HTMLElement, chart: HTMLElement, x: number, bottom: number) {
   const card = chart.closest<HTMLElement>(".stat-panel") ?? chart;
   const style = getComputedStyle(card);
   const bounds = card.getBoundingClientRect();
@@ -185,7 +186,7 @@ function placeTip(tip: HTMLElement, chart: HTMLElement, x: number, plotTop: numb
   tip.style.maxWidth = `${max - min}px`;
   const size = tip.getBoundingClientRect();
   tip.style.left = `${Math.min(Math.max(x - size.width / 2, min), max - size.width)}px`;
-  tip.style.top = `${Math.max(plotTop - TIP_GAP - size.height, bounds.top + parseFloat(style.paddingTop) - own.top)}px`;
+  tip.style.top = `${bottom - size.height}px`;
 }
 
 function Chart({ label, height, plotTop = 0, table, hit, tip, children }: {
@@ -197,6 +198,7 @@ function Chart({ label, height, plotTop = 0, table, hit, tip, children }: {
   const [ref, width] = useWidth();
   const tipRef = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState<number | null>(null);
+  const under = useRef<number | null>(null);
   useEffect(() => {
     if (active == null) return;
     const outside = (event: globalThis.PointerEvent) => { if (!ref.current?.contains(event.target as Node)) setActive(null); };
@@ -205,17 +207,28 @@ function Chart({ label, height, plotTop = 0, table, hit, tip, children }: {
   }, [active, ref]);
   function point(event: PointerEvent<HTMLDivElement>) {
     const box = event.currentTarget.getBoundingClientRect();
-    setActive(hit(event.clientX - box.left, event.clientY - box.top, width));
+    return hit(event.clientX - box.left, event.clientY - box.top, width);
+  }
+  function move(event: PointerEvent<HTMLDivElement>) {
+    const index = point(event);
+    if (index !== under.current) { under.current = index; setActive(index); }
+  }
+  function press(event: PointerEvent<HTMLDivElement>) {
+    const index = point(event);
+    under.current = index;
+    setActive(index === active ? null : index);
   }
   const shown = active != null && width ? tip(active, width) : null;
   const pixels = typeof height === "number" ? height : width ? height(width) : 0;
+  const tipBottom = plotTop - TIP_GAP;
   useLayoutEffect(() => {
-    if (tipRef.current && ref.current && shown) placeTip(tipRef.current, ref.current, shown.x, plotTop);
+    if (tipRef.current && ref.current && shown) placeTip(tipRef.current, ref.current, shown.x, tipBottom);
   });
   return (
-    <div className="chart" ref={ref} style={{ height: pixels || undefined, marginTop: PLOT_GAP - plotTop }} onPointerMove={point} onPointerDown={point}
-      onPointerLeave={(event) => { if (event.pointerType === "mouse") setActive(null); }}>
+    <div className="chart" ref={ref} style={{ height: pixels || undefined, marginTop: TIP_BAND + PLOT_GAP - plotTop }} onPointerMove={move} onPointerDown={press}
+      onPointerLeave={(event) => { if (event.pointerType === "mouse") { under.current = null; setActive(null); } }}>
       {width ? <svg width={width} height={pixels} role="img" aria-label={label}>{children(width, active)}</svg> : null}
+      {shown?.y != null ? <div className="chart-guide" style={{ left: shown.x - .5, top: tipBottom, height: shown.y - tipBottom }} aria-hidden="true"/> : null}
       {shown ? <div className="chart-tip" ref={tipRef} aria-hidden="true">{shown.content}</div> : null}
       <div className="sr-only"><table>{table}</table></div>
     </div>
@@ -243,7 +256,7 @@ function BarChart({ bars, label, caption, unit, height = BAR_HEIGHT }: { bars: B
   return (
     <Chart label={label} height={height} plotTop={PLOT_TOP}
       hit={(x, _y, width) => { const index = Math.floor((x - AXIS) / band(width)); return index >= 0 && index < bars.length ? index : null; }}
-      tip={(index, width) => ({ x: AXIS + band(width) * (index + .5), content: bars[index].tip })}
+      tip={(index, width) => ({ x: AXIS + band(width) * (index + .5), y: PLOT_TOP + chartHeight * (1 - bars[index].value / top), content: bars[index].tip })}
       table={<><caption>{caption}</caption><thead><tr><th scope="col">Période</th><th scope="col">{unit}</th></tr></thead><tbody>{bars.map((bar) => <tr key={bar.label}><th scope="row">{bar.label}</th><td>{bar.value}</td></tr>)}</tbody></>}>
       {(width, active) => {
         const step = band(width);
@@ -305,7 +318,7 @@ function Heatmap({ data }: { data: PeriodStats }) {
         }}
         tip={(index, width) => {
           const [day, hour] = [Math.floor(index / 24), index % 24];
-          return { x: left + (width - left) / 24 * (hour + .5), content: <><strong>{WEEKDAYS[day]}, de {hour} h à {hour + 1} h</strong><span>{plural(rows[day][hour], "départ")}</span></> };
+          return { x: left + (width - left) / 24 * (hour + .5), y: HEAT_TOP, content: <><strong>{WEEKDAYS[day]}, de {hour} h à {hour + 1} h</strong><span>{plural(rows[day][hour], "départ")}</span></> };
         }}
         table={<><caption>Départs selon le jour et l’heure</caption><thead><tr><th scope="col">Jour</th>{rows[0].map((_, hour) => <th scope="col" key={hour}>{hour} h</th>)}</tr></thead><tbody>{rows.map((row, day) => <tr key={day}><th scope="row">{WEEKDAYS[day]}</th>{row.map((count, hour) => <td key={hour}>{count}</td>)}</tr>)}</tbody></>}>
         {(width, active) => {
