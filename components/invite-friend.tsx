@@ -76,7 +76,7 @@ export function InviteFriend({ cost, balance, account, onChanged }: { onChanged:
     setVerification({ kind: "checking" });
     try {
       const data = await readDashboard();
-      const check = inviteDebit(before, { balance: data.rewards.balance, movements: data.rewards.movements });
+      const check = inviteDebit(before, { balance: data.rewards.balance, movements: data.rewards.movements }, Date.now());
       if (check === "debited") operations.clear(operationKey);
       setVerification({ kind: check });
     } catch {
@@ -122,7 +122,7 @@ export function InviteFriend({ cost, balance, account, onChanged }: { onChanged:
     {codeList}
     {!asking && warning ? <p className="form-error" role="alert">{warning}</p> : null}
     {asking ? <Modal titleId={titleId} onClose={close}>
-      <div className="modal-heading"><h2 id={titleId}>Échanger {cost} points ?</h2><button className="icon-button" disabled={blocked} aria-label="Fermer" onClick={close}><XIcon size={20}/></button></div>
+      <div className="modal-heading"><h2 id={titleId}>Échanger {cost} points ?</h2><button className="icon-button" disabled={blocked} aria-label="Fermer" onClick={close}><XIcon size={20}/></button></div>
       <p>Les {cost} points sont débités dès la création du code, même s’il n’est jamais utilisé.</p>
       {verification?.kind === "debited" ? <p className="form-error" role="status">Vos points ont été débités, mais aucun code n’a été reçu. Contactez Vélo’v pour le récupérer.</p>
         : shown ? <><p className={shown.ok ? "write-done" : "form-error"} role="status">{shown.ok ? "Code créé. Copiez-le pour l’envoyer à votre ami." : shown.message}</p>{!shown.ok ? <RawLine outcome={shown}/> : null}{isUncertain(shown) ? <p className="uncertain-note">{UNCERTAIN}</p> : null}{codeList}</> : null}

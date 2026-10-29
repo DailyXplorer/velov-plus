@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { afterEach, beforeEach, test } from "node:test";
-import { OPERATIONS_KEY, SENDING_LIMIT, UNCERTAIN_HOLD, accountDigest, createOperations, inviteDebit, runOnce } from "../lib/operations.ts";
+import { ACTION_TIMEOUT, HISTORY_LAG, OPERATIONS_KEY, SENDING_LIMIT, UNCERTAIN_HOLD, accountDigest, createOperations, inviteDebit, runOnce } from "../lib/operations.ts";
 import { type Outcome, outcomeSchema } from "../lib/models.ts";
 import { isUncertain, noAnswer, routeFailure } from "../lib/outcome.ts";
 
@@ -82,8 +82,34 @@ test("F1: a clear refusal frees the bike at once, and a lock left by a closed ta
   const survivor = createOperations(() => storage, () => clock);
   assert.equal(survivor.begin("unlock:2"), "busy");
   clock += SENDING_LIMIT + 1;
-  assert.equal(survivor.get("unlock:1"), null);
+  const lost = survivor.get("unlock:1");
+  assert.equal(lost?.status, "uncertain", "a tab closed during the unlock never brings Confirmer back silently");
+  assert.equal(isUncertain(lost!.outcome!), true);
+  assert.equal(survivor.begin("unlock:1"), "busy");
   assert.equal(survivor.begin("unlock:2"), "started");
+  clock += UNCERTAIN_HOLD;
+  assert.equal(survivor.get("unlock:1"), null);
+});
+
+test("F1: a POST that never answers ends uncertain after the action timeout and frees the lock", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const storage = memoryStore();
+  const tab = createOperations(() => storage);
+  const other = createOperations(() => storage);
+  const route = slowRoute();
+  const first = runOnce(tab, "unlock:20449", route.post("/api/unlock", unlockBody));
+  t.mock.timers.tick(ACTION_TIMEOUT - 1);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(tab.sending(), true);
+  t.mock.timers.tick(1);
+  const outcome = await first;
+  assert.ok(outcome !== "busy" && outcome !== "unsaved" && isUncertain(outcome));
+  assert.equal(tab.sending(), false);
+  assert.equal(tab.busy(), false);
+  assert.equal(other.busy(), false);
+  assert.equal(tab.get("unlock:20449")?.status, "uncertain");
+  assert.equal(tab.begin("book:1"), "started");
+  assert.equal(route.calls.length, 1);
 });
 
 test("F1: without storage the same tab is still locked in memory", async () => {
@@ -142,13 +168,19 @@ test("F2: a page closed during the invite leaves it uncertain, never forgotten; 
 test("F2: Vérifier mon solde detects the debit from the history, and allows a retry only when the balance proves nothing left", () => {
   const at = Date.parse("2026-10-29T12:00:00Z");
   const before = { at, cost: 50, balance: 120 };
-  assert.equal(inviteDebit(before, { balance: 70, movements: [{ date: "2026-10-29T12:00:03Z", amount: -50 }] }), "debited");
-  assert.equal(inviteDebit(before, { balance: 70, movements: [{ date: "2026-10-29", amount: -50 }] }), "debited");
-  assert.equal(inviteDebit(before, { balance: 120, movements: [{ date: "2026-10-01T08:00:00Z", amount: -50 }] }), "not-debited");
-  assert.equal(inviteDebit(before, { balance: 125, movements: [{ date: "2026-10-29T12:30:00Z", amount: 5 }] }), "not-debited");
-  assert.equal(inviteDebit(before, { balance: 70, movements: [] }), "unknown", "balance dropped without a visible movement");
-  assert.equal(inviteDebit(before, { balance: null, movements: [] }), "unknown");
-  assert.equal(inviteDebit({ ...before, balance: null }, { balance: 120, movements: [] }), "unknown");
+  const later = at + 10 * 60_000;
+  assert.equal(inviteDebit(before, { balance: 70, movements: [{ date: "2026-10-29T12:00:03Z", amount: -50 }] }, later), "debited");
+  assert.equal(inviteDebit(before, { balance: 70, movements: [{ date: "2026-10-29", amount: -50 }] }, later), "debited");
+  assert.equal(inviteDebit(before, { balance: 120, movements: [{ date: "2026-10-01T08:00:00Z", amount: -50 }] }, later), "not-debited");
+  assert.equal(inviteDebit(before, { balance: 125, movements: [{ date: "2026-10-29T12:30:00Z", amount: 5 }] }, later), "not-debited");
+  assert.equal(inviteDebit(before, { balance: 70, movements: [] }, later), "unknown", "balance dropped without a visible movement");
+  assert.equal(inviteDebit(before, { balance: null, movements: [] }, later), "unknown");
+  assert.equal(inviteDebit({ ...before, balance: null }, { balance: 120, movements: [] }, later), "unknown");
+  assert.equal(inviteDebit(before, { balance: 120, movements: [{ date: "2026-10-29", amount: -50 }] }, later), "not-debited", "another invite earlier the same day");
+  assert.equal(inviteDebit({ ...before, balance: null }, { balance: 70, movements: [{ date: "2026-10-29", amount: -50 }] }, later), "unknown");
+  assert.equal(inviteDebit(before, { balance: 120, movements: [] }, at + HISTORY_LAG - 1), "unknown", "the rewards history may still lag");
+  assert.equal(inviteDebit(before, { balance: 120, movements: [] }, at + HISTORY_LAG), "not-debited");
+  assert.equal(inviteDebit(before, { balance: 70, movements: [{ date: "2026-10-29T12:00:03Z", amount: -50 }] }, at + 30_000), "debited");
 });
 
 test("F4: contact and extra-time states are kept per account and per trip, independently of any dialog", async () => {

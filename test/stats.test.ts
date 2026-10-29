@@ -168,7 +168,7 @@ test("F6: a history cut by a failed page or the 50-page cap reaches the client m
   const { complete: _, ...withoutFlag } = buildStats(input([]));
   assert.equal(statsSchema.safeParse(withoutFlag).success, false);
   const velov = readFileSync(new URL("../lib/velov.ts", import.meta.url), "utf8");
-  assert.match(velov, /complete: history\.complete && movements\?\.complete !== false/);
+  assert.match(velov, /complete: history\.complete && movements !== null && movements\.complete/);
   assert.match(velov, /memo<Stats>\(statsTtl\)/);
 });
 

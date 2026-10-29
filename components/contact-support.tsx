@@ -80,7 +80,7 @@ export function ContactSupport({ trips, account }: { trips: Trip[] | null; accou
       <div className="profile-form-actions"><Button variant="ghost" onClick={() => setOpen(false)}>Annuler</Button><Button onClick={review}>Envoyer</Button></div>
     </div>}
     {draft || status ? <Modal titleId={titleId} onClose={closeConfirmation}>
-      <div className="modal-heading"><h2 id={titleId}>Envoyer au service client ?</h2><button className="icon-button" aria-label="Fermer" disabled={sending && sendingHere} onClick={closeConfirmation}><XIcon size={20}/></button></div>
+      <div className="modal-heading"><h2 id={titleId}>Envoyer au service client ?</h2><button className="icon-button" aria-label="Fermer" disabled={sending && sendingHere} onClick={closeConfirmation}><XIcon size={20}/></button></div>
       {failure ? <><p role="alert" className="form-error">{failure.message}</p><p className="bike-action-raw">HTTP {failure.httpStatus || "aucune réponse"} · Code {failure.code ?? "—"} · {capitalize(failure.detail ?? failure.message ?? "—")}</p>{isUncertain(failure) ? <p className="uncertain-note">{UNCERTAIN}</p> : null}</> : null}
       {error && draft ? <p className="form-error" role="alert">{error}</p> : null}
       <div className="modal-actions">{failure && isUncertain(failure) ? <><Button variant="ghost" onClick={closeConfirmation}>Fermer</Button><Button variant="secondary" onClick={writeAgain}>Écrire un nouveau message</Button></> : <><Button variant="ghost" disabled={sending && sendingHere} onClick={closeConfirmation}>Annuler</Button><Button pending={sending} disabled={!draft || !operationKey} onClick={() => void send()}>Confirmer</Button></>}</div>

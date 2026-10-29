@@ -7,6 +7,8 @@ type Store = Pick<Storage, "getItem" | "setItem" | "removeItem">;
 export const OPERATIONS_KEY = "velov:operations:v1";
 export const SENDING_LIMIT = 2 * 60_000;
 export const UNCERTAIN_HOLD = 2 * 60_000;
+export const ACTION_TIMEOUT = 45_000;
+export const HISTORY_LAG = 2 * 60_000;
 export const BUSY = "Une autre action est en cours. Attendez sa réponse avant de recommencer.";
 export const UNSAVED = "Ce navigateur ne peut pas suivre cette action. Rien n’a été envoyé.";
 const LOST = "La page a été fermée avant la réponse. L’action a peut-être abouti.";
@@ -39,7 +41,7 @@ export function createOperations(storage: () => Store | null, now: () => number 
   function live(entry: Operation | undefined): Operation | null {
     if (!entry) return null;
     const age = now() - entry.at;
-    if (entry.status === "sending" && age > SENDING_LIMIT) return entry.keep ? { ...entry, status: "uncertain", outcome: entry.outcome ?? noAnswer(LOST) } : null;
+    if (entry.status === "sending" && age > SENDING_LIMIT) return entry.keep || age <= SENDING_LIMIT + UNCERTAIN_HOLD ? { ...entry, status: "uncertain", outcome: entry.outcome ?? noAnswer(LOST) } : null;
     if (entry.status === "uncertain" && !entry.keep && age > UNCERTAIN_HOLD) return null;
     return entry;
   }
@@ -108,18 +110,23 @@ export type Operations = ReturnType<typeof createOperations>;
 export async function runOnce<T extends Outcome>(operations: Operations, key: string, send: () => Promise<T>, options?: { keep?: boolean; meta?: Meta }): Promise<T | Outcome | "busy" | "unsaved"> {
   const started = operations.begin(key, options);
   if (started !== "started") return started;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const late = new Promise<Outcome>((resolve) => { timer = setTimeout(() => resolve(noAnswer("Le serveur ne répond pas.")), ACTION_TIMEOUT); });
   let outcome: T | Outcome;
-  try { outcome = await send(); }
+  try { outcome = await Promise.race([send(), late]); }
   catch { outcome = noAnswer("Le serveur ne répond pas."); }
+  finally { clearTimeout(timer); }
   operations.finish(key, outcome);
   return outcome;
 }
 
 export type DebitCheck = "debited" | "not-debited" | "unknown";
 
-export function inviteDebit(before: { at: number; balance: number | null; cost: number }, after: { balance: number | null; movements: { date: string | null; amount: number }[] }): DebitCheck {
+export function inviteDebit(before: { at: number; balance: number | null; cost: number }, after: { balance: number | null; movements: { date: string | null; amount: number }[] }, now: number): DebitCheck {
   const since = before.at - 5 * 60_000;
-  const debit = after.movements.some(({ date, amount }) => amount === -before.cost && date !== null && Date.parse(date.length === 10 ? `${date}T23:59:59Z` : date) >= since);
+  const dropped = before.balance !== null && after.balance !== null && after.balance < before.balance;
+  const debit = after.movements.some(({ date, amount }) => amount === -before.cost && date !== null && (date.length === 10 ? dropped && Date.parse(`${date}T23:59:59Z`) >= since : Date.parse(date) >= since));
   if (debit) return "debited";
+  if (now - before.at < HISTORY_LAG) return "unknown";
   return before.balance !== null && after.balance !== null && after.balance >= before.balance ? "not-debited" : "unknown";
 }

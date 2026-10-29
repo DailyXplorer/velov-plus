@@ -107,6 +107,12 @@ test("F2: the invite state lives in the store, Obtenir un code keeps it, and a r
   assert.match(invite, /uncertain && verification\?\.kind === "not-debited" \? <Button onClick=\{retry\}>Je n’ai pas été débité, réessayer<\/Button>/);
   assert.match(invite, /function retry\(\) \{\n\s+if \(!operationKey \|\| verification\?\.kind !== "not-debited"\) return;/);
   assert.doesNotMatch(invite, /pendingAccounts|finally \{/);
+  assert.match(invite, /inviteDebit\(before, \{ balance: data\.rewards\.balance, movements: data\.rewards\.movements \}, Date\.now\(\)\)/);
+});
+
+test("confirmation titles keep a non-breaking space before the question mark", () => {
+  assert.match(source("components/invite-friend.tsx"), /<h2 id=\{titleId\}>Échanger \{cost\} points\u00a0\?<\/h2>/);
+  assert.match(source("components/contact-support.tsx"), /<h2 id=\{titleId\}>Envoyer au service client\u00a0\?<\/h2>/);
 });
 
 test("F3: profile, favourites, auto-spend, renewal and rating check the real state instead of re-offering Confirmer", () => {

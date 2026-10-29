@@ -287,7 +287,7 @@ export function getStats(session: Session): Promise<Stats> {
     return buildStats({
       trips: history.items.map((trip) => normalizeTrip(trip, byNumber)), coords: byNumber, balance,
       movements: movements?.items.map((movement) => ({ date: utcDate(movement.createdAt), amount: movement.amount * (movement.direction === "DEBIT" ? -1 : 1) })) ?? null,
-      now: new Date(), complete: history.complete && movements?.complete !== false
+      now: new Date(), complete: history.complete && movements !== null && movements.complete
     });
   });
 }
