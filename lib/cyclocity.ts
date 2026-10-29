@@ -213,9 +213,11 @@ export async function postPeriodReport({ subscriptionId, periodId, ...auth }: Au
 
 /** PATCH /accounts/{id} with only the changed fields, in the order of the body the app sends. */
 export async function patchProfile({ body, ...auth }: Auth & { body: ProfileBody }, send: typeof fetch = fetch): Promise<Outcome> {
-  const ordered = { country: body.country, zipCode: body.zipCode, city: body.city, phoneNumber: body.phoneNumber, address: body.address };
+  const ordered = { firstName: body.firstName, lastName: body.lastName, country: body.country, zipCode: body.zipCode, city: body.city, phoneNumber: body.phoneNumber, address: body.address };
   const { outcome } = await accountCall(accountUrl(auth.accountId), { method: "PATCH", headers: { "Content-Type": "application/vnd.account.v4+json" }, body: JSON.stringify(ordered) }, auth, "Vélo’v n’a pas enregistré ces coordonnées.", send);
-  return outcome;
+  // The app only sends names to complete a new account: on a complete one, a 4xx is most likely the name refused.
+  const renamed = body.firstName !== undefined || body.lastName !== undefined;
+  return renamed && outcome.httpStatus >= 400 && outcome.httpStatus < 500 ? { ...outcome, message: "Vélo’v n’a pas accepté ce changement de nom." } : outcome;
 }
 
 

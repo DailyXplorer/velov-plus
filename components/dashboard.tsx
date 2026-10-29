@@ -4,7 +4,7 @@ import { useMemo, useState, useSyncExternalStore } from "react";
 import dynamic from "next/dynamic";
 import { BicycleIcon, CaretRightIcon, LetterCirclePIcon, LightningIcon, MagnifyingGlassIcon, NavigationArrowIcon, SignOutIcon, StarFourIcon, StarIcon, TicketIcon, TrendUpIcon, XIcon } from "./icons";
 import { ViaAction } from "./via-action";
-import { type Dashboard, type Page, type Resource, type Station, type Trip, formatDate, formatPrice } from "@/lib/models";
+import { type Dashboard, type Page, type Resource, type Station, type Trip, formatDate, formatName, formatPrice } from "@/lib/models";
 import { formatDistance, haversine, type Point } from "@/lib/geo";
 import { Button, CardTag, CircleArrow, EmptyState, Eyebrow, SectionHeading, SelectField, TextButton } from "./ui";
 import { StationBikes } from "./station-bikes";
@@ -328,7 +328,7 @@ export function AccountPage({ data, onLogout, onSaved }: { data: Dashboard; onLo
       <div className="account-grid">
         <section className="account-section">
           <h2>Profil</h2>
-          <p className="profile-name">{[data.profile.firstName, data.profile.lastName].filter(Boolean).join(" ") || "Compte Vélo’v"}</p>
+          <p className="profile-name">{formatName(`${data.profile.firstName} ${data.profile.lastName}`) || "Compte Vélo’v"}</p>
           <p className="profile-email">{data.profile.email}</p>
           {/* Only what needs attention: an active account, a complete profile and a valid card go without saying. */}
           {data.profile.locked || !data.profile.complete || data.paymentValid === false ? (

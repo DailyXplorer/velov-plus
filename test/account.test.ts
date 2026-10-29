@@ -122,10 +122,10 @@ test("no account write is ever retried: gateway errors, a lost answer and an exp
   }
 });
 
-test("the profile body accepts only the documented fields, trimmed, and at least one of them", () => {
+test("the profile body accepts only the fields the site edits, trimmed, and at least one of them", () => {
   assert.deepEqual(profileBodySchema.parse({ city: " Lyon ", zipCode: "69008" }), { city: "Lyon", zipCode: "69008" });
   for (const body of [
-    {}, { email: "x@example.com" }, { firstName: "Jean" }, { address: { name: "x".repeat(39), complement: "" } }, { address: { name: "", complement: "" } },
+    {}, { email: "x@example.com" }, { sex: "M" }, { address: { name: "x".repeat(39), complement: "" } }, { address: { name: "", complement: "" } },
     { country: "France" }, { phoneNumber: "0600000000" }, { city: "Ly\non" }, { zipCode: "<script>" }, null
   ]) assert.equal(profileBodySchema.safeParse(body).success, false, JSON.stringify(body));
 });

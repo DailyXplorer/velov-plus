@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
 import { ArrowClockwiseIcon, BicycleIcon, HouseIcon, MapPinIcon, SignOutIcon, StarFourIcon, UserCircleIcon, WarningCircleIcon, XIcon } from "./icons";
-import { bookingSchema, dashboardSchema, stationsSchema, type Booking, type Dashboard, type Page, type Resource, formatDate } from "@/lib/models";
+import { bookingSchema, dashboardSchema, stationsSchema, type Booking, type Dashboard, type Page, type Resource, formatDate, formatName } from "@/lib/models";
 import { AccountPage, Overview, PointsPage, StationsPage, TripsPage } from "./dashboard";
 import { Button, Modal } from "./ui";
 import { Login } from "./login";
@@ -136,7 +136,8 @@ export function Companion({ initialSession }: { initialSession: boolean }) {
   );
 
   const data = state.kind === "ready" ? state.data : null;
-  const initial = data?.profile.firstName ? data.profile.firstName.slice(0, 1).toUpperCase() : null;
+  const name = data ? formatName(`${data.profile.firstName} ${data.profile.lastName}`) : "";
+  const initial = data ? formatName(data.profile.firstName).charAt(0) || null : null;
   const label = navigation.find((item) => item.id === page)?.label ?? "Vue d’ensemble";
 
   return (
@@ -156,7 +157,7 @@ export function Companion({ initialSession }: { initialSession: boolean }) {
             })}
           </nav>
           <div className="sidebar-bottom">
-            <button className="sidebar-user" aria-label="Compte" onClick={() => navigate("account")}>
+            <button className="sidebar-user" aria-label={name ? `Compte de ${name}` : "Compte"} title={name || undefined} onClick={() => navigate("account")}>
               <UserCircleIcon size={22} weight="light" aria-hidden="true"/>
             </button>
             <button className="icon-button" aria-label="Se déconnecter" onClick={openLogout}>
@@ -172,7 +173,7 @@ export function Companion({ initialSession }: { initialSession: boolean }) {
                 aria-label="Actualiser mon compte" onClick={() => { void loadDashboard(); void loadStations(); void loadBookings(); }} disabled={refreshing}>
                 <ArrowClockwiseIcon className={refreshing ? "spin" : ""} size={20} weight="light"/>
               </button>
-              <button className="user-avatar" onClick={() => navigate("account")} aria-label="Mon compte">{initial ?? <UserCircleIcon size={22} weight="light" aria-hidden="true"/>}</button>
+              <button className="user-avatar" onClick={() => navigate("account")} aria-label={name ? `Mon compte, ${name}` : "Mon compte"} title={name || undefined}>{initial ?? <UserCircleIcon size={22} weight="light" aria-hidden="true"/>}</button>
             </div>
           </header>
           <main id="main-content" className="main-content">

@@ -579,6 +579,7 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
 /* In forms a select stacks its label above a full-width trigger, like the text fields. */
 .profile-form .select-field, .contact-form .select-field, .modal .select-field { display: grid; gap: 6px; }
 .field-pair { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 12px; }
+.field-pair.name-pair { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .profile-form-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
 .receipts { margin-top: 24px; }
 .receipts ul { margin: 8px 0 0; padding: 0; list-style: none; }
@@ -596,6 +597,7 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
 @media (max-width: 620px) {
   .invite-row { padding: 18px 16px 18px 20px; }
   .field-pair { grid-template-columns: 100px minmax(0, 1fr); }
+  .field-pair.name-pair { grid-template-columns: minmax(0, 1fr); gap: 14px; }
   .ongoing-extra { width: 100%; }
   .profile-form-actions { flex-direction: column-reverse; }
   .profile-form-actions > .button { width: 100%; }

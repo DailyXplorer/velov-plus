@@ -92,6 +92,17 @@ export function capitalize(text: string) {
   return text.charAt(0).toLocaleUpperCase("fr-FR") + text.slice(1);
 }
 
+const PARTICLES = new Set(["de", "du", "des", "la", "le"]);
+
+/** "jean-pierre de la tour" -> "Jean-Pierre de la Tour", "D'ARTAGNAN" -> "D'Artagnan": display only, never sent to Vélo’v. */
+export function formatName(name: string) {
+  return name.trim().toLocaleLowerCase("fr-FR").split(/\s+/).filter(Boolean).map((word, index) => index > 0 && PARTICLES.has(word) ? word : word.split("-").map((part, partIndex) => {
+    const elided = /^d[’']./u.exec(part);
+    if (elided) return `${index > 0 || partIndex > 0 ? "d" : "D"}${part.charAt(1)}${capitalize(part.slice(2))}`;
+    return part.split(/(?<=[’'])/u).map(capitalize).join("");
+  }).join("-")).join(" ");
+}
+
 export function formatPrice(cents: number) {
   return new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(cents / 100);
 }
@@ -123,11 +134,16 @@ export type UnlockResult = z.infer<typeof unlockResultSchema>;
 /** Account settings sent from the site. Every id travels in a URL path, so only word characters and hyphens. */
 const pathId = z.string().regex(/^[\w-]{1,64}$/);
 const line = (max: number) => z.string().trim().max(max).regex(/^[^\p{Cc}]*$/u);
+export const NAME_MAX = 50;
+/** " jean  pierre " -> "jean pierre": letters (accents included), spaces, apostrophes and hyphens, starting with a letter. */
+const personName = z.string().trim().transform((value) => value.replace(/ {2,}/g, " ")).pipe(z.string().min(1).max(NAME_MAX).regex(/^\p{L}[\p{L}\p{M} ’'-]*$/u));
 export const autoSpendBodySchema = z.object({ autoSpend: z.boolean() }).strict();
 export const receiptBodySchema = z.object({ subscriptionId: pathId, periodId: pathId }).strict();
 /** The fields of PATCH /accounts/{id} the site edits, each optional: only what changed is sent. Vélo’v caps the address at 38 characters. */
 export const ADDRESS_MAX = 38;
 export const profileBodySchema = z.object({
+  firstName: personName.optional(),
+  lastName: personName.optional(),
   address: z.object({ name: line(ADDRESS_MAX).min(1), complement: line(ADDRESS_MAX) }).strict().optional(),
   zipCode: line(10).regex(/^[A-Za-z0-9][A-Za-z0-9 -]{1,9}$/).optional(),
   city: line(60).min(1).optional(),

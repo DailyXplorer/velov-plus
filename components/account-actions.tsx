@@ -3,7 +3,8 @@
 import { type ReactNode, useId, useRef, useState } from "react";
 import { z } from "zod";
 import { CheckIcon, DownloadSimpleIcon, StarIcon, XIcon } from "./icons";
-import { ADDRESS_MAX, type Dashboard, type Outcome, type ProfileBody, type Receipt, type Station, type Trip, autoSpendResultSchema, capitalize, formatDate, normalizePhone, outcomeSchema, profileBodySchema } from "@/lib/models";
+import { ADDRESS_MAX, NAME_MAX, type Dashboard, type Outcome, type ProfileBody, type Receipt, type Station, type Trip, autoSpendResultSchema, capitalize, formatDate, outcomeSchema } from "@/lib/models";
+import { type Change, type Draft, changesOf, countries, countryName, draftOf } from "@/lib/profile-draft";
 import { Button, Modal, SelectField } from "./ui";
 
 const errorSchema = z.object({ error: z.string(), code: z.string().optional() });
@@ -191,47 +192,13 @@ export function Receipts({ receipts }: { receipts: Receipt[] | null }) {
 
 export { AutoRenewal } from "./auto-renewal";
 
-const countries = [
-  { value: "FR", label: "France" }, { value: "BE", label: "Belgique" }, { value: "CH", label: "Suisse" }, { value: "LU", label: "Luxembourg" },
-  { value: "DE", label: "Allemagne" }, { value: "ES", label: "Espagne" }, { value: "IT", label: "Italie" }, { value: "GB", label: "Royaume-Uni" }
-];
-const countryName = (code: string | null) => countries.find((country) => country.value === code)?.label ?? code;
 type Profile = Dashboard["profile"];
-type Draft = { address: string; complement: string; zipCode: string; city: string; country: string; phone: string };
-type Change = { label: string; before: string; after: string };
-
-function draftOf(profile: Profile): Draft {
-  return { address: profile.address ?? "", complement: profile.addressComplement ?? "", zipCode: profile.zipCode ?? "", city: profile.city ?? "", country: profile.country ?? "FR", phone: profile.phoneNumber ?? "" };
-}
-
-/** The PATCH body with only the fields that changed, or the first problem to fix. */
-function changesOf(profile: Profile, draft: Draft): { body: ProfileBody; changes: Change[] } | { error: string } | null {
-  const body: ProfileBody = {};
-  const changes: Change[] = [];
-  const trimmed = { address: draft.address.trim(), complement: draft.complement.trim(), zipCode: draft.zipCode.trim(), city: draft.city.trim() };
-  const changed = (value: string, before: string | null) => value !== (before ?? "");
-  if (changed(trimmed.address, profile.address) || changed(trimmed.complement, profile.addressComplement)) {
-    if (!trimmed.address) return { error: "Saisissez une adresse." };
-    body.address = { name: trimmed.address, complement: trimmed.complement };
-    changes.push({ label: "Adresse", before: [profile.address, profile.addressComplement].filter(Boolean).join(", ") || "—", after: [trimmed.address, trimmed.complement].filter(Boolean).join(", ") });
-  }
-  if (changed(trimmed.zipCode, profile.zipCode)) { body.zipCode = trimmed.zipCode; changes.push({ label: "Code postal", before: profile.zipCode ?? "—", after: trimmed.zipCode }); }
-  if (changed(trimmed.city, profile.city)) { body.city = trimmed.city; changes.push({ label: "Ville", before: profile.city ?? "—", after: trimmed.city }); }
-  if (changed(draft.country, profile.country)) { body.country = draft.country; changes.push({ label: "Pays", before: countryName(profile.country) ?? "—", after: countryName(draft.country) ?? draft.country }); }
-  const phone = normalizePhone(draft.phone, draft.country);
-  if (phone !== (profile.phoneNumber ?? "") && draft.phone.trim() !== (profile.phoneNumber ?? "")) { body.phoneNumber = phone; changes.push({ label: "Téléphone", before: profile.phoneNumber ?? "—", after: phone }); }
-  if (!changes.length) return null;
-  const parsed = profileBodySchema.safeParse(body);
-  if (parsed.success) return { body: parsed.data, changes };
-  const field = parsed.error.issues[0]?.path[0];
-  return { error: field === "phoneNumber" ? "Numéro de téléphone invalide. Exemple : 06 12 34 56 78." : field === "zipCode" ? "Code postal invalide." : field === "city" ? "Saisissez une ville." : field === "address" ? `L’adresse ne doit pas dépasser ${ADDRESS_MAX} caractères.` : "Coordonnées invalides." };
-}
 
 function Field({ label, value, onChange, maxLength, inputMode, autoComplete }: { label: string; value: string; onChange: (value: string) => void; maxLength?: number; inputMode?: "tel" | "numeric" | "text"; autoComplete?: string }) {
   return <label className="field"><span className="metric-label">{label}</span><input value={value} maxLength={maxLength} inputMode={inputMode} autoComplete={autoComplete} onChange={(event) => onChange(event.target.value)}/></label>;
 }
 
-/** Address, postcode, city, country and phone only (PATCH /accounts/{id}); names, email and secret code stay with Vélo’v. */
+/** First and last name, address, postcode, city, country and phone (PATCH /accounts/{id}); email and secret code stay with Vélo’v. */
 export function ProfileCoordinates({ profile, onSaved }: { profile: Profile; onSaved: () => void }) {
   const [draft, setDraft] = useState<Draft | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -251,6 +218,10 @@ export function ProfileCoordinates({ profile, onSaved }: { profile: Profile; onS
     <>
       {draft ? (
         <form className="profile-form" onSubmit={(event) => { event.preventDefault(); review(); }} noValidate>
+          <div className="field-pair name-pair">
+            <Field label="Prénom" value={draft.firstName} onChange={set("firstName")} maxLength={NAME_MAX} autoComplete="given-name"/>
+            <Field label="Nom" value={draft.lastName} onChange={set("lastName")} maxLength={NAME_MAX} autoComplete="family-name"/>
+          </div>
           <Field label="Adresse" value={draft.address} onChange={set("address")} maxLength={ADDRESS_MAX} autoComplete="address-line1"/>
           <Field label="Complément" value={draft.complement} onChange={set("complement")} maxLength={ADDRESS_MAX} autoComplete="address-line2"/>
           <div className="field-pair">
