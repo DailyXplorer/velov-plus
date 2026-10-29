@@ -284,7 +284,7 @@ export function StationsPage({ resource, reload, reloading, favorites: favoriteL
             {filtered.slice(0, 6).map((station) => (
               <button className={`station-item ${chosen?.id === station.id ? "selected" : ""}`} key={station.id} onClick={() => { setSelected(station.id); setQuery(""); }}>
                 <div className="station-item-title"><strong>{station.name}</strong>{favorites.has(station.number) ? <StarIcon className="favorite-mark" size={14} weight="fill" aria-label="Favorite"/> : null}<CaretRightIcon size={16} weight="light"/></div>
-                <small className="station-meta">{position ? `${formatDistance(distanceTo(station, position))} · ` : ""}n° {station.number}{!station.open ? " · Fermée" : ""}</small>
+                <small className="station-meta">{position ? `${formatDistance(distanceTo(station, position))} · ` : ""}N° {station.number}{!station.open ? " · Fermée" : ""}</small>
               </button>
             ))}
             {!filtered.length ? <EmptyState>Aucune station trouvée.</EmptyState> : null}

@@ -2,7 +2,7 @@
 
 import { useId, useRef, useState } from "react";
 import { TimerIcon } from "@phosphor-icons/react/dist/csr/Timer";
-import { type Outcome, type Station, outcomeSchema } from "@/lib/models";
+import { type Outcome, type Station, capitalize, outcomeSchema } from "@/lib/models";
 import { fullStations } from "@/lib/via-models";
 import { formatDistance, haversine, type Point } from "@/lib/geo";
 import { Button, Modal, SelectField } from "./ui";
@@ -53,7 +53,7 @@ export function ViaAction({ stations }: { stations: Station[] }) {
         <div className="modal-heading"><h2 id={titleId}>15 minutes de plus</h2></div>
         {result ? <>
           <p className={result.ok ? "write-done" : "form-error"} role={result.ok ? "status" : "alert"}>{result.ok ? "Vélo’v a accepté la demande de minutes supplémentaires." : result.message}</p>
-          {!result.ok ? <p className="bike-action-raw">HTTP {result.httpStatus || "aucune réponse"} · code {result.code ?? "—"} · {result.detail ?? result.message}</p> : null}
+          {!result.ok ? <p className="bike-action-raw">HTTP {result.httpStatus || "aucune réponse"} · Code {result.code ?? "—"} · {capitalize(result.detail ?? result.message ?? "")}</p> : null}
           <div className="modal-actions"><Button variant="secondary" onClick={close}>Fermer</Button></div>
         </> : reviewing && station ? <>
           <p className="write-question">Demander 15 minutes supplémentaires pour rendre votre vélo à une autre station ? La station <strong>{station.name} (n° {station.number})</strong> est pleine.</p>
@@ -63,7 +63,7 @@ export function ViaAction({ stations }: { stations: Station[] }) {
           <label className="field"><span className="metric-label">Rechercher une station pleine</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Nom, adresse ou numéro"/></label>
           <Button variant="ghost" pending={locating} onClick={locate}>Les plus proches</Button>
           {locationError ? <p className="soon-note">{locationError}</p> : null}
-          {choices.length ? <SelectField label="Station pleine" value={selected} onChange={setSelected} options={[{ value: "", label: "Choisir une station" }, ...choices.map((item) => ({ value: String(item.number), label: `${item.name} · n° ${item.number}${position ? ` · ${formatDistance(haversine(position, item))}` : ""}` }))]}/> : <p>Aucune station pleine ne correspond à votre recherche.</p>}
+          {choices.length ? <SelectField label="Station pleine" value={selected} onChange={setSelected} options={[{ value: "", label: "Choisir une station" }, ...choices.map((item) => ({ value: String(item.number), label: `${item.name} · N° ${item.number}${position ? ` · ${formatDistance(haversine(position, item))}` : ""}` }))]}/> : <p>Aucune station pleine ne correspond à votre recherche.</p>}
           <div className="modal-actions"><Button variant="ghost" onClick={close}>Annuler</Button><Button disabled={!station} onClick={() => setReviewing(true)}>Continuer</Button></div>
         </>}
       </div>

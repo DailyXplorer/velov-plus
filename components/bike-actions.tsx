@@ -7,7 +7,7 @@ import { ClockIcon } from "@phosphor-icons/react/dist/csr/Clock";
 import { LockOpenIcon } from "@phosphor-icons/react/dist/csr/LockOpen";
 import { WarningIcon } from "@phosphor-icons/react/dist/csr/Warning";
 import { XIcon } from "@phosphor-icons/react/dist/csr/X";
-import { BOOKING_MINUTES, BOOKING_POINTS, RELEASE_DISTANCE, type BookResult, type Booking, type Outcome, type UnlockResult, bookResultSchema, formatDate, unlockResultSchema } from "@/lib/models";
+import { BOOKING_MINUTES, BOOKING_POINTS, RELEASE_DISTANCE, type BookResult, type Booking, type Outcome, type UnlockResult, bookResultSchema, capitalize, formatDate, unlockResultSchema } from "@/lib/models";
 import { formatDistance, haversine } from "@/lib/geo";
 import { Button, CardTag, Modal } from "./ui";
 
@@ -56,7 +56,7 @@ function useKnownDistance(place: Place) {
 }
 
 function Raw({ outcome, extra }: { outcome: Outcome; extra?: string }) {
-  const parts = [`transactionState ${outcome.transactionState ?? "—"}`, `code ${outcome.code ?? "—"}`, `HTTP ${outcome.httpStatus || "aucune réponse"}`, outcome.detail, extra].filter(Boolean);
+  const parts = [`TransactionState ${outcome.transactionState ?? "—"}`, `Code ${outcome.code ?? "—"}`, `HTTP ${outcome.httpStatus || "aucune réponse"}`, outcome.detail && capitalize(outcome.detail), extra].filter(Boolean);
   return <p className="bike-action-raw">{parts.join(" · ")}</p>;
 }
 
@@ -106,7 +106,7 @@ function Done({ result, place, onBack, onUnlock }: { result: Result; place: Plac
     <>
       <div className="bike-action-result" role="status">
         <span className="card-tag-icon"><CheckIcon size={15} weight="bold" aria-hidden="true"/></span>
-        <div><BookedUntil endsAt={result.value.booking?.endsAt ?? null}/><p>Vélo {place.bikeNumber} · borne {place.standNumber}</p></div>
+        <div><BookedUntil endsAt={result.value.booking?.endsAt ?? null}/><p>Vélo {place.bikeNumber} · Borne {place.standNumber}</p></div>
       </div>
       <div className="bike-action-buttons"><Button variant="secondary" onClick={onBack}>Fermer</Button><Button onClick={onUnlock}><LockOpenIcon size={17} weight="light" aria-hidden="true"/>Déverrouiller</Button></div>
     </>
@@ -116,10 +116,10 @@ function Done({ result, place, onBack, onUnlock }: { result: Result; place: Plac
     <>
       <div className="bike-action-result" role="status">
         <span className="card-tag-icon"><CheckIcon size={15} weight="bold" aria-hidden="true"/></span>
-        <div><strong>Vélo déverrouillé — borne {place.standNumber}</strong><p>Appuyez maintenant sur le bouton de la borne (60 s), puis retirez le vélo.</p>
+        <div><strong>Vélo déverrouillé — Borne {place.standNumber}</strong><p>Appuyez maintenant sur le bouton de la borne (60 s), puis retirez le vélo.</p>
           <p>{ongoing?.length ? "Trajet en cours." : "Le trajet apparaît une dizaine de secondes après le retrait du vélo."}</p></div>
       </div>
-      <Raw outcome={value} extra={`trips/ongoing ${ongoing ? ongoing.length : "illisible"}`}/>
+      <Raw outcome={value} extra={`Trips/ongoing ${ongoing ? ongoing.length : "illisible"}`}/>
       <div className="bike-action-buttons"><Button variant="secondary" onClick={onBack}>Fermer</Button></div>
     </>
   );

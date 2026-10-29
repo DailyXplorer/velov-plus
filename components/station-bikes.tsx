@@ -20,7 +20,7 @@ import { WarningIcon } from "@phosphor-icons/react/dist/csr/Warning";
 import { ThumbsUpIcon } from "@phosphor-icons/react/dist/csr/ThumbsUp";
 import { XIcon } from "@phosphor-icons/react/dist/csr/X";
 import { type AssessedBike, assessBikes, isCheckOverdue } from "@/lib/bike-score";
-import { type Bike, type Resource, type Station, bikeSchema, formatDate } from "@/lib/models";
+import { type Bike, type Resource, type Station, bikeSchema, capitalize, formatDate } from "@/lib/models";
 import { Button, EmptyState, Eyebrow, Modal } from "./ui";
 import { BikeActions, BookingsContext } from "./bike-actions";
 import { getJson } from "./get-json";
@@ -133,7 +133,7 @@ function BikeRow({ item, mine, onOpen }: { item: AssessedBike; mine: boolean; on
 function DateFact({ label, value, withAgo = false, children }: { label: string; value: string | null; withAgo?: boolean; children?: ReactNode }) {
   const since = withAgo ? fromNow(value) : null;
   const exact = formatDate(value, { day: "numeric", month: "short", year: "numeric", ...(withAgo ? { hour: "2-digit", minute: "2-digit" } : {}) });
-  return <div><dt>{label}</dt><dd>{children}{value ? since ? <>{since}<small>{exact}</small></> : exact : "Non renseigné"}</dd></div>;
+  return <div><dt>{label}</dt><dd>{children}{value ? since ? <>{capitalize(since)}<small>{exact}</small></> : exact : "Non renseigné"}</dd></div>;
 }
 
 /** Verdict as a mark next to the bike number: it qualifies the bike, not its type. */
@@ -167,7 +167,7 @@ function BikeSheet({ item, station }: { item: AssessedBike; station?: Station })
       {station ? <StationActions bike={bike} station={station}/> : null}
       <dl className="account-details bike-details">
         <div><dt>Note</dt><dd>{bike.rating && rating != null ? (
-          <><span className="bike-rating"><Stars value={rating}/>{formatScore(rating)}<span className="bike-out-of">/5</span></span><small>{bike.rating.count} avis{fromNow(bike.rating.lastAt) ? ` · le dernier ${fromNow(bike.rating.lastAt)}` : ""}</small></>
+          <><span className="bike-rating"><Stars value={rating}/>{formatScore(rating)}<span className="bike-out-of">/5</span></span><small>{bike.rating.count} avis{fromNow(bike.rating.lastAt) ? ` · Le dernier ${fromNow(bike.rating.lastAt)}` : ""}</small></>
         ) : "Pas encore d’avis"}</dd></div>
         {bike.type === "electrical" ? <div><dt>Batterie</dt><dd>{bike.batteryPercent != null ? <BatteryLevel percent={bike.batteryPercent}/> : "Non renseigné"}</dd></div> : null}
         <DateFact label="Dernier trajet" value={bike.lastTripAt} withAgo/>

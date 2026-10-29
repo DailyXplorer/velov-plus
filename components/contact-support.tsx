@@ -3,7 +3,7 @@
 import { useId, useRef, useState } from "react";
 import { EnvelopeSimpleIcon } from "@phosphor-icons/react/dist/csr/EnvelopeSimple";
 import { XIcon } from "@phosphor-icons/react/dist/csr/X";
-import { type Outcome, type Trip, formatDate, outcomeSchema } from "@/lib/models";
+import { type Outcome, type Trip, capitalize, formatDate, outcomeSchema } from "@/lib/models";
 import { contactBodySchema, contactMessage, type ContactBody } from "@/lib/contact-models";
 import { MAIL_COMPLAINT_TYPES } from "@/lib/guesses";
 import { Button, Modal, SelectField } from "./ui";
@@ -71,7 +71,7 @@ export function ContactSupport({ trips }: { trips: Trip[] | null }) {
       <div className="modal-heading"><h2 id={titleId}>Envoyer au service client ?</h2><button className="icon-button" aria-label="Fermer" disabled={sending} onClick={closeConfirmation}><XIcon size={20}/></button></div>
       <p>{subjects.find((item) => item.value === draft.complaintType)?.label}</p>
       <p style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{contactMessage(draft)}</p>
-      {outcome ? <><p role={outcome.ok ? "status" : "alert"} className={outcome.ok ? "write-done" : "form-error"}>{outcome.ok ? "Message envoyé au service client." : outcome.message}</p>{!outcome.ok ? <p className="bike-action-raw">HTTP {outcome.httpStatus || "aucune réponse"} · code {outcome.code ?? "—"} · {outcome.detail ?? outcome.message ?? "—"}</p> : null}</> : null}
+      {outcome ? <><p role={outcome.ok ? "status" : "alert"} className={outcome.ok ? "write-done" : "form-error"}>{outcome.ok ? "Message envoyé au service client." : outcome.message}</p>{!outcome.ok ? <p className="bike-action-raw">HTTP {outcome.httpStatus || "aucune réponse"} · Code {outcome.code ?? "—"} · {capitalize(outcome.detail ?? outcome.message ?? "—")}</p> : null}</> : null}
       <div className="modal-actions"><Button variant="ghost" disabled={sending} onClick={closeConfirmation}>{outcome ? "Fermer" : "Annuler"}</Button>{!outcome ? <Button pending={sending} onClick={() => void send()}>Confirmer l’envoi</Button> : null}</div>
     </Modal> : null}
   </>;

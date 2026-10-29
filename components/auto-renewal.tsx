@@ -3,6 +3,7 @@
 import { useId, useRef, useState } from "react";
 import { z } from "zod";
 import { autoRenewalResultSchema, type AutoRenewalResult } from "@/lib/renewal-models";
+import { capitalize } from "@/lib/models";
 import { Button, Modal } from "./ui";
 
 const errorSchema = z.object({ error: z.string(), code: z.string().optional() });
@@ -50,7 +51,7 @@ export function AutoRenewal({ subscriptionId, value, allowed, onSaved }: { subsc
       <h2 id={titleId}>Renouvellement automatique</h2>
       {!result ? <p>{next ? "Activer le renouvellement automatique de votre abonnement ? Il pourra être renouvelé et facturé à son échéance." : "Désactiver le renouvellement automatique de votre abonnement ?"}</p> : result.ok ? <p role="status">{!result.verified || result.autoRenewal === null ? "Demande acceptée, mais l’état n’a pas pu être relu. Actualisez sans renvoyer la demande." : `État confirmé par Vélo’v : renouvellement ${result.autoRenewal ? "activé" : "désactivé"}.`}</p> : <>
         <p className="form-error" role="alert">{result.message}</p>
-        <p className="bike-action-raw">HTTP {result.httpStatus || "aucune réponse"} · code {result.code ?? "—"} · {result.detail ?? result.message}</p>
+        <p className="bike-action-raw">HTTP {result.httpStatus || "aucune réponse"} · Code {result.code ?? "—"} · {capitalize(result.detail ?? result.message ?? "")}</p>
       </>}
       <div className="modal-actions"><Button variant="secondary" disabled={pending} onClick={close}>{result ? "Fermer" : "Annuler"}</Button>{!result ? <Button pending={pending} onClick={() => void confirm()}>Confirmer</Button> : null}</div>
     </Modal> : null}

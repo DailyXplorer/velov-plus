@@ -87,6 +87,11 @@ export function formatDate(value: string | null, options: Intl.DateTimeFormatOpt
   return new Intl.DateTimeFormat("fr-FR", { timeZone: "Europe/Paris", ...options }).format(date);
 }
 
+/** "il y a 3 h" -> "Il y a 3 h": a generated text that opens a line or follows a separator. */
+export function capitalize(text: string) {
+  return text.charAt(0).toLocaleUpperCase("fr-FR") + text.slice(1);
+}
+
 export function formatPrice(cents: number) {
   return new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(cents / 100);
 }

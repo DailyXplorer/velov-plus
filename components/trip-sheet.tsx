@@ -131,7 +131,7 @@ export function TripSheet({ trip, onClose }: { trip: Trip; onClose: () => void }
         <div className="trip-detail-facts">
           <span><small>Durée</small><strong>{trip.duration != null ? `${trip.duration} min` : "—"}</strong></span>
           <span><small>Distance</small><strong>{trip.distance != null && !sameStation ? `≈ ${formatDistance(trip.distance)}` : "—"}</strong></span>
-          <span><small>Payé</small><strong>{trip.price != null ? formatPrice(trip.price) : "—"}</strong>{trip.discount > 0 && trip.fullPrice != null ? <span className="trip-fact-note">Prix {formatPrice(trip.fullPrice)} · remise {formatPrice(trip.discount)}</span> : null}</span>
+          <span><small>Payé</small><strong>{trip.price != null ? formatPrice(trip.price) : "—"}</strong>{trip.discount > 0 && trip.fullPrice != null ? <span className="trip-fact-note">Prix {formatPrice(trip.fullPrice)} · Remise {formatPrice(trip.discount)}</span> : null}</span>
         </div>
         {points ? <p className="trip-points">{points}</p> : null}
         {trip.litigious ? (

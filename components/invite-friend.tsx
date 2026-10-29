@@ -5,6 +5,7 @@ import { CopyIcon } from "@phosphor-icons/react/dist/csr/Copy";
 import { XIcon } from "@phosphor-icons/react/dist/csr/X";
 import { promoResultSchema, type PromoResult } from "@/lib/promo-models";
 import { preparePromoStorage, promoStorageKey, readPromoCodes, savePromoCode, type SavedPromo } from "@/lib/promo-storage";
+import { capitalize } from "@/lib/models";
 import { Button, Modal } from "./ui";
 
 const pendingAccounts = new Set<string>();
@@ -89,7 +90,7 @@ export function InviteFriend({ cost, balance, account, onChanged }: { onChanged:
     {asking ? <Modal titleId={titleId} onClose={close}>
       <div className="modal-heading"><h2 id={titleId}>Échanger {cost} points ?</h2><button className="icon-button" disabled={pending} aria-label="Fermer" onClick={close}><XIcon size={20}/></button></div>
       <p>Solde affiché : {balance} points. {cost} points seront débités dès la création du code, même si vous ne l’utilisez pas. Aucun ticket ne sera activé automatiquement.</p>
-      {outcome ? <><p className={outcome.ok ? "write-done" : "form-error"} role="status">{outcome.ok ? "Code obtenu. Copiez-le avant de quitter cette page." : outcome.message}</p>{!outcome.ok ? <p className="bike-action-raw">HTTP {outcome.httpStatus || "aucune réponse"} · code {outcome.code ?? "—"} · {outcome.detail ?? outcome.message ?? "—"}</p> : null}{codeList}</> : null}
+      {outcome ? <><p className={outcome.ok ? "write-done" : "form-error"} role="status">{outcome.ok ? "Code obtenu. Copiez-le avant de quitter cette page." : outcome.message}</p>{!outcome.ok ? <p className="bike-action-raw">HTTP {outcome.httpStatus || "aucune réponse"} · Code {outcome.code ?? "—"} · {capitalize(outcome.detail ?? outcome.message ?? "—")}</p> : null}{codeList}</> : null}
       {warning ? <p className="form-error" role="alert">{warning}</p> : null}
       <div className="modal-actions"><Button variant="ghost" disabled={pending} onClick={close}>{outcome ? "Fermer" : "Annuler"}</Button>{!outcome ? <Button pending={pending} disabled={!canObtain} onClick={() => void confirm()}>Confirmer</Button> : null}</div>
     </Modal> : null}

@@ -6,7 +6,7 @@ import { CheckIcon } from "@phosphor-icons/react/dist/csr/Check";
 import { DownloadSimpleIcon } from "@phosphor-icons/react/dist/csr/DownloadSimple";
 import { StarIcon } from "@phosphor-icons/react/dist/csr/Star";
 import { XIcon } from "@phosphor-icons/react/dist/csr/X";
-import { ADDRESS_MAX, type Dashboard, type Outcome, type ProfileBody, type Receipt, type Station, type Trip, autoSpendResultSchema, formatDate, normalizePhone, outcomeSchema, profileBodySchema } from "@/lib/models";
+import { ADDRESS_MAX, type Dashboard, type Outcome, type ProfileBody, type Receipt, type Station, type Trip, autoSpendResultSchema, capitalize, formatDate, normalizePhone, outcomeSchema, profileBodySchema } from "@/lib/models";
 import { Button, Modal, SelectField } from "./ui";
 
 const errorSchema = z.object({ error: z.string(), code: z.string().optional() });
@@ -31,7 +31,7 @@ async function sendWrite(url: string, method: "POST" | "PATCH" | "DELETE", body?
 }
 
 function RawStatus({ outcome }: { outcome: Outcome }) {
-  return <p className="bike-action-raw">{[`HTTP ${outcome.httpStatus || "aucune réponse"}`, `code ${outcome.code ?? "—"}`, outcome.detail].filter(Boolean).join(" · ")}</p>;
+  return <p className="bike-action-raw">{[`HTTP ${outcome.httpStatus || "aucune réponse"}`, `Code ${outcome.code ?? "—"}`, outcome.detail && capitalize(outcome.detail)].filter(Boolean).join(" · ")}</p>;
 }
 
 type Step = { kind: "confirm" } | { kind: "sending" } | { kind: "done" } | { kind: "failed"; outcome: Outcome };
@@ -285,7 +285,7 @@ export function ProfileCoordinates({ profile, onSaved }: { profile: Profile; onS
             if (outcome.ok) { setDraft(null); onSaved(); }
             return outcome;
           }}>
-          <dl className="bike-action-facts">{asking.changes.map((change) => <div key={change.label}><dt>{change.label}</dt><dd>{change.after}<small className="write-muted">avant : {change.before}</small></dd></div>)}</dl>
+          <dl className="bike-action-facts">{asking.changes.map((change) => <div key={change.label}><dt>{change.label}</dt><dd>{change.after}<small className="write-muted">Avant : {change.before}</small></dd></div>)}</dl>
         </ConfirmDialog>
       ) : null}
     </>
