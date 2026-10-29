@@ -3,8 +3,8 @@ import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { type Trip, rateBodySchema } from "../lib/models.ts";
 import { type Stars, type TripCheck, UNLOCK_GRACE, WATCH_BACKOFF_CAP, WATCH_CAP, WATCH_INTERVAL, createDockWatch, dismissTrip, sendStars, starLabels, tripToGreet, wasDismissed } from "../lib/trip-end.ts";
-import { isUncertain, settle } from "../lib/outcome.ts";
-import { SENDING_LIMIT, UNCERTAIN_HOLD, createOperations, runOnce } from "../lib/operations.ts";
+import { HISTORY_LAG, isUncertain } from "../lib/outcome.ts";
+import { SENDING_LIMIT, UNCERTAIN_HOLD, createOperations, runOnce, settleHeld } from "../lib/operations.ts";
 
 const now = Date.parse("2026-10-29T12:00:00Z");
 const trip = (id: string, endedAt: string | null, extra: Partial<Trip> = {}): Trip => ({
@@ -323,7 +323,7 @@ test("R1: a rating is sent once per trip, even when the sheet is reopened during
   assert.equal(held?.meta.stars, 5);
   assert.equal(await rate(), "busy");
   assert.equal(posts.length, 1);
-  assert.deepEqual(await settle(held!.outcome!, async () => "applied"), { kind: "done" });
+  assert.deepEqual(await settleHeld(createOperations(() => storage, () => clock), "rate:trip-1", async () => "applied", () => clock), { kind: "done" });
 
   const sheet = readFileSync(new URL("../components/trip-sheet.tsx", import.meta.url), "utf8");
   assert.doesNotMatch(sheet, /inFlight/);
@@ -335,4 +335,33 @@ test("R1: a rating is sent once per trip, even when the sheet is reopened during
   assert.match(sheet, /aria-label="Fermer les détails" disabled=\{sending\} onClick=\{onClose\}/);
   assert.match(sheet, /<Modal titleId="trip-ended-title" onClose=\{sending \? \(\) => \{\} : close\}>/);
   assert.match(sheet, /aria-label="Fermer" disabled=\{sending\} onClick=\{close\}/);
+});
+
+test("R2: a rating the browser gave up on stays held while Vélo’v may still record it, and the browser waits past the 30 s route", async (t) => {
+  const route = Number(/export const maxDuration = (\d+);/.exec(readFileSync(new URL("../app/api/trips/[id]/rate/route.ts", import.meta.url), "utf8"))![1]) * 1000;
+  const waits: number[] = [];
+  const timeout = AbortSignal.timeout.bind(AbortSignal);
+  t.mock.method(AbortSignal, "timeout", (ms: number) => { waits.push(ms); return timeout(ms); });
+  const lost = [async () => { throw new DOMException("The operation was aborted due to timeout", "TimeoutError"); }, async () => Response.json(null, { status: 502 })];
+  for (const answer of lost) {
+    let clock = now;
+    const values = new Map<string, string>();
+    const storage = { getItem: (key: string) => values.get(key) ?? null, setItem: (key: string, value: string) => { values.set(key, value); }, removeItem: (key: string) => { values.delete(key); } };
+    const tab = createOperations(() => storage, () => clock);
+    const posts: string[] = [];
+    const send = (async (url: string) => { posts.push(url); return answer(); }) as unknown as typeof fetch;
+    const rate = () => runOnce(tab, "rate:trip-1", () => sendStars("trip-1", 20449, 4, send), { keep: true, meta: { stars: 4 } });
+    const outcome = await rate();
+    assert.ok(outcome !== "busy" && outcome !== "unsaved" && isUncertain(outcome));
+    const notYetRated = async () => "unchanged" as const;
+    clock += 1_000;
+    assert.equal((await settleHeld(tab, "rate:trip-1", notYetRated, () => clock))?.kind, "uncertain", "the history may not show the rating yet");
+    assert.equal(tab.get("rate:trip-1")?.status, "uncertain");
+    assert.equal(await rate(), "busy", "no Vous pouvez réessayer while the first POST may still land");
+    clock += HISTORY_LAG;
+    assert.equal((await settleHeld(tab, "rate:trip-1", notYetRated, () => clock))?.kind, "refused");
+    assert.equal(tab.get("rate:trip-1"), null);
+    assert.equal(posts.length, 1);
+  }
+  assert.ok(waits.length === 2 && waits.every((ms) => ms > route), `${waits} ms against a ${route} ms route`);
 });

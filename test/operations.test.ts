@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, test } from "node:test";
-import { ACTION_TIMEOUT, HISTORY_LAG, OPERATIONS_KEY, SENDING_LIMIT, UNCERTAIN_HOLD, accountDigest, createOperations, inviteDebit, runOnce } from "../lib/operations.ts";
+import { ACTION_TIMEOUT, OPERATIONS_KEY, SENDING_LIMIT, UNCERTAIN_HOLD, accountDigest, createOperations, inviteDebit, runOnce } from "../lib/operations.ts";
 import { type Outcome, outcomeSchema } from "../lib/models.ts";
-import { isUncertain, noAnswer, routeFailure } from "../lib/outcome.ts";
+import { HISTORY_LAG, isUncertain, noAnswer, routeFailure } from "../lib/outcome.ts";
 
 const realFetch = globalThis.fetch;
 beforeEach(() => { globalThis.fetch = (() => { throw new Error("network call in a unit test"); }) as typeof fetch; });

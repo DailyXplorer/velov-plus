@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { type Outcome, outcomeSchema } from "./models.ts";
-import { isUncertain, noAnswer } from "./outcome.ts";
+import { type Check, type Settled, HISTORY_LAG, isUncertain, noAnswer, settle } from "./outcome.ts";
 
 type Store = Pick<Storage, "getItem" | "setItem" | "removeItem">;
 
@@ -8,7 +8,6 @@ export const OPERATIONS_KEY = "velov:operations:v1";
 export const SENDING_LIMIT = 2 * 60_000;
 export const UNCERTAIN_HOLD = 2 * 60_000;
 export const ACTION_TIMEOUT = 65_000;
-export const HISTORY_LAG = 2 * 60_000;
 export const BUSY = "Une autre action est en cours. Attendez sa réponse avant de recommencer.";
 export const UNSAVED = "Ce navigateur ne peut pas suivre cette action. Rien n’a été envoyé.";
 const LOST = "La page a été fermée avant la réponse. L’action a peut-être abouti.";
@@ -118,6 +117,14 @@ export async function runOnce<T extends Outcome>(operations: Operations, key: st
   finally { clearTimeout(timer); }
   operations.finish(key, outcome);
   return outcome;
+}
+
+export async function settleHeld(operations: Operations, key: string, check: () => Promise<Check>, now: () => number = Date.now): Promise<Settled | null> {
+  const held = operations.get(key);
+  if (held?.status !== "uncertain") return null;
+  const settled = await settle(held.outcome ?? noAnswer(LOST), check, held.at, now);
+  if (settled.kind !== "uncertain") operations.clear(key);
+  return settled;
 }
 
 export type DebitCheck = "debited" | "not-debited" | "unknown";

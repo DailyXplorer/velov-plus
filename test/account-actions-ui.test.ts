@@ -38,7 +38,7 @@ test("a confirmed action closes its dialog: no success panel, no second button t
 
 test("the profile confirmation is the question alone, without a before/after list", () => {
   const component = source("components/account-actions.tsx");
-  assert.match(component, /title="Enregistrer les modifications \?" onClose=\{\(\) => setAsking\(null\)\}\n\s+onDone=[^\n]*\n\s+run=\{[^\n]*\}\/>/);
+  assert.match(component, /title="Enregistrer les modifications \?" onClose=\{\(\) => setAsking\(null\)\}\n\s+onDone=[^\n]*\n\s+run=\{[^\n]*\}\/>/);
   assert.doesNotMatch(component, /Avant :|\.changes\b/);
 });
 
@@ -125,14 +125,14 @@ test("confirmation titles keep a non-breaking space before the question mark", (
 
 test("F3: profile, favourites, auto-spend, renewal and rating check the real state instead of re-offering Confirmer", () => {
   const actions = source("components/account-actions.tsx");
-  assert.match(actions, /else if \(isUncertain\(outcome\)\) await resolve\(outcome\);/);
-  assert.match(actions, /\{step\.kind === "uncertain" \? <><Button variant="ghost" disabled=\{busy\} onClick=\{onClose\}>Fermer<\/Button><Button variant="secondary" pending=\{step\.checking\} onClick=\{\(\) => void resolve\(step\.outcome\)\}>Vérifier<\/Button><\/> : <>/);
+  assert.match(actions, /else if \(isUncertain\(outcome\)\) await verify\(\);/);
+  assert.match(actions, /\{uncertain \? <><Button variant="ghost" disabled=\{busy\} onClick=\{onClose\}>Fermer<\/Button><Button variant="secondary" pending=\{checking\} onClick=\{\(\) => void verify\(\)\}>Vérifier<\/Button><\/> : <>/);
   for (const check of ["autoSpendCheck", "favoriteCheck", "profileCheck"]) assert.match(actions, new RegExp(`check=\\{async \\(\\) => ${check}\\(`), check);
   const renewal = source("components/auto-renewal.tsx");
-  assert.match(renewal, /if \(isUncertain\(outcome\)\) \{ setUncertain\(true\); await resolve\(outcome\); \}/);
+  assert.match(renewal, /if \(isUncertain\(outcome\)\) await resolve\(\); else setFailure\(outcome\);/);
   assert.match(renewal, /\{uncertain && failure \? <><Button[^\n]*?>Fermer<\/Button><Button[^\n]*?>Vérifier<\/Button><\/>/);
   const rating = source("components/trip-sheet.tsx");
-  assert.match(rating, /if \(!isUncertain\(outcome\)\) return setRefused\(outcome\);\n\s+await verify\(outcome\);/);
+  assert.match(rating, /if \(!isUncertain\(outcome\)\) return setRefused\(outcome\);\n\s+await verify\(\);/);
   assert.match(rating, /\{operation \? <>\{!sendingHere \? <TextButton onClick=\{onLater\}>Plus tard<\/TextButton> : null\}<Button variant="secondary"[^\n]*?>Vérifier<\/Button><\/> : <>/);
 });
 

@@ -247,7 +247,7 @@ export function Companion({ initialSession }: { initialSession: boolean }) {
                   : page === "trips" ? <TripsPage data={state.data}/>
                     : page === "stats" ? <StatsPage account={state.data.profile.email}/>
                     : page === "points" ? <PointsPage data={state.data} onAutoSpend={setAutoSpend} onChanged={() => void loadDashboard()}/>
-                      : page === "stations" ? <StationsPage resource={stations} reload={() => void loadStations()} reloading={stationsPending} favorites={state.data.profile.favorites} onFavorite={setFavorite}/>
+                      : page === "stations" ? <StationsPage resource={stations} reload={() => void loadStations()} reloading={stationsPending} favorites={state.data.profile.favorites} account={state.data.profile.email} onFavorite={setFavorite}/>
                         : page === "account" ? <AccountPage data={state.data} onLogout={openLogout} onSaved={() => void loadDashboard()}/> : null}
               </>
             )}

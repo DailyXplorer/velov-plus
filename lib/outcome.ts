@@ -25,13 +25,14 @@ export function routeFailure(status: number, body: unknown, message: string): Ou
 export const NOT_APPLIED = "Vélo’v n’a rien enregistré. Vous pouvez réessayer.";
 export const UNVERIFIED = "Le résultat est incertain et n’a pas pu être vérifié. Vérifiez de nouveau avant de réessayer.";
 export type Check = "applied" | "unchanged" | "unknown";
+export const HISTORY_LAG = 2 * 60_000;
 export type Settled = { kind: "done" } | { kind: "refused" | "uncertain"; outcome: Outcome };
 
-export async function settle(outcome: Outcome, check: () => Promise<Check>): Promise<Settled> {
+export async function settle(outcome: Outcome, check: () => Promise<Check>, at: number, now: () => number = Date.now): Promise<Settled> {
   if (outcome.ok) return { kind: "done" };
   if (!isUncertain(outcome)) return { kind: "refused", outcome };
   const state = await check().catch((): Check => "unknown");
   if (state === "applied") return { kind: "done" };
-  if (state === "unchanged") return { kind: "refused", outcome: { ...outcome, message: NOT_APPLIED } };
+  if (state === "unchanged" && now() - at >= HISTORY_LAG) return { kind: "refused", outcome: { ...outcome, message: NOT_APPLIED } };
   return { kind: "uncertain", outcome };
 }

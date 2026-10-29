@@ -3,11 +3,13 @@
 import { type ReactNode, useId, useRef, useState } from "react";
 import { z } from "zod";
 import { DownloadSimpleIcon, StarIcon, XIcon } from "./icons";
-import { ADDRESS_MAX, NAME_MAX, type Dashboard, type Outcome, type ProfileBody, type Receipt, type Station, type Trip, autoSpendResultSchema, capitalize, formatDate, outcomeSchema } from "@/lib/models";
+import { ADDRESS_MAX, NAME_MAX, type Dashboard, type Outcome, type ProfileBody, type Receipt, type Station, type Trip, autoSpendResultSchema, capitalize, formatDate, outcomeSchema, profileBodySchema } from "@/lib/models";
 import { type Draft, changesOf, countries, countryName, draftOf } from "@/lib/profile-draft";
-import { type Check, UNCERTAIN, UNVERIFIED, isUncertain, settle } from "@/lib/outcome";
+import { type Check, UNCERTAIN, UNVERIFIED, isUncertain } from "@/lib/outcome";
+import { BUSY, type Operation, UNSAVED, runOnce, settleHeld } from "@/lib/operations";
 import { autoSpendCheck, favoriteCheck, profileCheck } from "@/lib/checks";
 import { readDashboard } from "./get-json";
+import { operations, useAccountKey, useOperation, useSending } from "./operations";
 import { Button, Modal, SelectField } from "./ui";
 
 const errorSchema = z.object({ error: z.string(), code: z.string().optional() });
@@ -34,36 +36,38 @@ function RawStatus({ outcome }: { outcome: Outcome }) {
   return <p className="bike-action-raw">{[`HTTP ${outcome.httpStatus || "aucune réponse"}`, `Code ${outcome.code ?? "—"}`, outcome.detail && capitalize(outcome.detail)].filter(Boolean).join(" · ")}</p>;
 }
 
-type Step = { kind: "confirm" } | { kind: "sending" } | { kind: "failed"; outcome: Outcome } | { kind: "uncertain"; outcome: Outcome; checking: boolean };
+type Step = { kind: "confirm" } | { kind: "failed"; outcome: Outcome } | { kind: "notice"; message: string };
 
-function ConfirmDialog({ title, children, run, check, onDone, onClose }: { title: string; children?: ReactNode; run: () => Promise<Outcome>; check: () => Promise<Check>; onDone: () => void; onClose: () => void }) {
+function ConfirmDialog({ title, children, operationKey, meta, run, check, onDone, onClose }: { title: string; children?: ReactNode; operationKey: string | null; meta: Operation["meta"]; run: () => Promise<Outcome>; check: () => Promise<Check>; onDone: () => void; onClose: () => void }) {
   const titleId = useId();
+  const operation = useOperation(operationKey);
+  const sendingHere = useSending();
   const [step, setStep] = useState<Step>({ kind: "confirm" });
-  const inFlight = useRef(false);
+  const [checking, setChecking] = useState(false);
+  const sending = operation?.status === "sending";
+  const uncertain = operation?.status === "uncertain" ? operation.outcome ?? failure(0, "network", UNVERIFIED) : null;
+  const shown = uncertain ?? (step.kind === "failed" ? step.outcome : null);
+  const busy = sending && sendingHere || checking;
 
-  async function resolve(outcome: Outcome) {
-    setStep({ kind: "uncertain", outcome, checking: true });
-    const settled = await settle(outcome, check);
-    if (settled.kind === "done") { onDone(); onClose(); }
-    else if (settled.kind === "refused") setStep({ kind: "failed", outcome: settled.outcome });
-    else setStep({ kind: "uncertain", outcome: { ...settled.outcome, message: settled.outcome.message ?? UNVERIFIED }, checking: false });
+  async function verify() {
+    if (!operationKey || checking) return;
+    setChecking(true);
+    const settled = await settleHeld(operations, operationKey, check);
+    setChecking(false);
+    if (settled?.kind === "done") { onDone(); onClose(); }
+    else if (settled?.kind === "refused") setStep({ kind: "failed", outcome: settled.outcome });
   }
 
   async function confirm() {
-    if (inFlight.current) return;
-    inFlight.current = true;
-    setStep({ kind: "sending" });
-    try {
-      const outcome = await run();
-      if (outcome.ok) { onDone(); onClose(); }
-      else if (isUncertain(outcome)) await resolve(outcome);
-      else setStep({ kind: "failed", outcome });
-    } finally {
-      inFlight.current = false;
-    }
+    if (!operationKey) return;
+    setStep({ kind: "confirm" });
+    const outcome = await runOnce(operations, operationKey, run, { keep: true, meta });
+    if (outcome === "busy" || outcome === "unsaved") { if (outcome === "unsaved" || !operations.get(operationKey)) setStep({ kind: "notice", message: outcome === "unsaved" ? UNSAVED : BUSY }); return; }
+    if (outcome.ok) { onDone(); onClose(); }
+    else if (isUncertain(outcome)) await verify();
+    else setStep({ kind: "failed", outcome });
   }
 
-  const busy = step.kind === "sending" || step.kind === "uncertain" && step.checking;
   return (
     <Modal titleId={titleId} onClose={busy ? () => {} : onClose}>
       <div className="modal-heading">
@@ -71,12 +75,13 @@ function ConfirmDialog({ title, children, run, check, onDone, onClose }: { title
         <button className="icon-button" aria-label="Fermer" disabled={busy} onClick={onClose}><XIcon size={20} weight="light"/></button>
       </div>
       {children ? <div className="write-question">{children}</div> : null}
-      {step.kind === "failed" || step.kind === "uncertain" ? <><p className="form-error" role="alert">{step.outcome.message ?? "La modification n’a pas abouti."}</p><RawStatus outcome={step.outcome}/></> : null}
-      {step.kind === "uncertain" ? <p className="uncertain-note">{UNCERTAIN}</p> : null}
+      {shown ? <><p className="form-error" role="alert">{shown.message ?? (uncertain ? UNVERIFIED : "La modification n’a pas abouti.")}</p><RawStatus outcome={shown}/></> : null}
+      {uncertain ? <p className="uncertain-note">{UNCERTAIN}</p> : null}
+      {step.kind === "notice" ? <p className="form-error" role="alert">{step.message}</p> : null}
       <div className="modal-actions">
-        {step.kind === "uncertain" ? <><Button variant="ghost" disabled={busy} onClick={onClose}>Fermer</Button><Button variant="secondary" pending={step.checking} onClick={() => void resolve(step.outcome)}>Vérifier</Button></> : <>
+        {uncertain ? <><Button variant="ghost" disabled={busy} onClick={onClose}>Fermer</Button><Button variant="secondary" pending={checking} onClick={() => void verify()}>Vérifier</Button></> : <>
           <Button variant="ghost" disabled={busy} onClick={onClose}>Annuler</Button>
-          <Button pending={step.kind === "sending"} onClick={() => void confirm()}>Confirmer</Button>
+          <Button pending={sending} disabled={!operationKey} onClick={() => void confirm()}>Confirmer</Button>
         </>}
       </div>
     </Modal>
@@ -87,10 +92,13 @@ function Switch({ checked, label, disabled = false, onClick }: { checked: boolea
   return <button type="button" role="switch" className="switch" aria-checked={checked} aria-label={label} disabled={disabled} onClick={onClick}/>;
 }
 
-export function AutoSpendSetting({ value, onChanged }: { value: boolean | null; onChanged: (value: boolean) => void }) {
+export function AutoSpendSetting({ value, account, onChanged }: { value: boolean | null; account: string; onChanged: (value: boolean) => void }) {
   const [asking, setAsking] = useState(false);
   const confirmed = useRef<boolean | null>(null);
-  const next = !value;
+  const digest = useAccountKey(account);
+  const operationKey = digest ? `autoSpend:${digest}` : null;
+  const operation = useOperation(operationKey);
+  const next = operation ? operation.meta.wanted === 1 : !value;
   return (
     <div className="setting-row">
       <div>
@@ -100,6 +108,7 @@ export function AutoSpendSetting({ value, onChanged }: { value: boolean | null; 
       {value != null ? <Switch checked={value} label="Utilisation automatique des points" onClick={() => setAsking(true)}/> : null}
       {asking ? (
         <ConfirmDialog title={next ? "Activer l’utilisation automatique ?" : "Désactiver l’utilisation automatique ?"} onClose={() => setAsking(false)}
+          operationKey={operationKey} meta={{ wanted: next ? 1 : 0 }}
           onDone={() => onChanged(confirmed.current ?? next)} check={async () => autoSpendCheck(await readDashboard(), next)}
           run={async () => {
             const { outcome, data } = await sendWrite("/api/account/rewards", "PATCH", { autoSpend: next });
@@ -114,17 +123,22 @@ export function AutoSpendSetting({ value, onChanged }: { value: boolean | null; 
   );
 }
 
-export function FavoriteButton({ station, favorite, onChanged }: { station: Station; favorite: boolean; onChanged: (number: number, favorite: boolean) => void }) {
+export function FavoriteButton({ station, favorite, account, onChanged }: { station: Station; favorite: boolean; account: string; onChanged: (number: number, favorite: boolean) => void }) {
   const [asking, setAsking] = useState(false);
+  const digest = useAccountKey(account);
+  const operationKey = digest ? `favorite:${digest}:${station.number}` : null;
+  const operation = useOperation(operationKey);
+  const next = operation ? operation.meta.wanted === 1 : !favorite;
   return (
     <>
       <button className={`icon-button favorite-button${favorite ? " is-favorite" : ""}`} aria-pressed={favorite} aria-label={favorite ? "Retirer des favoris" : "Ajouter aux favoris"} onClick={() => setAsking(true)}>
         <StarIcon size={19} weight={favorite ? "fill" : "light"}/>
       </button>
       {asking ? (
-        <ConfirmDialog title={favorite ? "Retirer des favoris ?" : "Ajouter aux favoris ?"} onClose={() => setAsking(false)}
-          onDone={() => onChanged(station.number, !favorite)} check={async () => favoriteCheck(await readDashboard(), station.number, !favorite)}
-          run={async () => (await sendWrite(`/api/account/favorites/${station.number}`, favorite ? "DELETE" : "POST")).outcome}/>
+        <ConfirmDialog title={next ? "Ajouter aux favoris ?" : "Retirer des favoris ?"} onClose={() => setAsking(false)}
+          operationKey={operationKey} meta={{ wanted: next ? 1 : 0 }}
+          onDone={() => onChanged(station.number, next)} check={async () => favoriteCheck(await readDashboard(), station.number, next)}
+          run={async () => (await sendWrite(`/api/account/favorites/${station.number}`, next ? "POST" : "DELETE")).outcome}/>
       ) : null}
     </>
   );
@@ -197,10 +211,22 @@ function Field({ label, value, onChange, maxLength, inputMode, autoComplete }: {
   return <label className="field"><span className="metric-label">{label}</span><input value={value} maxLength={maxLength} inputMode={inputMode} autoComplete={autoComplete} onChange={(event) => onChange(event.target.value)}/></label>;
 }
 
-export function ProfileCoordinates({ profile, onSaved }: { profile: Profile; onSaved: () => void }) {
+function heldProfile(operation: Operation | null): ProfileBody | null {
+  if (!operation) return null;
+  try {
+    const parsed = profileBodySchema.safeParse(JSON.parse(String(operation.meta.body)));
+    return parsed.success ? parsed.data : null;
+  } catch { return null; }
+}
+
+export function ProfileCoordinates({ profile, account, onSaved }: { profile: Profile; account: string; onSaved: () => void }) {
   const [draft, setDraft] = useState<Draft | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [asking, setAsking] = useState<ProfileBody | null>(null);
+  const digest = useAccountKey(account);
+  const operationKey = digest ? `profile:${digest}` : null;
+  const held = heldProfile(useOperation(operationKey));
+  const body = held ?? asking;
   const set = (key: keyof Draft) => (value: string) => setDraft((current) => current && { ...current, [key]: value });
 
   function review() {
@@ -240,13 +266,13 @@ export function ProfileCoordinates({ profile, onSaved }: { profile: Profile; onS
             <div><dt>Adresse</dt><dd>{[profile.address, profile.addressComplement].filter(Boolean).join(", ") || "Non renseignée"}<small>{[profile.zipCode, profile.city].filter(Boolean).join(" ")}{profile.country ? `${profile.zipCode || profile.city ? " · " : ""}${countryName(profile.country)}` : ""}</small></dd></div>
             <div><dt>Téléphone</dt><dd>{profile.phoneNumber ?? "Non renseigné"}</dd></div>
           </dl>
-          <Button variant="secondary" onClick={() => { setError(null); setDraft(draftOf(profile)); }}>Modifier mes coordonnées</Button>
+          <Button variant="secondary" onClick={() => { if (held) { setAsking(held); return; } setError(null); setDraft(draftOf(profile)); }}>Modifier mes coordonnées</Button>
         </>
       )}
-      {asking ? (
-        <ConfirmDialog title="Enregistrer les modifications ?" onClose={() => setAsking(null)}
-          onDone={() => { setDraft(null); onSaved(); }} check={async () => profileCheck(profile, (await readDashboard()).profile, asking)}
-          run={async () => (await sendWrite("/api/account/profile", "PATCH", asking)).outcome}/>
+      {asking && body ? (
+        <ConfirmDialog title="Enregistrer les modifications ?" onClose={() => setAsking(null)}
+          onDone={() => { setDraft(null); onSaved(); }} check={async () => profileCheck(profile, (await readDashboard()).profile, body)} operationKey={operationKey} meta={{ body: JSON.stringify(body) }}
+          run={async () => (await sendWrite("/api/account/profile", "PATCH", body)).outcome}/>
       ) : null}
     </>
   );

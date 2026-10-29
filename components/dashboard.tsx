@@ -19,7 +19,7 @@ const StationMap = dynamic(() => import("./station-map"), {
 type StationData = { stations: Station[]; updatedAt: string };
 type Navigation = (page: Page) => void;
 type Reload = { reload: () => void; reloading: boolean };
-type Favorites = { favorites: number[]; onFavorite: (number: number, favorite: boolean) => void };
+type Favorites = { favorites: number[]; account: string; onFavorite: (number: number, favorite: boolean) => void };
 const NO_STATIONS: Station[] = [];
 const MISSING = "Indisponible pour le moment";
 const bikeFilters = [{ value: "all", label: "Tous les vélos" }, { value: "mechanical", label: "Vélos mécaniques" }, { value: "electrical", label: "Vélos électriques" }];
@@ -165,7 +165,7 @@ export function PointsPage({ data, onAutoSpend, onChanged }: { onChanged: () => 
         <div><Eyebrow icon={StarFourIcon}>Solde actuel</Eyebrow><strong className="points-balance">{data.rewards.balance?.toLocaleString("fr-FR") ?? "—"}</strong></div>
         <div><Eyebrow icon={TrendUpIcon}>Total gagné</Eyebrow><strong className="points-total">{data.rewards.total?.toLocaleString("fr-FR") ?? "—"}</strong></div>
       </div>
-      <AutoSpendSetting value={data.rewards.autoSpend} onChanged={onAutoSpend}/>
+      <AutoSpendSetting value={data.rewards.autoSpend} account={data.profile.email} onChanged={onAutoSpend}/>
       <InviteFriend key={data.profile.email} account={data.profile.email} onChanged={onChanged} cost={invite?.points ?? null} balance={data.rewards.balance}/>
       {rules.length ? (
         <section className="earn-section">
@@ -201,7 +201,7 @@ function distanceTo(station: Station, position: Point) {
   return haversine(position, station);
 }
 
-export function StationsPage({ resource, reload, reloading, favorites: favoriteList, onFavorite }: { resource: Resource<StationData> } & Reload & Favorites) {
+export function StationsPage({ resource, reload, reloading, favorites: favoriteList, account, onFavorite }: { resource: Resource<StationData> } & Reload & Favorites) {
   const phone = useIsPhone();
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<StationFilter>("all");
@@ -278,7 +278,7 @@ export function StationsPage({ resource, reload, reloading, favorites: favoriteL
               <div className="station-sheet-heading">
                 <h2>{chosen.name}</h2>
                 {!chosen.open ? <span className="closed-station">Fermée</span> : null}
-                <FavoriteButton station={chosen} favorite={favorites.has(chosen.number)} onChanged={onFavorite}/>
+                <FavoriteButton station={chosen} favorite={favorites.has(chosen.number)} account={account} onChanged={onFavorite}/>
                 <button className="icon-button" aria-label="Fermer" onClick={() => setSelected(null)}><XIcon size={18} weight="light"/></button>
               </div>
               <div className="station-sheet-facts">
@@ -292,7 +292,7 @@ export function StationsPage({ resource, reload, reloading, favorites: favoriteL
             </section>
           ) : chosen ? (
             <div className="selected-station-panel">
-              <div className="station-card-heading"><h2>{chosen.name}</h2>{!chosen.open ? <span className="closed-station">Fermée</span> : null}<FavoriteButton station={chosen} favorite={favorites.has(chosen.number)} onChanged={onFavorite}/></div>
+              <div className="station-card-heading"><h2>{chosen.name}</h2>{!chosen.open ? <span className="closed-station">Fermée</span> : null}<FavoriteButton station={chosen} favorite={favorites.has(chosen.number)} account={account} onChanged={onFavorite}/></div>
               {chosenDistance ? <p className="station-distance">À {chosenDistance}</p> : null}
               <StationNumbers station={chosen}/>
               <Button variant="secondary" onClick={() => setBikesOpen(true)}>Voir les vélos</Button>
@@ -327,13 +327,13 @@ export function AccountPage({ data, onLogout, onSaved }: { data: Dashboard; onLo
               {data.paymentValid === false ? <div><dt>Paiement</dt><dd>À vérifier</dd></div> : null}
             </dl>
           ) : null}
-          <ProfileCoordinates profile={data.profile} onSaved={onSaved}/>
+          <ProfileCoordinates profile={data.profile} account={data.profile.email} onSaved={onSaved}/>
         </section>
         <section className="account-section">
           <h2>Abonnement</h2>
           <p className="subscription-name">{data.subscription === "unavailable" ? MISSING : subscription?.title ?? "Aucun abonnement"}</p>
           {subscription ? <p className="subscription-validity">{subscription.validUntil ? `Jusqu’au ${formatDate(subscription.validUntil, { day: "numeric", month: "long", year: "numeric" })}` : subscription.active ? "Actif" : "Inactif"}</p> : null}
-          {subscription?.type === "LT" ? <AutoRenewal key={`${subscription.id}:${data.updatedAt}`} subscriptionId={subscription.id} value={subscription.autoRenewal} allowed={subscription.autoRenewalAllowed} onSaved={onSaved}/> : null}
+          {subscription?.type === "LT" ? <AutoRenewal key={`${subscription.id}:${data.updatedAt}`} subscriptionId={subscription.id} account={data.profile.email} value={subscription.autoRenewal} allowed={subscription.autoRenewalAllowed} onSaved={onSaved}/> : null}
           <Receipts receipts={data.receipts}/>
           <a className="text-link" href="https://velov.grandlyon.com/" target="_blank" rel="noreferrer">Gérer sur Vélo’v<CircleArrow external outline/></a>
         </section>

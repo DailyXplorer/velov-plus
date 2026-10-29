@@ -4,9 +4,9 @@ import { useEffect, useState } from "react";
 import { BicycleIcon, CaretDownIcon, CaretRightIcon, CheckIcon, CopyIcon, LightningIcon, StarIcon, XIcon } from "./icons";
 import { type Outcome, type Trip, canRate, formatDate, formatPrice } from "@/lib/models";
 import { type Stars, dismissTrip, sendStars, starLabels } from "@/lib/trip-end";
-import { UNCERTAIN, isUncertain, settle } from "@/lib/outcome";
+import { UNCERTAIN, isUncertain } from "@/lib/outcome";
 import { ratingCheck } from "@/lib/checks";
-import { BUSY, UNSAVED, runOnce } from "@/lib/operations";
+import { BUSY, UNSAVED, runOnce, settleHeld } from "@/lib/operations";
 import { readDashboard } from "./get-json";
 import { operations, useOperation, useSending } from "./operations";
 import { formatDistance } from "@/lib/geo";
@@ -56,7 +56,7 @@ function RateBike({ trip, bikeNumber, onLater, onRated }: { trip: Trip; bikeNumb
     if (outcome === "busy" || outcome === "unsaved") { if (outcome === "unsaved" || !operations.get(`rate:${trip.id}`)) setNotice(outcome === "unsaved" ? UNSAVED : BUSY); return; }
     if (outcome.ok) return rated();
     if (!isUncertain(outcome)) return setRefused(outcome);
-    await verify(outcome);
+    await verify();
   }
 
   function rated() {
@@ -64,14 +64,12 @@ function RateBike({ trip, bikeNumber, onLater, onRated }: { trip: Trip; bikeNumb
     onRated();
   }
 
-  async function verify(pending: Outcome) {
+  async function verify() {
     setChecking(true);
-    const settled = await settle(pending, async () => ratingCheck(await readDashboard(), trip.id));
+    const settled = await settleHeld(operations, `rate:${trip.id}`, async () => ratingCheck(await readDashboard(), trip.id));
     setChecking(false);
-    if (settled.kind === "uncertain") return;
-    operations.clear(`rate:${trip.id}`);
-    if (settled.kind === "done") rated();
-    else setRefused(settled.outcome);
+    if (settled?.kind === "done") rated();
+    else if (settled?.kind === "refused") setRefused(settled.outcome);
   }
 
   return (
@@ -91,7 +89,7 @@ function RateBike({ trip, bikeNumber, onLater, onRated }: { trip: Trip; bikeNumb
       ) : null}
       {notice ? <p className="form-error" role="alert">{notice}</p> : null}
       <div className="trip-rate-actions">
-        {operation ? <>{!sendingHere ? <TextButton onClick={onLater}>Plus tard</TextButton> : null}<Button variant="secondary" pending={sending || checking} onClick={() => { if (failure) void verify(failure); }}>Vérifier</Button></> : <>
+        {operation ? <>{!sendingHere ? <TextButton onClick={onLater}>Plus tard</TextButton> : null}<Button variant="secondary" pending={sending || checking} onClick={() => void verify()}>Vérifier</Button></> : <>
           {!sendingHere ? <TextButton onClick={onLater}>Plus tard</TextButton> : null}
           <Button disabled={stars == null} onClick={() => { if (stars != null) void submit(stars); }}>Envoyer · +5 points</Button>
         </>}
