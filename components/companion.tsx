@@ -3,12 +3,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
 import { ArrowClockwiseIcon, BicycleIcon, HouseIcon, MapPinIcon, SignOutIcon, StarFourIcon, UserCircleIcon, WarningCircleIcon, XIcon } from "./icons";
-import { bookingSchema, dashboardSchema, stationsSchema, type Booking, type Dashboard, type Page, type Resource, formatDate } from "@/lib/models";
+import { bookingSchema, dashboardSchema, stationsSchema, type Booking, type Dashboard, type Page, type Resource, type Trip, formatDate } from "@/lib/models";
+import { createDockWatch, tripCheckSchema, tripToGreet } from "@/lib/trip-end";
 import { AccountPage, Overview, PointsPage, StationsPage, TripsPage } from "./dashboard";
 import { Button, Modal } from "./ui";
 import { Login } from "./login";
 import { BookingBanner, BookingsContext, UnlockModal } from "./bike-actions";
 import { ApiError, getJson } from "./get-json";
+import { TripEndedSheet } from "./trip-sheet";
 
 const navigation = [
   { id: "overview", label: "Vue d’ensemble", mobile: "Accueil", icon: HouseIcon },
@@ -40,13 +42,18 @@ export function Companion({ initialSession }: { initialSession: boolean }) {
   const [logoutError, setLogoutError] = useState<string | null>(null);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [unlocking, setUnlocking] = useState<Booking | null>(null);
+  const [ended, setEnded] = useState<Trip | null>(null);
+  const watch = useRef<ReturnType<typeof createDockWatch> | null>(null);
+  // Trips already seen docked: a dashboard read lagging behind Vélo’v must not start watching them again.
+  const docked = useRef(new Set<string>());
+  const greeted = useRef(false);
 
   // Read-only and best effort: without it the app only misses the booking banner.
   const loadBookings = useCallback(async () => {
     try { setBookings(await getJson("/api/bookings", z.array(bookingSchema), "")); }
     catch { /* Keep the last known bookings. */ }
   }, []);
-  const account = useMemo(() => ({ bookings, changed: () => void loadBookings() }), [bookings, loadBookings]);
+  const account = useMemo(() => ({ bookings, changed: () => void loadBookings(), unlocked: (tripId: string | null) => watch.current?.follow(tripId) }), [bookings, loadBookings]);
 
   const loadStations = useCallback(async () => {
     if (stationsInFlight.current) return;
@@ -72,20 +79,57 @@ export function Companion({ initialSession }: { initialSession: boolean }) {
     return { ...data, profile: { ...data.profile, favorites: favorite ? [...others, number] : others } };
   }), [patchData]);
 
-  const loadDashboard = useCallback(async () => {
-    if (dashboardInFlight.current) return;
+  const loadDashboard = useCallback(async (): Promise<Dashboard | null> => {
+    if (dashboardInFlight.current) return null;
     dashboardInFlight.current = true;
     setRefreshing(true);
     try {
-      setState({ kind: "ready", data: await getJson("/api/dashboard", dashboardSchema, "Compte indisponible.") });
+      const data = await getJson("/api/dashboard", dashboardSchema, "Compte indisponible.");
+      setState({ kind: "ready", data });
+      return data;
     } catch (error) {
       if (error instanceof ApiError && error.status === 401) setState({ kind: "guest", message: "Session expirée. Reconnectez-vous." });
       else setState({ kind: "error", message: error instanceof ApiError ? error.message : "Compte indisponible." });
+      return null;
     } finally {
       dashboardInFlight.current = false;
       setRefreshing(false);
     }
   }, []);
+
+  useEffect(() => {
+    const current = createDockWatch({
+      check: () => getJson("/api/trips/current", tripCheckSchema, "").catch((error: unknown) => {
+        if (error instanceof ApiError && error.status === 401) setState({ kind: "guest", message: "Session expirée. Reconnectez-vous." });
+        throw error;
+      }),
+      docked: (tripId, latest) => {
+        docked.current.add(tripId);
+        void loadDashboard().then((data) => {
+          const trip = data?.trips?.find((item) => item.id === tripId) ?? (latest?.id === tripId ? latest : null);
+          if (trip) setEnded(trip);
+        });
+      },
+      visible: () => document.visibilityState === "visible"
+    });
+    watch.current = current;
+    const changed = () => current.visibilityChanged();
+    document.addEventListener("visibilitychange", changed);
+    return () => { document.removeEventListener("visibilitychange", changed); current.stop(); watch.current = null; };
+  }, [loadDashboard]);
+
+  // Watch any ongoing trip the account reports; on the first load without one, offer to rate a recent unrated trip.
+  useEffect(() => {
+    if (state.kind === "guest") { watch.current?.stop(); return; }
+    if (state.kind !== "ready") return;
+    const trip = state.data.ongoing?.find((item) => !docked.current.has(item.id));
+    if (trip) watch.current?.follow(trip.id);
+    if (greeted.current) return;
+    greeted.current = true;
+    if (!state.data.ongoing?.length && state.data.trips) {
+      try { const recent = tripToGreet(state.data.trips, localStorage); if (recent) setEnded(recent); } catch { /* No storage: no greeting. */ }
+    }
+  }, [state]);
 
   useEffect(() => {
     setPage(pageFromHash());
@@ -224,6 +268,7 @@ export function Companion({ initialSession }: { initialSession: boolean }) {
           </Modal>
         ) : null}
         {unlocking ? <UnlockModal booking={unlocking} onClose={() => setUnlocking(null)}/> : null}
+        {ended ? <TripEndedSheet trip={ended} onClose={() => setEnded(null)}/> : null}
       </div>
     </BookingsContext.Provider>
   );
