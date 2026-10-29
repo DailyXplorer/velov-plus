@@ -39,14 +39,17 @@ test("stars map to Vélo’v’s three levels: 5-4 recommend, 3-2 rate 60, 1 rat
 });
 
 test("a failed note is sent once and comes back with its message, status and code", async () => {
-  const { calls, send } = recorder(502, { error: "Vélo’v n’a pas enregistré la note. Réessayez dans un instant.", code: "unavailable" });
+  const { calls, send } = recorder(502, { error: "Vélo’v n’a pas confirmé la note.", code: "unavailable" });
   const failed = await sendStars("trip-1", 20449, 1, send);
-  assert.deepEqual([failed.ok, failed.httpStatus, failed.code, failed.message], [false, 502, "unavailable", "Vélo’v n’a pas enregistré la note. Réessayez dans un instant."]);
+  assert.deepEqual([failed.ok, failed.httpStatus, failed.code, failed.message], [false, 502, "unavailable", "Vélo’v n’a pas confirmé la note."]);
   assert.equal(isUncertain(failed), true);
   assert.equal(calls.length, 1);
   const offline = (async () => { throw new TypeError("offline"); }) as typeof fetch;
   const lost = await sendStars("trip-1", 20449, 5, offline);
-  assert.deepEqual([lost.ok, lost.httpStatus, lost.message, isUncertain(lost)], [false, 0, "La note n’a pas pu être envoyée.", true]);
+  assert.deepEqual([lost.ok, lost.httpStatus, lost.message, isUncertain(lost)], [false, 0, "Vélo’v ne répond pas. La note a peut-être été enregistrée.", true]);
+  const silent = await sendStars("trip-1", 20449, 5, (async () => new Response("<html>", { status: 503 })) as typeof fetch);
+  assert.deepEqual([silent.message, isUncertain(silent)], ["Vélo’v ne répond pas. La note a peut-être été enregistrée.", true]);
+  assert.doesNotMatch(String(silent.message), /Réessayez|pas pu être envoyée/);
 });
 
 function memoryStorage() {

@@ -65,7 +65,7 @@ export async function postRating({ accountId, tripId, body, token, identity }: {
     cache: "no-store", signal: AbortSignal.timeout(15_000)
   });
   if (response.status === 401) throw new VelovError("expired", "Votre session a expiré. Reconnectez-vous.");
-  if (!response.ok) throw new VelovError("unavailable", "Vélo’v n’a pas enregistré la note. Réessayez dans un instant.");
+  if (!response.ok) throw new VelovError("unavailable", "Vélo’v n’a pas confirmé la note.");
 }
 
 const releaseCodes: Record<string, string> = {

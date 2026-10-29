@@ -141,7 +141,7 @@ test("any 2xx answer records the rating", async () => {
 test("a refused rating fails without retrying", async () => {
   for (const [status, code] of [[401, "expired"], [404, "unavailable"], [500, "unavailable"], [502, "unavailable"]] as const) {
     const { calls, send } = recorder(status);
-    await assert.rejects(postRating({ ...rating, body: { bikeNumber: 20449, recommended: true, rating: null } }, send), (error) => error instanceof VelovError && error.code === code);
+    await assert.rejects(postRating({ ...rating, body: { bikeNumber: 20449, recommended: true, rating: null } }, send), (error) => error instanceof VelovError && error.code === code && (code === "expired" || error.message === "Vélo’v n’a pas confirmé la note."));
     assert.equal(calls.length, 1);
   }
 });

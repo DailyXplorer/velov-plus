@@ -12,7 +12,7 @@ export function starVote(stars: Stars): Vote {
 
 export const starLabels: Record<Stars, string> = { 5: "Parfait", 4: "Bien", 3: "Moyen", 2: "Décevant", 1: "À réparer" };
 
-const notSent = "La note n’a pas pu être envoyée.";
+const notSent = "Vélo’v ne répond pas. La note a peut-être été enregistrée.";
 
 export async function sendStars(tripId: string, bikeNumber: number, stars: Stars, send: typeof fetch = fetch): Promise<Outcome> {
   let response: Response;
