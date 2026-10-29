@@ -2,23 +2,7 @@
 
 import { type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
-import type { Icon } from "@phosphor-icons/react";
-import { PersonSimpleBikeIcon as BicycleIcon } from "@phosphor-icons/react/dist/csr/PersonSimpleBike";
-import { LightningIcon } from "@phosphor-icons/react/dist/csr/Lightning";
-import { ArrowClockwiseIcon } from "@phosphor-icons/react/dist/csr/ArrowClockwise";
-import { ArrowLeftIcon } from "@phosphor-icons/react/dist/csr/ArrowLeft";
-import { BatteryEmptyIcon } from "@phosphor-icons/react/dist/csr/BatteryEmpty";
-import { BatteryFullIcon } from "@phosphor-icons/react/dist/csr/BatteryFull";
-import { BatteryHighIcon } from "@phosphor-icons/react/dist/csr/BatteryHigh";
-import { BatteryLowIcon } from "@phosphor-icons/react/dist/csr/BatteryLow";
-import { BatteryMediumIcon } from "@phosphor-icons/react/dist/csr/BatteryMedium";
-import { CaretDownIcon } from "@phosphor-icons/react/dist/csr/CaretDown";
-import { CaretRightIcon } from "@phosphor-icons/react/dist/csr/CaretRight";
-import { StarIcon } from "@phosphor-icons/react/dist/csr/Star";
-import { StarHalfIcon } from "@phosphor-icons/react/dist/csr/StarHalf";
-import { WarningIcon } from "@phosphor-icons/react/dist/csr/Warning";
-import { ThumbsUpIcon } from "@phosphor-icons/react/dist/csr/ThumbsUp";
-import { XIcon } from "@phosphor-icons/react/dist/csr/X";
+import { ArrowClockwiseIcon, ArrowLeftIcon, BatteryEmptyIcon, BatteryFullIcon, BatteryHighIcon, BatteryLowIcon, BatteryMediumIcon, BicycleIcon, CaretDownIcon, CaretRightIcon, type Icon, LightningIcon, StarHalfIcon, StarIcon, ThumbsUpIcon, WarningIcon, XIcon } from "./icons";
 import { type AssessedBike, assessBikes, isCheckOverdue } from "@/lib/bike-score";
 import { type Bike, type Resource, type Station, bikeSchema, capitalize, formatDate } from "@/lib/models";
 import { Button, EmptyState, Eyebrow, Modal } from "./ui";
@@ -142,7 +126,7 @@ function VerdictMark({ verdict }: { verdict: AssessedBike["verdict"] }) {
   const recommended = verdict === "recommended";
   const MarkIcon = recommended ? ThumbsUpIcon : WarningIcon;
   const label = recommended ? "Recommandé" : "À éviter";
-  return <span className={recommended ? "verdict-mark" : "verdict-mark verdict-mark-avoid"} role="img" aria-label={label} title={label}><MarkIcon size={18} weight="fill" aria-hidden="true"/></span>;
+  return <span className={recommended ? "verdict-mark" : "verdict-mark verdict-mark-avoid"} role="img" aria-label={label} title={label}><MarkIcon size={18} weight="bold" aria-hidden="true"/></span>;
 }
 
 /** Offered on a bike hooked to a borne and free, or booked by this account (a reserved bike stays AVAILABLE, § 5.2). */

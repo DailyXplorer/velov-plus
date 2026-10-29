@@ -2,15 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
-import { HouseIcon } from "@phosphor-icons/react/dist/csr/House";
-import { PersonSimpleBikeIcon as BicycleIcon } from "@phosphor-icons/react/dist/csr/PersonSimpleBike";
-import { StarFourIcon } from "@phosphor-icons/react/dist/csr/StarFour";
-import { MapPinIcon } from "@phosphor-icons/react/dist/csr/MapPin";
-import { UserCircleIcon } from "@phosphor-icons/react/dist/csr/UserCircle";
-import { SignOutIcon } from "@phosphor-icons/react/dist/csr/SignOut";
-import { ArrowClockwiseIcon } from "@phosphor-icons/react/dist/csr/ArrowClockwise";
-import { WarningCircleIcon } from "@phosphor-icons/react/dist/csr/WarningCircle";
-import { XIcon } from "@phosphor-icons/react/dist/csr/X";
+import { ArrowClockwiseIcon, BicycleIcon, HouseIcon, MapPinIcon, SignOutIcon, StarFourIcon, UserCircleIcon, WarningCircleIcon, XIcon } from "./icons";
 import { bookingSchema, dashboardSchema, stationsSchema, type Booking, type Dashboard, type Page, type Resource, formatDate } from "@/lib/models";
 import { AccountPage, Overview, PointsPage, StationsPage, TripsPage } from "./dashboard";
 import { Button, Modal } from "./ui";

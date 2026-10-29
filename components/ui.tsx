@@ -1,12 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState, type ButtonHTMLAttributes, type KeyboardEvent, type ReactNode } from "react";
-import type { Icon } from "@phosphor-icons/react";
-import { ArrowRightIcon } from "@phosphor-icons/react/dist/csr/ArrowRight";
-import { ArrowUpRightIcon } from "@phosphor-icons/react/dist/csr/ArrowUpRight";
-import { CaretDownIcon } from "@phosphor-icons/react/dist/csr/CaretDown";
-import { CheckIcon } from "@phosphor-icons/react/dist/csr/Check";
-import { SpinnerGapIcon } from "@phosphor-icons/react/dist/csr/SpinnerGap";
+import { ArrowRightIcon, ArrowUpRightIcon, CaretDownIcon, CheckIcon, type Icon, SpinnerGapIcon } from "./icons";
 
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: "primary" | "secondary" | "ghost";

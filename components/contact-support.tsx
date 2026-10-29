@@ -1,8 +1,7 @@
 "use client";
 
 import { useId, useRef, useState } from "react";
-import { EnvelopeSimpleIcon } from "@phosphor-icons/react/dist/csr/EnvelopeSimple";
-import { XIcon } from "@phosphor-icons/react/dist/csr/X";
+import { EnvelopeSimpleIcon, XIcon } from "./icons";
 import { type Outcome, type Trip, capitalize, formatDate, outcomeSchema } from "@/lib/models";
 import { contactBodySchema, contactMessage, type ContactBody } from "@/lib/contact-models";
 import { MAIL_COMPLAINT_TYPES } from "@/lib/guesses";

@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useRef, useState } from "react";
-import { TimerIcon } from "@phosphor-icons/react/dist/csr/Timer";
+import { TimerIcon } from "./icons";
 import { type Outcome, type Station, capitalize, outcomeSchema } from "@/lib/models";
 import { fullStations } from "@/lib/via-models";
 import { formatDistance, haversine, type Point } from "@/lib/geo";

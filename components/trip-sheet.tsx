@@ -2,15 +2,7 @@
 
 import { useState } from "react";
 import { z } from "zod";
-import { PersonSimpleBikeIcon as BicycleIcon } from "@phosphor-icons/react/dist/csr/PersonSimpleBike";
-import { LightningIcon } from "@phosphor-icons/react/dist/csr/Lightning";
-import { CaretDownIcon } from "@phosphor-icons/react/dist/csr/CaretDown";
-import { CaretRightIcon } from "@phosphor-icons/react/dist/csr/CaretRight";
-import { CheckIcon } from "@phosphor-icons/react/dist/csr/Check";
-import { CopyIcon } from "@phosphor-icons/react/dist/csr/Copy";
-import { ThumbsDownIcon } from "@phosphor-icons/react/dist/csr/ThumbsDown";
-import { ThumbsUpIcon } from "@phosphor-icons/react/dist/csr/ThumbsUp";
-import { XIcon } from "@phosphor-icons/react/dist/csr/X";
+import { BicycleIcon, CaretDownIcon, CaretRightIcon, CheckIcon, CopyIcon, LightningIcon, ThumbsDownIcon, ThumbsUpIcon, XIcon } from "./icons";
 import { type Trip, canRate, formatDate, formatPrice } from "@/lib/models";
 import { formatDistance } from "@/lib/geo";
 import { Button, Eyebrow, Modal } from "./ui";

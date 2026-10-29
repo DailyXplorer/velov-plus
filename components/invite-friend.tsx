@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
-import { CopyIcon } from "@phosphor-icons/react/dist/csr/Copy";
-import { XIcon } from "@phosphor-icons/react/dist/csr/X";
+import { CopyIcon, XIcon } from "./icons";
 import { promoResultSchema, type PromoResult } from "@/lib/promo-models";
 import { preparePromoStorage, promoStorageKey, readPromoCodes, savePromoCode, type SavedPromo } from "@/lib/promo-storage";
 import { capitalize } from "@/lib/models";

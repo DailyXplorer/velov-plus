@@ -2,19 +2,8 @@
 
 import { useMemo, useState, useSyncExternalStore } from "react";
 import dynamic from "next/dynamic";
-import { PersonSimpleBikeIcon as BicycleIcon } from "@phosphor-icons/react/dist/csr/PersonSimpleBike";
-import { LightningIcon } from "@phosphor-icons/react/dist/csr/Lightning";
-import { LetterCirclePIcon } from "@phosphor-icons/react/dist/csr/LetterCircleP";
-import { CaretRightIcon } from "@phosphor-icons/react/dist/csr/CaretRight";
-import { MagnifyingGlassIcon } from "@phosphor-icons/react/dist/csr/MagnifyingGlass";
-import { NavigationArrowIcon } from "@phosphor-icons/react/dist/csr/NavigationArrow";
-import { SignOutIcon } from "@phosphor-icons/react/dist/csr/SignOut";
-import { StarFourIcon } from "@phosphor-icons/react/dist/csr/StarFour";
+import { BicycleIcon, CaretRightIcon, LetterCirclePIcon, LightningIcon, MagnifyingGlassIcon, NavigationArrowIcon, SignOutIcon, StarFourIcon, StarIcon, TicketIcon, TrendUpIcon, XIcon } from "./icons";
 import { ViaAction } from "./via-action";
-import { StarIcon } from "@phosphor-icons/react/dist/csr/Star";
-import { TicketIcon } from "@phosphor-icons/react/dist/csr/Ticket";
-import { TrendUpIcon } from "@phosphor-icons/react/dist/csr/TrendUp";
-import { XIcon } from "@phosphor-icons/react/dist/csr/X";
 import { type Dashboard, type Page, type Resource, type Station, type Trip, formatDate, formatPrice } from "@/lib/models";
 import { formatDistance, haversine, type Point } from "@/lib/geo";
 import { Button, CardTag, CircleArrow, EmptyState, Eyebrow, SectionHeading, SelectField, TextButton } from "./ui";

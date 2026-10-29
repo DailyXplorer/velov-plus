@@ -2,10 +2,7 @@
 
 import { type ReactNode, useId, useRef, useState } from "react";
 import { z } from "zod";
-import { CheckIcon } from "@phosphor-icons/react/dist/csr/Check";
-import { DownloadSimpleIcon } from "@phosphor-icons/react/dist/csr/DownloadSimple";
-import { StarIcon } from "@phosphor-icons/react/dist/csr/Star";
-import { XIcon } from "@phosphor-icons/react/dist/csr/X";
+import { CheckIcon, DownloadSimpleIcon, StarIcon, XIcon } from "./icons";
 import { ADDRESS_MAX, type Dashboard, type Outcome, type ProfileBody, type Receipt, type Station, type Trip, autoSpendResultSchema, capitalize, formatDate, normalizePhone, outcomeSchema, profileBodySchema } from "@/lib/models";
 import { Button, Modal, SelectField } from "./ui";
 

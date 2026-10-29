@@ -2,11 +2,7 @@
 
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { z } from "zod";
-import { CheckIcon } from "@phosphor-icons/react/dist/csr/Check";
-import { ClockIcon } from "@phosphor-icons/react/dist/csr/Clock";
-import { LockOpenIcon } from "@phosphor-icons/react/dist/csr/LockOpen";
-import { WarningIcon } from "@phosphor-icons/react/dist/csr/Warning";
-import { XIcon } from "@phosphor-icons/react/dist/csr/X";
+import { CheckIcon, ClockIcon, LockOpenIcon, WarningIcon, XIcon } from "./icons";
 import { BOOKING_MINUTES, BOOKING_POINTS, RELEASE_DISTANCE, type BookResult, type Booking, type Outcome, type UnlockResult, bookResultSchema, capitalize, formatDate, unlockResultSchema } from "@/lib/models";
 import { formatDistance, haversine } from "@/lib/geo";
 import { Button, CardTag, Modal } from "./ui";
