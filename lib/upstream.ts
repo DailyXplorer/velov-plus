@@ -53,7 +53,7 @@ export type StationData = { stations: Station[]; updatedAt: string };
 
 async function gbfs(file: string) {
   const response = await fetchTransient(`${BASE}/gbfs/v3/${file}`, { cache: "no-store" });
-  if (!response.ok) throw new VelovError("unavailable", "Les disponibilités des stations sont momentanément indisponibles.");
+  if (!response.ok) throw new VelovError("unavailable", "Les stations sont momentanément indisponibles.");
   const value: unknown = await response.json();
   return value;
 }

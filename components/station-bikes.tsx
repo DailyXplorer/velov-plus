@@ -9,7 +9,7 @@ import { Button, EmptyState, Eyebrow, Ghost, LoadFailure, Modal } from "./ui";
 import { BikeActions, BookingsContext, SignInContext } from "./bike-actions";
 import { useSending } from "./operations";
 import { getJson, loadError } from "./get-json";
-import { toaster } from "@/lib/toast";
+import { REFRESH_FAILED, toaster } from "@/lib/toast";
 
 const unavailable = "Les vélos de cette station sont momentanément indisponibles.";
 const missing = "Ce vélo est momentanément indisponible.";
@@ -210,7 +210,7 @@ export function StationBikes({ station, onClose }: { station: Station; onClose: 
     useCallback((result: Settled<Bike[]>) => {
       if (result.ok) { shown.current = true; setBikes({ kind: "ready", data: result.value }); return; }
       const failure = loadError(result.error, unavailable);
-      if (shown.current) toaster.show(failure.message);
+      if (shown.current) toaster.show(REFRESH_FAILED);
       else setBikes({ kind: "error", ...failure });
     }, [])
   );
@@ -251,7 +251,7 @@ export function StationBikes({ station, onClose }: { station: Station; onClose: 
       </div>
       {opened ? <BikeSheet item={opened} actions={<StationActions bike={opened.bike} station={station} onDone={onClose}/>}/> : (
         <>
-          <p className="result-count bikes-count" role="status">{count === null ? "Chargement des vélos…" : `${count} vélo${count > 1 ? "s" : ""} à la station`}</p>
+          {bikes.kind !== "error" && count !== 0 ? <p className="result-count bikes-count" role="status">{count === null ? "Chargement des vélos…" : `${count} vélo${count > 1 ? "s" : ""} à la station`}</p> : null}
           {bikes.kind === "loading" ? (
             <BikesSkeleton station={station}/>
           ) : bikes.kind === "error" ? (

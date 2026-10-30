@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { afterEach, beforeEach, mock, test } from "node:test";
-import { createToaster } from "../lib/toast.ts";
+import { readFileSync } from "node:fs";
+import { REFRESH_FAILED, createToaster } from "../lib/toast.ts";
 
 beforeEach(() => mock.timers.enable({ apis: ["setTimeout"] }));
 afterEach(() => mock.timers.reset());
@@ -64,4 +65,13 @@ test("subscribers hear every change until they unsubscribe", () => {
   unsubscribe();
   toaster.show("Troisième erreur.");
   assert.deepEqual(heard, ["Première erreur.", "Seconde erreur.", null]);
+});
+
+test("a failed refresh over data on screen says the refresh failed, not that the page is unavailable", () => {
+  assert.equal(REFRESH_FAILED, "Actualisation impossible pour le moment.");
+  for (const file of ["components/use-stations.ts", "components/companion.tsx", "components/station-bikes.tsx"]) {
+    const source = readFileSync(file, "utf8");
+    assert.match(source, /if \((shown|dashboardShown)\.current\) toaster\.show\(REFRESH_FAILED\);/, file);
+  }
+  for (const file of ["components/use-stations.ts", "lib/upstream.ts"]) assert.match(readFileSync(file, "utf8"), /"Les stations sont momentanément indisponibles\."/, file);
 });

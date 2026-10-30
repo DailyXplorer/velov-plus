@@ -17,7 +17,7 @@ import { GuestApp } from "./guest";
 import { StatsPage, StatsSkeleton, dropStats, forgetStats } from "./stats";
 import { BookingBanner, BookingsContext, UnlockModal } from "./bike-actions";
 import { ApiError, getJson, loadError } from "./get-json";
-import { toaster } from "@/lib/toast";
+import { REFRESH_FAILED, toaster } from "@/lib/toast";
 import { TripEndedSheet } from "./trip-sheet";
 import { useStations } from "./use-stations";
 import { useSending } from "./operations";
@@ -116,7 +116,7 @@ export function Companion({ start }: { start: StartMode }) {
       if (!stamp.live()) return null;
       if (error instanceof ApiError && error.status === 401) { expire(); return null; }
       const failure = loadError(error, "Votre compte est momentanément indisponible.");
-      if (dashboardShown.current) toaster.show(failure.message);
+      if (dashboardShown.current) toaster.show(REFRESH_FAILED);
       else setState({ kind: "error", ...failure });
       return null;
     } finally {

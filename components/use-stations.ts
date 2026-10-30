@@ -1,10 +1,10 @@
 import { useCallback, useRef, useState } from "react";
 import { stationsSchema, type Resource, type Station } from "@/lib/models";
-import { toaster } from "@/lib/toast";
+import { REFRESH_FAILED, toaster } from "@/lib/toast";
 import { getJson, loadError } from "./get-json";
 
 type StationData = { stations: Station[]; updatedAt: string };
-const unavailable = "Les disponibilités des stations sont momentanément indisponibles.";
+const unavailable = "Les stations sont momentanément indisponibles.";
 
 export function useStations() {
   const [resource, setResource] = useState<Resource<StationData>>({ kind: "loading" });
@@ -18,7 +18,7 @@ export function useStations() {
     getJson("/api/stations", stationsSchema, unavailable)
       .then((data) => { shown.current = true; setResource({ kind: "ready", data }); }, (error: unknown) => {
         const failure = loadError(error, unavailable);
-        if (shown.current) toaster.show(failure.message);
+        if (shown.current) toaster.show(REFRESH_FAILED);
         else setResource({ kind: "error", ...failure });
       })
       .finally(() => { inFlight.current = false; setPending(false); });

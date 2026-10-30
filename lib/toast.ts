@@ -1,4 +1,5 @@
 export type Toast = { id: number; message: string };
+export const REFRESH_FAILED = "Actualisation impossible pour le moment.";
 
 export function createToaster(duration = 5_000) {
   let shown: Toast | null = null;
