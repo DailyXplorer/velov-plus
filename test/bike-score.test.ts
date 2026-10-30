@@ -22,7 +22,7 @@ test("each doubtful condition is enough to avoid a bike, with its reason", () =>
   const cases: [Partial<Bike>, string][] = [
     [{ rating: { value: 56, count: 5, lastAt: null } }, "Note basse (2,8/5)"],
     [{ nextCheckAt: hoursAgo(31 * 24) }, "Contrôle en retard"],
-    [{ type: "electrical", batteryPercent: 12 }, "Batterie faible (12 %)"],
+    [{ type: "electrical", batteryPercent: 12 }, "Batterie faible (12 %)"],
     [{ lastTripAt: hoursAgo(4 * 24 + 3) }, "Pas utilisé depuis 4 j"],
     [{ status: "RENTED", statusLabel: "En location" }, "Indisponible (En location)"],
     [{ isReserved: true }, "Réservé"]
@@ -55,7 +55,7 @@ test("only the best bike of each type is recommended", () => {
     bike(4, { type: "electrical", batteryPercent: 40, rating: { value: 90, count: 12, lastAt: null } })
   ]);
   assert.deepEqual(result, { 1: "neutral", 2: "recommended", 3: "recommended", 4: "neutral" });
-  assert.deepEqual(only(bike(2, { rating: { value: 92, count: 30, lastAt: null }, lastTripAt: hoursAgo(2) })).reasons, ["Bien noté (4,6/5 · 30 avis)", "Utilisé il y a moins de 12 h"]);
+  assert.deepEqual(only(bike(2, { rating: { value: 92, count: 30, lastAt: null }, lastTripAt: hoursAgo(2) })).reasons, ["Bien noté (4,6/5 · 30 avis)", "Utilisé il y a moins de 12 h"]);
 });
 
 test("nothing is recommended when the best bikes are weak or barely rated", () => {

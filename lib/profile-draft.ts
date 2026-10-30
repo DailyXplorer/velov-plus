@@ -12,7 +12,7 @@ export function draftOf(profile: Profile): Draft {
   return { firstName: formatName(profile.firstName), lastName: formatName(profile.lastName), address: profile.address ?? "", complement: profile.addressComplement ?? "", zipCode: profile.zipCode ?? "", city: profile.city ?? "", country: profile.country ?? "FR", phone: profile.phoneNumber ?? "" };
 }
 
-const nameError = (field: unknown) => `${field === "firstName" ? "Prénom" : "Nom"} invalide : lettres, espaces, apostrophes et traits d’union uniquement, ${NAME_MAX} caractères au plus.`;
+const nameError = (field: unknown) => `${field === "firstName" ? "Prénom" : "Nom"} invalide : lettres, espaces, apostrophes et traits d’union uniquement, ${NAME_MAX} caractères au plus.`;
 
 export function changesOf(profile: Profile, draft: Draft): { body: ProfileBody } | { error: string } | null {
   const body: ProfileBody = {};
@@ -37,5 +37,5 @@ export function changesOf(profile: Profile, draft: Draft): { body: ProfileBody }
   const parsed = profileBodySchema.safeParse(body);
   if (parsed.success) return { body: parsed.data };
   const field = parsed.error.issues[0]?.path[0];
-  return { error: field === "firstName" || field === "lastName" ? nameError(field) : field === "phoneNumber" ? "Numéro de téléphone invalide. Exemple : 06 12 34 56 78." : field === "zipCode" ? "Code postal invalide." : field === "city" ? "Saisissez une ville." : field === "address" ? `L’adresse ne doit pas dépasser ${ADDRESS_MAX} caractères.` : "Coordonnées invalides." };
+  return { error: field === "firstName" || field === "lastName" ? nameError(field) : field === "phoneNumber" ? "Numéro de téléphone invalide. Exemple : 06 12 34 56 78." : field === "zipCode" ? "Code postal invalide." : field === "city" ? "Saisissez une ville." : field === "address" ? `L’adresse ne doit pas dépasser ${ADDRESS_MAX} caractères.` : "Coordonnées invalides." };
 }

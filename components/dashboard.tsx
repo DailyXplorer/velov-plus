@@ -50,7 +50,7 @@ export function TripsTable({ trips }: { trips: Trip[] }) {
               </span>
               <span className="trip-route">
                 <strong>{trip.startStation ?? "Trajet Vélo’v"}</strong>
-                <small>{trip.endStation ?? (trip.bikeType === "electrical" ? "Électrique" : trip.bikeType === "mechanical" ? "Mécanique" : "Stations non renseignées")}</small>
+                <small>{trip.endStation ?? (trip.startStation ? "Station non renseignée" : "Stations non renseignées")}</small>
               </span>
             </span>
             <span className="trip-date">{formatDate(trip.startedAt)}<small className="clock">{formatDate(trip.startedAt, { hour: "2-digit", minute: "2-digit" })}</small></span>
@@ -338,7 +338,7 @@ export function AccountPage({ data, onLogout, onSaved }: { data: Dashboard; onLo
         <section className="account-section">
           <h2>Abonnement</h2>
           <p className="subscription-name">{data.subscription === "unavailable" ? MISSING : subscription?.title ?? "Aucun abonnement"}</p>
-          {subscription ? <p className="subscription-validity">{subscription.validUntil ? `Jusqu’au ${formatDate(subscription.validUntil, { day: "numeric", month: "long", year: "numeric" })}` : subscription.active ? "Actif" : "Inactif"}</p> : null}
+          {subscription && (subscription.validUntil || !subscription.active) ? <p className="subscription-validity">{subscription.validUntil ? `Jusqu’au ${formatDate(subscription.validUntil, { day: "numeric", month: "long", year: "numeric" })}` : "Inactif"}</p> : null}
           {subscription?.type === "LT" ? <AutoRenewal key={`${subscription.id}:${data.updatedAt}`} subscriptionId={subscription.id} account={data.profile.email} value={subscription.autoRenewal} allowed={subscription.autoRenewalAllowed} onSaved={onSaved}/> : null}
           <Receipts receipts={data.receipts}/>
           <a className="text-link" href="https://velov.grandlyon.com/" target="_blank" rel="noreferrer">Gérer sur Vélo’v<CircleArrow external outline/></a>
@@ -367,7 +367,7 @@ function TripsTableSkeleton({ rows }: { rows: number }) {
           <div className="trip-row" key={index}>
             <span className="trip-description"><span className="trip-icon skeleton"/><span className="trip-route"><strong><Ghost>{from}</Ghost></strong><small><Ghost>{to}</Ghost></small></span></span>
             <span className="trip-date"><Ghost>12 oct.</Ghost><small className="clock"><Ghost>08:42</Ghost></small></span>
-            <span className="trip-duration"><Ghost>14 min</Ghost></span>
+            <span className="trip-duration"><Ghost>14 min</Ghost></span>
             <span className="trip-price"><Ghost>0,00 €</Ghost></span>
             <span/>
           </div>
@@ -400,7 +400,7 @@ export function OverviewSkeleton() {
     <div className="page-content" aria-busy="true" aria-label="Chargement du compte">
       <div className="summary-grid">
         <SummaryCardSkeleton icon={StarFourIcon} label="Points" detail="1 380 gagnés au total"/>
-        <SummaryCardSkeleton icon={BicycleIcon} label="Trajets" detail="12 h 40 min"/>
+        <SummaryCardSkeleton icon={BicycleIcon} label="Trajets" detail="12 h 40 min"/>
         <SummaryCardSkeleton icon={TicketIcon} label="Abonnement" detail="Jusqu’au 1 mars 2027" subscription/>
       </div>
       <section className="map-section">

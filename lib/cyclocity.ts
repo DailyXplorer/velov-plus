@@ -144,7 +144,7 @@ export async function postRelease({ accountId, subscriptionId, body, token, iden
       redirect: "manual", cache: "no-store", signal: AbortSignal.timeout(ACTION_TIMEOUT_MS)
     });
   } catch (error) {
-    return { ...refusal("network", "Vélo’v ne répond pas. Le vélo est peut-être déverrouillé : regardez la borne avant de réessayer."), detail: error instanceof Error ? error.name : null };
+    return { ...refusal("network", "Vélo’v ne répond pas. Le vélo est peut-être déverrouillé."), detail: error instanceof Error ? error.name : null };
   }
   if (response.status === 401) throw new VelovError("expired", "Votre session a expiré. Reconnectez-vous.");
   return releaseOutcome(response.status, await answer(response));

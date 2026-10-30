@@ -204,7 +204,7 @@ test("network: a failed request keeps the browser error name and the elapsed tim
 test("parity: review counts are grouped, an uncertain unlock is re-read at once, durations and logout match iOS", () => {
   assert.match(source("components/station-bikes.tsx"), /\{formatCountSans\(bike\.rating\.count\)\} avis/);
   assert.match(source("components/bike-actions.tsx"), /if \(action === "unlock" && isUncertain\(outcome\)\) await verify\(action\);/);
-  assert.equal(formatDuration(90), "1 h 30 min");
+  assert.equal(formatDuration(90), "1 h 30 min");
   assert.match(source("components/companion.tsx"), /<Button variant="ghost" disabled=\{loggingOut\} onClick=\{\(\) => setLogoutOpen\(false\)\}>Annuler<\/Button>/);
 });
 

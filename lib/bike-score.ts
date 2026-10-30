@@ -20,7 +20,7 @@ function avoidReasons(bike: Bike, now: number) {
   if (bike.status != null && bike.status !== "AVAILABLE") reasons.push(bike.statusLabel ? `Indisponible (${bike.statusLabel})` : "Indisponible");
   if (bike.rating && bike.rating.value < 60 && bike.rating.count >= 5) reasons.push(`Note basse (${outOfFive(bike.rating.value)}/5)`);
   if (isCheckOverdue(bike, now)) reasons.push("Contrôle en retard");
-  if (bike.type === "electrical" && bike.batteryPercent != null && bike.batteryPercent < 20) reasons.push(`Batterie faible (${bike.batteryPercent} %)`);
+  if (bike.type === "electrical" && bike.batteryPercent != null && bike.batteryPercent < 20) reasons.push(`Batterie faible (${bike.batteryPercent} %)`);
   if (idle != null && idle > 72) reasons.push(`Pas utilisé depuis ${Math.floor(idle / 24)} j`);
   return reasons;
 }
@@ -37,8 +37,8 @@ function strengths(bike: Bike, now: number) {
   const idle = hoursSince(bike.lastTripAt, now);
   return [
     bike.rating ? `Bien noté (${outOfFive(bike.rating.value)}/5 · ${bike.rating.count} avis)` : null,
-    bike.type === "electrical" && bike.batteryPercent != null ? `Batterie ${bike.batteryPercent} %` : null,
-    idle != null && idle < 12 ? "Utilisé il y a moins de 12 h" : null
+    bike.type === "electrical" && bike.batteryPercent != null ? `Batterie ${bike.batteryPercent} %` : null,
+    idle != null && idle < 12 ? "Utilisé il y a moins de 12 h" : null
   ].filter((reason) => reason !== null);
 }
 

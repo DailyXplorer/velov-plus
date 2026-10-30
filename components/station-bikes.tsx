@@ -75,7 +75,7 @@ function fromNow(value: string | null) {
 
 function BatteryLevel({ percent }: { percent: number }) {
   const Level = percent >= 90 ? BatteryFullIcon : percent >= 60 ? BatteryHighIcon : percent >= 30 ? BatteryMediumIcon : percent >= 10 ? BatteryLowIcon : BatteryEmptyIcon;
-  return <span className="bike-battery"><Level size={18} weight="light" aria-hidden="true"/><span className="sr-only">Batterie </span>{percent} %</span>;
+  return <span className="bike-battery"><Level size={18} weight="light" aria-hidden="true"/><span className="sr-only">Batterie </span>{percent} %</span>;
 }
 
 function Stars({ value }: { value: number }) {
@@ -190,7 +190,7 @@ function BikesSkeleton({ station }: { station: Station }) {
 }
 
 function BikeSheetSkeleton() {
-  const twoLines = <><Ghost>Il y a 2 h</Ghost><small><Ghost>12 oct. 2026, 08:42</Ghost></small></>;
+  const twoLines = <><Ghost>Il y a 2 h</Ghost><small><Ghost>12 oct. 2026, 08:42</Ghost></small></>;
   return (
     <div className="bike-sheet" aria-busy="true" aria-label="Chargement du vélo">
       <div className="detail-type"><span className="eyebrow skeleton" aria-hidden="true"><span className="eyebrow-icon"/>Mécanique</span></div>

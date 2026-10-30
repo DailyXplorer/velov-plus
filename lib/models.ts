@@ -116,7 +116,7 @@ function pairs(digits: string) {
 
 export function formatDuration(minutes: number) {
   const whole = Math.round(minutes);
-  return whole >= 60 ? `${formatCountSans(Math.floor(whole / 60))} h ${whole % 60} min` : `${whole} min`;
+  return whole >= 60 ? `${formatCountSans(Math.floor(whole / 60))} h ${whole % 60} min` : `${whole} min`;
 }
 
 export function formatPrice(cents: number) {

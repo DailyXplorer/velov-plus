@@ -76,7 +76,7 @@ function RateBike({ trip, bikeNumber, onLater, onRated }: { trip: Trip; bikeNumb
 
   return (
     <section className="trip-rate" aria-labelledby="trip-rate-title">
-      <h3 id="trip-rate-title" className="trip-rate-title">Noter ce vélo</h3>
+      <h3 id="trip-rate-title" className="trip-rate-title">Évaluation du vélo</h3>
       <div className="trip-rate-stars" role="radiogroup" aria-labelledby="trip-rate-title">
         {starNumbers.map((value) => (
           <button key={value} type="button" role="radio" aria-checked={stars === value} aria-label={`${value} étoile${value > 1 ? "s" : ""} sur 5 · ${starLabels[value]}`}
@@ -126,7 +126,7 @@ export function TripSheet({ trip, onClose }: { trip: Trip; onClose: () => void }
       <Modal titleId="trip-detail-title" onClose={sending ? () => {} : onClose}>
         <div className="modal-heading">
           <h2 id="trip-detail-title">Trajet</h2>
-          <button className="icon-button" aria-label="Fermer les détails" disabled={sending} onClick={onClose}><XIcon size={20} weight="light"/></button>
+          <button className="icon-button" aria-label="Fermer" disabled={sending} onClick={onClose}><XIcon size={20} weight="light"/></button>
         </div>
         <p className="detail-date">{tripTimes(trip)}</p>
         <div className="trip-detail-route">
@@ -150,7 +150,7 @@ export function TripSheet({ trip, onClose }: { trip: Trip; onClose: () => void }
           <summary>Détails<CaretDownIcon size={14} weight="bold" aria-hidden="true"/></summary>
           <div className="detail-type">
             <Eyebrow icon={trip.bikeType === "electrical" ? LightningIcon : BicycleIcon}>{trip.bikeType === "electrical" ? "Électrique" : trip.bikeType === "mechanical" ? "Mécanique" : "Vélo’v"}</Eyebrow>
-            {trip.bikeNumber != null ? <button className="text-button" onClick={() => setBikeOpen(true)}>Vélo n° {trip.bikeNumber}<CaretRightIcon size={14} weight="bold" aria-hidden="true"/></button> : null}
+            {trip.bikeNumber != null ? <button className="text-button" onClick={() => setBikeOpen(true)}>Vélo {trip.bikeNumber}<CaretRightIcon size={14} weight="bold" aria-hidden="true"/></button> : null}
           </div>
           <dl className="account-details bike-details">
             {rated ? <div><dt>Note du vélo</dt><dd>Déjà noté</dd></div> : null}
@@ -176,11 +176,11 @@ export function TripEndedSheet({ trip, onClose }: { trip: Trip; onClose: () => v
       </div>
       <p className="detail-date">{tripTimes(trip)}</p>
       <div className="trip-detail-route">
-        <Stop label="Station d’arrivée" station={trip.endStation} stand={trip.endStand}/>
+        <Stop label="Arrivée" station={trip.endStation} stand={trip.endStand}/>
       </div>
       <div className="trip-detail-facts trip-ended-facts">
         <span><small>Durée</small><strong>{trip.duration != null ? formatDuration(trip.duration) : "—"}</strong></span>
-        <span><small>Prix</small><strong>{trip.price != null ? formatPrice(trip.price) : "—"}</strong></span>
+        <span><small>Payé</small><strong>{trip.price != null ? formatPrice(trip.price) : "—"}</strong></span>
       </div>
       {rateable && trip.bikeNumber != null ? <RateBike trip={trip} bikeNumber={trip.bikeNumber} onLater={close} onRated={close}/>
         : <div className="modal-actions"><Button variant="secondary" onClick={close}>Fermer</Button></div>}

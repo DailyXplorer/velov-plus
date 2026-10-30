@@ -309,16 +309,16 @@ test("parity: French thousands separators for quantities, whole minutes for dura
   assert.equal(formatCount(1380), "1 380");
   assert.equal(formatCount(-1000), "-1 000");
   assert.equal(formatCountSans(2380), "2 380");
-  assert.equal(formatDuration(12.5), "13 min");
-  assert.equal(formatDuration(12.4), "12 min");
-  assert.equal(formatDuration(125), "2 h 5 min");
-  assert.equal(formatDuration(60 * 1200), "1 200 h 0 min");
+  assert.equal(formatDuration(12.5), "13 min");
+  assert.equal(formatDuration(12.4), "12 min");
+  assert.equal(formatDuration(125), "2 h 5 min");
+  assert.equal(formatDuration(60 * 1200), "1 200 h 0 min");
   const dashboard = source("components/dashboard.tsx");
   assert.doesNotMatch(dashboard, /\$\{trip\.duration\} min|\{data\.rewards\.balance \?\? "—"\}|\{data\.trips\?\.length \?\? "—"\}|\{trips\.length\} trajet|\+\{rule\.points\}|\{movement\.amount\}<|toLocaleString/);
   assert.doesNotMatch(source("components/trip-sheet.tsx"), /\$\{trip\.duration\} min/);
   const invite = source("components/invite-friend.tsx");
   assert.match(invite, /Il vous manque \{formatCountSans\(cost - balance\)\} points\./);
-  assert.match(invite, /const costLabel = shownCost !== null \? formatCount\(shownCost\) : "—";/);
+  assert.match(invite, /<p>\{costText\} points sont débités dès la création du code/);
   assert.doesNotMatch(invite, /\{cost\} points/);
 });
 
@@ -327,7 +327,7 @@ test("parity: labels use DM Sans, warnings use the grey ink, no brown", () => {
   assert.match(css, /h3\.metric-label, h3\.trip-rate-title \{ font-family: var\(--font\); font-weight: 500; \}/);
   assert.doesNotMatch(css, /#9c7856/i);
   assert.match(css, /\.data-notice \{ margin-bottom: 24px; color: var\(--ink-soft\);/);
-  assert.match(source("components/trip-sheet.tsx"), /<h3 id="trip-rate-title" className="trip-rate-title">Noter ce vélo<\/h3>/);
+  assert.match(source("components/trip-sheet.tsx"), /<h3 id="trip-rate-title" className="trip-rate-title">Évaluation du vélo<\/h3>/);
   assert.match(source("components/account-actions.tsx"), /<h3 className="metric-label">Reçus<\/h3>/);
 });
 

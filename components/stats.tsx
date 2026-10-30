@@ -22,7 +22,7 @@ const monthLabel = (month: string, options: Intl.DateTimeFormatOptions = { month
 const monthInitial = (month: string) => monthLabel(month, { month: "narrow" }).toLocaleUpperCase("fr-FR");
 const bucketLabel = (unit: "day" | "month", key: string) => unit === "day" ? dayLabel(key, { weekday: "long", day: "numeric", month: "long" }) : monthLabel(key, { month: "long", year: "numeric" });
 function hours(minutes: number, format = formatCountSans) {
-  return minutes >= 60 ? `${format(Math.floor(minutes / 60))} h ${minutes % 60 ? `${minutes % 60} min` : ""}`.trim() : `${minutes} min`;
+  return minutes >= 60 ? `${format(Math.floor(minutes / 60))} h ${minutes % 60 ? `${minutes % 60} min` : ""}`.trim() : `${minutes} min`;
 }
 function kilometres(metres: number) {
   return (metres / 1000).toLocaleString("fr-FR", { maximumFractionDigits: metres < 100_000 ? 1 : 0 });
@@ -108,7 +108,7 @@ export function StatsSkeleton() {
           </div>
         </Panel>
         <Panel title="Records" full>
-          <dl className="stat-records">{["Plus long trajet", "Jour record", "Série", "Vélo favori"].map((label) => <div key={label}><dt>{label}</dt><dd><Ghost>12 min</Ghost></dd></div>)}</dl>
+          <dl className="stat-records">{["Plus long trajet", "Jour record", "Série", "Vélo favori"].map((label) => <div key={label}><dt>{label}</dt><dd><Ghost>12 min</Ghost></dd></div>)}</dl>
         </Panel>
         <Panel title="Stations les plus utilisées" full>
           <ol className="stat-ranking">{GHOST_STATIONS.map((name) => <li key={name}><span className="stat-ranking-label"><Ghost>{name}</Ghost></span><span className="stat-ranking-count"><Ghost>12</Ghost></span></li>)}</ol>
@@ -310,7 +310,7 @@ function Heatmap({ data }: { data: PeriodStats }) {
   const gap = HEAT_GAP;
   const busiest = rows.flatMap((row, day) => row.map((count, hour) => ({ day, hour, count }))).sort((one, other) => other.count - one.count)[0];
   return (
-    <Chart label={`Départs selon le jour et l’heure, le plus souvent le ${WEEKDAYS[busiest.day].toLowerCase()} entre ${busiest.hour} h et ${busiest.hour + 1} h`} height={heatmapHeight} plotTop={HEAT_TOP}
+    <Chart label={`Départs selon le jour et l’heure, le plus souvent le ${WEEKDAYS[busiest.day].toLowerCase()} entre ${busiest.hour} h et ${busiest.hour + 1} h`} height={heatmapHeight} plotTop={HEAT_TOP}
         hit={(x, y, width) => {
           const column = Math.floor((x - left) / ((width - left) / 24));
           const row = Math.floor(y / cellHeight(width));
@@ -318,9 +318,9 @@ function Heatmap({ data }: { data: PeriodStats }) {
         }}
         tip={(index, width) => {
           const [day, hour] = [Math.floor(index / 24), index % 24];
-          return { x: left + (width - left) / 24 * (hour + .5), y: HEAT_TOP, content: <><strong>{WEEKDAYS[day]}, de {hour} h à {hour + 1} h</strong><span>{plural(rows[day][hour], "départ")}</span></> };
+          return { x: left + (width - left) / 24 * (hour + .5), y: HEAT_TOP, content: <><strong>{WEEKDAYS[day]}, de {hour} h à {hour + 1} h</strong><span>{plural(rows[day][hour], "départ")}</span></> };
         }}
-        table={<><caption>Départs selon le jour et l’heure</caption><thead><tr><th scope="col">Jour</th>{rows[0].map((_, hour) => <th scope="col" key={hour}>{hour} h</th>)}</tr></thead><tbody>{rows.map((row, day) => <tr key={day}><th scope="row">{WEEKDAYS[day]}</th>{row.map((count, hour) => <td key={hour}>{count}</td>)}</tr>)}</tbody></>}>
+        table={<><caption>Départs selon le jour et l’heure</caption><thead><tr><th scope="col">Jour</th>{rows[0].map((_, hour) => <th scope="col" key={hour}>{hour} h</th>)}</tr></thead><tbody>{rows.map((row, day) => <tr key={day}><th scope="row">{WEEKDAYS[day]}</th>{row.map((count, hour) => <td key={hour}>{count}</td>)}</tr>)}</tbody></>}>
         {(width, active) => {
           const cellWidth = (width - left) / 24;
           const cell = cellHeight(width);
@@ -343,7 +343,7 @@ function Heatmap({ data }: { data: PeriodStats }) {
                   })}
                 </g>
               ))}
-              {[0, 6, 12, 18, 23].map((hour) => <text key={hour} className="chart-axis" x={left + cellWidth * (hour + .5)} y={7 * cell + 14} textAnchor="middle">{hour} h</text>)}
+              {[0, 6, 12, 18, 23].map((hour) => <text key={hour} className="chart-axis" x={left + cellWidth * (hour + .5)} y={7 * cell + 14} textAnchor="middle">{hour} h</text>)}
             </>
           );
         }}

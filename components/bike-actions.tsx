@@ -66,7 +66,7 @@ function Confirm({ action, place, onCancel, onClose, onConfirm, onVerify, sendin
       <p className="bike-action-question">{action === "book" ? "Réserver ce vélo ?" : "Déverrouiller ce vélo ?"}</p>
       {action === "book" ? <p className="bike-action-note">{BOOKING_POINTS} points pour garder ce vélo {BOOKING_MINUTES} minutes.</p>
         : <p className="bike-action-note bike-action-warning">Vous aurez ensuite 60 secondes pour appuyer sur le bouton de la borne {place.standNumber} et retirer le vélo.</p>}
-      {action === "unlock" && far ? <p className="bike-action-far" role="alert"><WarningIcon size={16} weight="bold" aria-hidden="true"/>Vous semblez être à plus de {RELEASE_DISTANCE} m de la station. Si quelqu’un d’autre prend le vélo, le trajet vous sera facturé.</p> : null}
+      {action === "unlock" && far ? <p className="bike-action-far" role="alert"><WarningIcon size={16} weight="bold" aria-hidden="true"/>Vous semblez être à plus de {RELEASE_DISTANCE} m de la station. Si quelqu’un d’autre prend le vélo, le trajet vous sera facturé.</p> : null}
       {children}
       <div className="bike-action-buttons">
         {uncertain ? <><Button variant="ghost" onClick={onClose}>Fermer</Button><Button variant="secondary" pending={checking} onClick={onVerify}>Vérifier</Button></> : <>
@@ -176,7 +176,7 @@ export function BookingBanner({ booking, onUnlock }: { booking: Booking; onUnloc
   const place = placeOf(booking);
   if (left === 0) return null;
   return (
-    <div className="booking-banner" role="status" aria-label={left != null ? `Vélo réservé, ${Math.floor(left / 60)} min ${String(left % 60).padStart(2, "0")} restantes` : "Vélo réservé"}>
+    <div className="booking-banner" role="status" aria-label={left != null ? `Vélo réservé, ${Math.ceil(left / 60)} min restantes` : "Vélo réservé"}>
       <span className="booking-left"><span className="booking-clock"><ClockIcon size={17} weight="light" aria-hidden="true"/></span>{left != null ? <span className="booking-time">{clock(left)}</span> : null}</span>
       {place ? <Button className="button-on-red" onClick={onUnlock}><span className="eyebrow-icon"><LockOpenIcon size={15} weight="light" aria-hidden="true"/></span>Déverrouiller</Button> : null}
     </div>

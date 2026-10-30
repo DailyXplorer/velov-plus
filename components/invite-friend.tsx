@@ -4,7 +4,7 @@ import { useEffect, useId, useState } from "react";
 import { CopyIcon, XIcon } from "./icons";
 import { promoResultSchema, type PromoResult } from "@/lib/promo-models";
 import { preparePromoStorage, promoStorageKey, readPromoCodes, savePromoCode, type SavedPromo } from "@/lib/promo-storage";
-import { type Outcome, capitalize, formatCount, formatCountSans } from "@/lib/models";
+import { type Outcome, capitalize, formatCountSans } from "@/lib/models";
 import { UNCERTAIN, isUncertain, networkFailure, routeFailure } from "@/lib/outcome";
 import { DEBIT_SLACK, type Verification, blockedMessage, inviteDebit, retryVerified, rewardsHistorySchema, runOnce, verificationOf } from "@/lib/operations";
 import { getJson } from "./get-json";
@@ -114,7 +114,6 @@ export function InviteFriend({ cost, balance, account, onChanged }: { onChanged:
   const settled = shown !== null && (shown.ok || isUncertain(shown)) || verification?.kind === "debited";
   const heldCost = operation && Number.isSafeInteger(Number(operation.meta.cost)) ? Number(operation.meta.cost) : null;
   const shownCost = heldCost ?? cost;
-  const costLabel = shownCost !== null ? formatCount(shownCost) : "—";
   const costText = shownCost !== null ? formatCountSans(shownCost) : "—";
   const canObtain = cost !== null && storageKey !== null && operationKey !== null && balance !== null && balance >= cost && Number.isSafeInteger(cost) && cost >= 0;
   const codeList = codes.length ? <div className="promo-codes"><p className="metric-label">Code à transmettre à votre ami</p>{codes.map((entry) => <div className="promo-code" key={entry.code}><code>{entry.code}</code><Button variant="secondary" onClick={() => void copy(entry.code)}><CopyIcon size={16} aria-hidden="true"/>{copied === entry.code ? "Copié" : "Copier"}</Button></div>)}<small className="soon-note">Enregistré sur ce navigateur.</small></div> : null;
@@ -126,8 +125,8 @@ export function InviteFriend({ cost, balance, account, onChanged }: { onChanged:
     {codeList}
     {!asking && warning ? <p className="form-error" role="alert">{warning}</p> : null}
     {asking ? <Modal titleId={titleId} onClose={close}>
-      <div className="modal-heading"><h2 id={titleId}>Échanger {costLabel} points ?</h2><button className="icon-button" disabled={blocked} aria-label="Fermer" onClick={close}><XIcon size={20}/></button></div>
-      <p>Les {costText} points sont débités dès la création du code, même s’il n’est jamais utilisé.</p>
+      <div className="modal-heading"><h2 id={titleId}>Obtenir un code ?</h2><button className="icon-button" disabled={blocked} aria-label="Fermer" onClick={close}><XIcon size={20}/></button></div>
+      <p>{costText} points sont débités dès la création du code, même s’il n’est jamais utilisé.</p>
       {verification?.kind === "debited" ? <p className="form-error" role="status">Vos points ont été débités, mais aucun code n’a été reçu. Contactez le service client pour le récupérer.</p>
         : shown ? <><p className={shown.ok ? "write-done" : "form-error"} role="status">{shown.ok ? "Code créé. Copiez-le pour l’envoyer à votre ami." : shown.message}</p>{!shown.ok ? <RawLine outcome={shown}/> : null}{isUncertain(shown) ? <p className="uncertain-note">{UNCERTAIN}</p> : null}{codeList}</> : null}
       {verification?.kind === "not-debited" ? <p className="soon-note" role="status">Votre historique complet ne montre aucun débit de {costText} points depuis la demande.</p> : null}

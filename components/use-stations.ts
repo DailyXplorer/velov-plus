@@ -3,7 +3,7 @@ import { stationsSchema, type Resource, type Station } from "@/lib/models";
 import { ApiError, getJson } from "./get-json";
 
 type StationData = { stations: Station[]; updatedAt: string };
-const unavailable = "Les stations sont momentanément indisponibles.";
+const unavailable = "Les disponibilités des stations sont momentanément indisponibles.";
 
 export function useStations() {
   const [resource, setResource] = useState<Resource<StationData>>({ kind: "loading" });

@@ -335,7 +335,7 @@ test("R1: a rating is sent once per trip, even when the sheet is reopened during
   assert.match(sheet, /\{operation \? <>[^\n]*>Vérifier<\/Button><\/> : <>[\s\S]*?Envoyer<\/Button>\n\s+<\/>\}/);
   assert.equal(sheet.match(/>Envoyer<\/Button>/g)?.length, 1);
   assert.match(sheet, /<Modal titleId="trip-detail-title" onClose=\{sending \? \(\) => \{\} : onClose\}>/);
-  assert.match(sheet, /aria-label="Fermer les détails" disabled=\{sending\} onClick=\{onClose\}/);
+  assert.match(sheet, /aria-label="Fermer" disabled=\{sending\} onClick=\{onClose\}/);
   assert.match(sheet, /<Modal titleId="trip-ended-title" onClose=\{sending \? \(\) => \{\} : close\}>/);
   assert.match(sheet, /aria-label="Fermer" disabled=\{sending\} onClick=\{close\}/);
 });
