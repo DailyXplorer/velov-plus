@@ -5,7 +5,7 @@ import { z } from "zod";
 import { ArrowClockwiseIcon, ArrowLeftIcon, BatteryEmptyIcon, BatteryFullIcon, BatteryHighIcon, BatteryLowIcon, BatteryMediumIcon, BicycleIcon, CaretDownIcon, CaretRightIcon, type Icon, LightningIcon, SignInIcon, StarHalfIcon, StarIcon, ThumbsUpIcon, WarningIcon, XIcon } from "./icons";
 import { type AssessedBike, assessBikes, lateCheck } from "@/lib/bike-score";
 import { type Bike, type Resource, type Station, bikeSchema, capitalize, formatCountSans, formatDate } from "@/lib/models";
-import { EmptyState, Eyebrow, Ghost, LoadFailure, Modal } from "./ui";
+import { Button, EmptyState, Eyebrow, Ghost, LoadFailure, Modal } from "./ui";
 import { BikeActions, BookingsContext, SignInContext } from "./bike-actions";
 import { useSending } from "./operations";
 import { getJson, loadError } from "./get-json";
@@ -130,9 +130,13 @@ function VerdictMark({ verdict }: { verdict: AssessedBike["verdict"] }) {
 function StationActions({ bike, station, onDone }: { bike: Bike; station: Station; onDone: () => void }) {
   const account = useContext(BookingsContext);
   const signIn = useContext(SignInContext);
-  if (!account) return signIn ? <button className="text-button bike-signin" onClick={signIn}><SignInIcon size={18} weight="light" aria-hidden="true"/>Se connecter pour réserver ou déverrouiller</button> : null;
-  const booking = account.bookings.find((item) => item.bikeNumber === bike.number) ?? null;
+  const booking = account?.bookings.find((item) => item.bikeNumber === bike.number) ?? null;
   if (bike.status !== "AVAILABLE" || bike.standNumber == null || (bike.isReserved && !booking)) return null;
+  if (!account) return signIn ? (
+    <section className="bike-action" aria-label="Réserver ou déverrouiller">
+      <div className="bike-action-buttons"><Button onClick={signIn}><SignInIcon size={17} weight="light" aria-hidden="true"/>Se connecter</Button></div>
+    </section>
+  ) : null;
   return <BikeActions place={{ stationNumber: station.number, stationName: station.name, standNumber: bike.standNumber, bikeNumber: bike.number, lat: station.lat, lon: station.lon }} booking={booking} onDone={onDone}/>;
 }
 

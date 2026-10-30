@@ -23,7 +23,7 @@ export function GuestApp({ onSignIn }: { onSignIn: () => void }) {
 
   return (
     <SignInContext.Provider value={onSignIn}>
-      <div className="app-layout guest-layout">
+      <div className="app-layout">
         <a className="skip-link" href="#main-content">Aller au contenu</a>
         <aside className="sidebar">
           <nav className="main-navigation" aria-label="Navigation principale">
@@ -41,7 +41,7 @@ export function GuestApp({ onSignIn }: { onSignIn: () => void }) {
             </div>
           </header>
           <main id="main-content" className="main-content">
-            <StationsPage resource={resource} reload={reload} reloading={pending} favorites={favorites} account={null} onFavorite={favorite}/>
+            <div className="page-slot"><StationsPage resource={resource} reload={reload} reloading={pending} favorites={favorites} account={null} onFavorite={favorite}/></div>
           </main>
         </div>
       </div>

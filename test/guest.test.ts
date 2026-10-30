@@ -1,6 +1,17 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { FAVORITES_KEY, guestCookie, readFavorites, saveFavorites, startMode, toggleFavorite } from "../lib/guest.ts";
+
+const source = (path: string) => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
+
+test("guest mode reuses the signed-in layout and styles, with no rule of its own", () => {
+  const guest = source("components/guest.tsx");
+  assert.doesNotMatch(source("app/globals.css"), /\.guest-|bike-signin/);
+  assert.match(guest, /<div className="app-layout">/);
+  assert.match(guest, /<div className="page-slot"><StationsPage /);
+  assert.match(source("components/station-bikes.tsx"), /if \(bike\.status !== "AVAILABLE"[^\n]*return null;\n\s*if \(!account\) return signIn \? \(\n\s*<section className="bike-action"/);
+});
 
 function memoryStorage(initial?: string) {
   const values = new Map<string, string>();

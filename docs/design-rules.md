@@ -64,6 +64,13 @@ These are the owner's product rules. They apply to the web app and the iOS app (
 - Give sticky headers inside drawers and sheets a z-index above any positioned child (`.card-tag` is `position: relative; z-index: 1`), or pills scroll over the title.
 - Count any persistent banner (active booking) in fixed-height layouts and keep it compact (the Stations map uses `calc(100dvh - …)`), or the station sheet slides under the bottom nav.
 
+## Guest mode
+
+- Guest mode (« Continuer sans compte ») is the signed-in design with fewer features, on web and iOS: the same components, tokens, radii, margins and styles. A guest conditional only hides an account feature (other tabs, booking, unlock, account favourites sync, logout). It never changes layout or style, and there is no guest-only class or rule.
+- Spacing that exists for a hidden feature is keyed on that feature, never on the mode. On the web the bottom padding that clears the phone tab bar applies under `.app-layout:has(> .mobile-navigation)`, so without the bar the Stations map keeps the same 12 px gap above the bottom edge that it keeps above the bar. The guest page sits in the same `.page-slot` wrapper as the signed-in one, so every selector matches both.
+- A sign-in entry that replaces a hidden feature reuses the control it replaces. In the bike sheet, « Se connecter » is a button in the same `.bike-action-buttons` row as Réserver/Déverrouiller, shown only for a bike the signed-in sheet would offer. In the header, « Se connecter » takes the avatar's slot and tokens (mist fill, 40 px tall, 44 px on phone, red hover).
+- Prove it with guest and signed-in screenshot pairs at 390 and 1280 for each screen (Stations map with and without a card, station bikes, bike sheet, search, menus, header).
+
 ## Content
 
 - Show no self-evident or all-is-well information. A bike listed in a station is obviously docked (show status only when unusual, such as maintenance); account flags (Actif, Complet, Valide) appear only when there is a problem; drop curiosity fields that do not help pick a bike.

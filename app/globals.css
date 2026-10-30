@@ -320,12 +320,11 @@ h1, h2, h3, .metric-value, .metric-subscription, .points-balance, .points-total,
 @media (max-width: 900px) {
   .sidebar { display: none; }
   .app-main { margin-left: 0; }
-  .main-content { padding-bottom: 110px; }
+  .app-layout:has(> .mobile-navigation) .main-content { padding-bottom: 110px; }
   .app-header { padding-top: 30px; padding-bottom: 30px; }
   .mobile-navigation { position: fixed; z-index: 50; inset: auto 0 0; display: grid; grid-template-columns: repeat(6, 1fr); padding: 8px 10px calc(8px + env(safe-area-inset-bottom)); border-top: 1px solid var(--line); background: rgba(255, 255, 255, .96); backdrop-filter: blur(16px); }
   .mobile-navigation button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; min-height: 48px; padding: 4px; border: 0; background: none; color: var(--ink-soft); font-size: 11px; }
   .mobile-navigation button.active { color: var(--red); }
-  .guest-layout .main-content { padding-bottom: 56px; }
 }
 @media (max-width: 620px) {
   .app-header, .main-content { padding-inline: 22px; }
@@ -495,8 +494,6 @@ h1, h2, h3, .metric-value, .metric-subscription, .points-balance, .points-total,
 .bike-action-mine { margin-bottom: 12px; }
 .bike-action .form-error { margin-top: 10px; }
 .bike-action-signin { margin-top: 18px; color: var(--ink-soft); font-size: 13px; }
-.text-button.bike-signin { gap: 8px; margin-top: 14px; font-size: 13px; white-space: normal; text-align: left; text-wrap: balance; }
-@media (max-width: 620px) { .text-button.bike-signin { font-size: 12px; } }
 .modal .bike-action { margin-top: 18px; }
 .booking-banner { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; padding: 6px 6px 6px 16px; border-radius: var(--radius); color: var(--white); background: var(--red); }
 .booking-banner .booking-left { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
@@ -516,9 +513,9 @@ h1, h2, h3, .metric-value, .metric-subscription, .points-balance, .points-total,
   .overview-map .leaflet-control-zoom { display: none; }
   .map-explore { position: absolute; inset: 0; z-index: 3; display: flex; align-items: center; justify-content: center; padding: 12px; border: 0; background: transparent; }
   .map-explore > span { display: inline-flex; align-items: center; min-height: 40px; padding: 0 18px; border-radius: 999px; color: var(--red-deep); background: var(--white); box-shadow: var(--shadow-ring); font-size: 14px; font-weight: 500; }
-  .app-main:has(.page-slot:not([hidden]) > .stations-page), .app-main:has(.main-content > .stations-page) { display: flex; flex-direction: column; height: 100dvh; min-height: 0; }
-  .app-main:has(.page-slot:not([hidden]) > .stations-page) > .main-content, .app-main:has(.main-content > .stations-page) > .main-content { display: flex; flex: 1; flex-direction: column; min-height: 0; padding-bottom: calc(77px + env(safe-area-inset-bottom)); }
-  .guest-layout .app-main:has(.main-content > .stations-page) > .main-content { padding-bottom: calc(22px + env(safe-area-inset-bottom)); }
+  .app-main:has(.page-slot:not([hidden]) > .stations-page) { display: flex; flex-direction: column; height: 100dvh; min-height: 0; }
+  .app-main:has(.page-slot:not([hidden]) > .stations-page) > .main-content { display: flex; flex: 1; flex-direction: column; min-height: 0; padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
+  .app-layout:has(> .mobile-navigation) .app-main:has(.page-slot:not([hidden]) > .stations-page) > .main-content { padding-bottom: calc(80px + env(safe-area-inset-bottom)); }
   .stations-page { display: flex; flex: 1; flex-direction: column; min-height: 0; }
   .stations-page .stations-toolbar { margin-bottom: 12px; }
   .stations-page .stations-explorer { flex: 1; height: auto; min-height: 0; }
