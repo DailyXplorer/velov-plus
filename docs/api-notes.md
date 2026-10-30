@@ -6,7 +6,7 @@ Facts about the Cyclocity API that Vélo’v+ relies on and that the [community 
 
 - Release takes two steps (owner-confirmed): after `transactionState: OK` the bike stays locked; the user presses the physical button on the dock within about 60 s, then pulls the bike.
 - Renewed tokens are written even on error responses; cookies are cleared only when Keycloak rejects the refresh token itself.
-- A downstream 401 can be a stale app token: renew it and retry once, for reads only.
+- A downstream 401 can be a stale app token: renew it and retry once, for reads only. A bare 401 on a write (release, booking, rating, favourite, account change) may come from the gateway after the request reached Vélo’v, so it stays the raw uncertain outcome, never a certain « session expirée » refusal; the bike sheet then signs out with the expired message and keeps the uncertain entry.
 - Only the token, `accountId` and profile reads are fatal for the dashboard; the other reads degrade to warnings.
 - Bike dates (`createdAt`, `lastTripDateTime`, `lastRevisionDateTime`, `lastControlDateTime`, `nextReview`) are UTC without a zone: append `Z`.
 - `nextCheck` is a routine mark about 5 days after each control, so most bikes look overdue: flag only overruns of more than 30 days.

@@ -76,4 +76,5 @@ test("the bike sheet polls an uncertain unlock and lets the dock watch follow it
   const source = readFileSync(new URL("../components/bike-actions.tsx", import.meta.url), "utf8");
   assert.match(source, /pollUnlock\(/);
   assert.match(source, /isUncertain\(outcome\)\) account\?\.unlocked\(null\)/);
+  assert.match(source, /outcome\.httpStatus === 401\) \{ account\?\.expired\(\); return; \}/, "a 401 signs out with the expired message and keeps the uncertain entry");
 });

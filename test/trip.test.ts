@@ -163,7 +163,8 @@ test("F12: an upstream refusal keeps its status, code and message; only transpor
   const offline = await postRating({ ...rating, body: { bikeNumber: 20449, recommended: true, rating: null } }, (async () => { throw new TypeError("offline"); }) as typeof fetch);
   assert.equal(isUncertain(offline), true);
   const { send } = recorder(401);
-  await assert.rejects(postRating({ ...rating, body: { bikeNumber: 20449, recommended: true, rating: null } }, send), (error) => error instanceof VelovError && error.code === "expired");
+  const unauthorized = await postRating({ ...rating, body: { bikeNumber: 20449, recommended: true, rating: null } }, send);
+  assert.deepEqual([unauthorized.httpStatus, isUncertain(unauthorized)], [401, true]);
   const route = (async () => Response.json(refused)) as typeof fetch;
   assert.deepEqual(await sendStars("trip-1", 20449, 5, route), refused, "the browser gets the refusal, not an uncertain 503");
 });

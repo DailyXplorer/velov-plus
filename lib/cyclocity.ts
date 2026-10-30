@@ -71,7 +71,6 @@ export async function postRating({ accountId, tripId, body, token, identity }: {
   } catch (error) {
     return { ...refusal("network", MAYBE_SENT.rating), detail: error instanceof Error ? error.name : null };
   }
-  if (response.status === 401) throw new VelovError("expired", "Votre session a expiré. Reconnectez-vous.");
   const reply = await answer(response);
   if (response.ok) return { ok: true, httpStatus: response.status, transactionState: null, code: null, message: null, detail: null };
   const refused = response.status >= 400 && response.status < 500 && reply.code !== null;
@@ -159,7 +158,6 @@ export async function postRelease({ accountId, subscriptionId, body, token, iden
   } catch (error) {
     return { ...refusal("network", MAYBE_SENT.unlock), detail: error instanceof Error ? error.name : null };
   }
-  if (response.status === 401) throw new VelovError("expired", "Votre session a expiré. Reconnectez-vous.");
   return releaseOutcome(response.status, await answer(response));
 }
 
@@ -177,7 +175,6 @@ export async function postBooking({ accountId, body, token, identity }: { accoun
   } catch (error) {
     return { outcome: { ...refusal("network", MAYBE_SENT.book), detail: error instanceof Error ? error.name : null }, booking: null };
   }
-  if (response.status === 401) throw new VelovError("expired", "Votre session a expiré. Reconnectez-vous.");
   const reply = await answer(response);
   const outcome = bookingOutcome(response.status, reply);
   if (!outcome.ok) return { outcome, booking: null };
@@ -192,14 +189,13 @@ const accountCodes: Record<string, string> = {
   "accounts.exception.notacceptable.account.phone.invalid": "Ce numéro de téléphone n’est pas valide."
 };
 
-export async function accountCall(url: string, init: { method: "POST" | "PATCH" | "DELETE"; headers: Record<string, string>; body?: BodyInit }, auth: Auth, failed: string, send: typeof fetch, preserveUnauthorized = false, maybe: string = MAYBE_SENT.change) {
+export async function accountCall(url: string, init: { method: "POST" | "PATCH" | "DELETE"; headers: Record<string, string>; body?: BodyInit }, auth: Auth, failed: string, send: typeof fetch, maybe: string = MAYBE_SENT.change) {
   let response: Response;
   try {
     response = await send(url, { ...init, headers: { Authorization: `Taknv1 ${auth.token}`, Identity: auth.identity, ...init.headers, "User-Agent": BROWSER_AGENT }, redirect: "manual", cache: "no-store", signal: AbortSignal.timeout(15_000) });
   } catch (error) {
     return { outcome: { ...refusal("network", maybe), detail: error instanceof Error ? error.name : null }, value: null };
   }
-  if (response.status === 401 && !preserveUnauthorized) throw new VelovError("expired", "Votre session a expiré. Reconnectez-vous.");
   const reply = await answer(response);
   const answered: Outcome = { ok: response.ok, httpStatus: response.status, transactionState: null, code: reply.code, message: null, detail: reply.detail };
   const outcome: Outcome = { ...answered, message: response.ok ? null : reply.code && accountCodes[reply.code] ? accountCodes[reply.code] : isUncertain(answered) ? maybe : response.status === 403 ? sessionRefused : failed };
@@ -222,7 +218,7 @@ export async function putStationBookmark({ stationNumber, on, ...auth }: Auth & 
 const report = z.object({ filename: lenient(z.string()), translations: z.object({ content: z.string().min(1) }) });
 
 export async function postPeriodReport({ subscriptionId, periodId, ...auth }: Auth & { subscriptionId: string; periodId: string }, send: typeof fetch = sendWrite): Promise<{ outcome: Outcome; pdf: { filename: string; bytes: Buffer } | null }> {
-  const { outcome, value } = await accountCall(`${accountUrl(auth.accountId)}/subscriptions/${encodeURIComponent(subscriptionId)}/periods/${encodeURIComponent(periodId)}/reports`, { method: "POST", headers: { Accept: "application/json" } }, auth, "Ce reçu n’est pas disponible.", send, false, "Ce reçu n’est pas disponible.");
+  const { outcome, value } = await accountCall(`${accountUrl(auth.accountId)}/subscriptions/${encodeURIComponent(subscriptionId)}/periods/${encodeURIComponent(periodId)}/reports`, { method: "POST", headers: { Accept: "application/json" } }, auth, "Ce reçu n’est pas disponible.", send, "Ce reçu n’est pas disponible.");
   if (!outcome.ok) return { outcome, pdf: null };
   const parsed = report.safeParse(value);
   const bytes = parsed.success ? Buffer.from(parsed.data.translations.content, "base64") : null;
@@ -241,14 +237,14 @@ export async function patchProfile({ body, ...auth }: Auth & { body: ProfileBody
 export async function patchAutoRenewal({ subscriptionId, autoRenewal, ...auth }: Auth & { subscriptionId: string; autoRenewal: boolean }, send: typeof fetch = sendWrite): Promise<Outcome> {
   const { outcome } = await accountCall(`${accountUrl(auth.accountId)}/subscriptions/${encodeURIComponent(subscriptionId)}`, {
     method: "PATCH", headers: { "Content-Type": SUBSCRIPTION_MEDIA_TYPE }, body: JSON.stringify({ [AUTO_RENEWAL_FIELD]: autoRenewal })
-  }, auth, "Vélo’v n’a pas enregistré le renouvellement automatique.", send, true);
+  }, auth, "Vélo’v n’a pas enregistré le renouvellement automatique.", send);
   return outcome;
 }
 
 export async function postVia({ subscriptionId, stationId, ...auth }: Auth & { subscriptionId: string; stationId: string | number }, send: typeof fetch = sendWrite): Promise<Outcome> {
   const { outcome, value } = await accountCall(`${accountUrl(auth.accountId)}/subscriptions/${encodeURIComponent(subscriptionId)}/via`, {
     method: "POST", headers: { "Content-Type": VIA_MEDIA_TYPE }, body: JSON.stringify({ [VIA_STATION_FIELD]: stationId })
-  }, auth, "Les 15 minutes supplémentaires n’ont pas été accordées.", send, true, MAYBE_SENT.via);
+  }, auth, "Les 15 minutes supplémentaires n’ont pas été accordées.", send, MAYBE_SENT.via);
   if (!outcome.ok) return outcome;
   const parsed = z.union([z.string(), z.object({ [VIA_STATE_FIELD]: z.string() }).transform((reply) => reply[VIA_STATE_FIELD])]).safeParse(value);
   const transactionState = parsed.success ? parsed.data : null;

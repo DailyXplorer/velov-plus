@@ -86,8 +86,6 @@ export function Companion({ start }: { start: StartMode }) {
     const list = await getJson("/api/bookings", z.array(bookingSchema), "", stamp.signal);
     if (stamp.live()) setBookings(list);
   }));
-  const account = useMemo(() => ({ bookings, changed: () => { forgetStats(); void loadBookings(); }, unlocked: (tripId: string | null) => watch.current?.follow(tripId) }), [bookings, loadBookings]);
-
   const patchData = useCallback((change: (data: Dashboard) => Dashboard) => {
     setState((current) => current.kind === "ready" ? { kind: "ready", data: change(current.data) } : current);
   }, []);
@@ -105,6 +103,7 @@ export function Companion({ start }: { start: StartMode }) {
     setUnlocking(null);
     setState({ kind: "signedOut", message: "Votre session a expiré. Reconnectez-vous." });
   }, []);
+  const account = useMemo(() => ({ bookings, changed: () => { forgetStats(); void loadBookings(); }, unlocked: (tripId: string | null) => watch.current?.follow(tripId), expired: expire }), [bookings, loadBookings, expire]);
 
   const loadDashboard = useCallback(async (): Promise<Dashboard | null> => {
     if (dashboardInFlight.current) return null;

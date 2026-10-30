@@ -112,7 +112,8 @@ test("no account write is ever retried: gateway errors, a lost answer and an exp
     await write.run(lost.send);
     assert.equal(lost.calls.length, 1, `${write.name} network`);
     const expired = recorder({ status: 401 });
-    await assert.rejects(write.run(expired.send), (error) => error instanceof VelovError && error.code === "expired");
+    const answer = await write.run(expired.send) as { httpStatus?: number; outcome?: { httpStatus: number } };
+    assert.equal(answer.outcome?.httpStatus ?? answer.httpStatus, 401, `${write.name} 401 stays a raw answer`);
     assert.equal(expired.calls.length, 1, `${write.name} 401`);
     const done = recorder(write.ok);
     await write.run(done.send);

@@ -13,12 +13,12 @@ import { getJson } from "./get-json";
 import { operations, useOperation, useSending } from "./operations";
 import { Button, Modal } from "./ui";
 
-export const BookingsContext = createContext<{ bookings: Booking[]; changed: () => void; unlocked: (tripId: string | null) => void } | null>(null);
+export const BookingsContext = createContext<{ bookings: Booking[]; changed: () => void; unlocked: (tripId: string | null) => void; expired: () => void } | null>(null);
 export const SignInContext = createContext<(() => void) | null>(null);
 
 export type Place = { stationNumber: number; stationName: string; standNumber: number; bikeNumber: number; lat: number | null; lon: number | null };
 type Action = "book" | "unlock";
-type Step = { kind: "start" } | { kind: "confirm"; action: Action } | { kind: "sending"; action: Action } | { kind: "expired" };
+type Step = { kind: "start" } | { kind: "confirm"; action: Action } | { kind: "sending"; action: Action };
 
 const signIn = "Connectez-vous pour réserver ou déverrouiller un vélo.";
 
@@ -114,7 +114,7 @@ export function BikeActions({ place, booking = null, initial, dialog = false, on
   const [checking, setChecking] = useState(false);
   const unlocking = useOperation(`unlock:${place.bikeNumber}`);
   const reserving = useOperation(`book:${place.bikeNumber}`);
-  const wantsUnlock = chosen.kind !== "start" && chosen.kind !== "expired" && chosen.action === "unlock";
+  const wantsUnlock = chosen.kind !== "start" && chosen.action === "unlock";
   const held = unlocking ? { action: "unlock" as const, operation: unlocking } : reserving && !wantsUnlock ? { action: "book" as const, operation: reserving } : null;
   const bookedNow = booking !== null && reserving?.status === "uncertain";
 
@@ -126,10 +126,10 @@ export function BikeActions({ place, booking = null, initial, dialog = false, on
     if (!pollId) return;
     return pollUnlock(() => verify("unlock", false), pollAt);
   }, [pollId, pollAt]);
-  const step: Step = held && chosen.kind !== "expired" ? { kind: held.operation.status === "sending" ? "sending" : "confirm", action: held.action } : chosen;
+  const step: Step = held ? { kind: held.operation.status === "sending" ? "sending" : "confirm", action: held.action } : chosen;
   const failure = held ? held.operation.outcome : refused;
 
-  if (!account || step.kind === "expired") return <p className="bike-action-signin">{signIn}</p>;
+  if (!account) return <p className="bike-action-signin">{signIn}</p>;
 
   async function send(action: Action) {
     setFailure(null);
@@ -137,7 +137,7 @@ export function BikeActions({ place, booking = null, initial, dialog = false, on
     const key = `${action}:${place.bikeNumber}`;
     const outcome = await runOnce(operations, key, () => sendBikeAction(action, place), { keep: true, meta: { stationNumber: place.stationNumber, standNumber: place.standNumber, bikeNumber: place.bikeNumber } });
     if (typeof outcome === "string") { setNotice(blockedMessage(outcome, operations.get(key) !== null)); return; }
-    if (outcome.httpStatus === 401) { setStep({ kind: "expired" }); return; }
+    if (outcome.httpStatus === 401) { account?.expired(); return; }
     if (outcome.ok) {
       account?.changed();
       if (action === "unlock") account?.unlocked("ongoing" in outcome ? outcome.ongoing?.[0]?.id ?? null : null);

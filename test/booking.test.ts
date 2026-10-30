@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { afterEach, beforeEach, test } from "node:test";
 import { readFileSync } from "node:fs";
 import { ACTION_TIMEOUT_MS, postBooking, postRelease } from "../lib/cyclocity.ts";
-import { VelovError } from "../lib/auth-protocol.ts";
+import { isUncertain } from "../lib/outcome.ts";
 
 const realFetch = globalThis.fetch;
 beforeEach(() => { globalThis.fetch = (() => { throw new Error("network call in a unit test"); }) as typeof fetch; });
@@ -86,8 +86,9 @@ test("a release is never retried: gateway errors, a lost answer and an expired s
   assert.deepEqual([outcome.ok, outcome.httpStatus, outcome.code, outcome.detail], [false, 0, "network", "TimeoutError"]);
   assert.equal(outcome.message, "Vélo’v ne répond pas. Le vélo est peut-\u2060être déverrouillé.");
   const expired = recorder({ status: 401 });
-  await assert.rejects(postRelease(release, expired.send), (error) => error instanceof VelovError && error.code === "expired");
+  const unauthorized = await postRelease(release, expired.send);
   assert.equal(expired.calls.length, 1);
+  assert.deepEqual([unauthorized.httpStatus, isUncertain(unauthorized)], [401, true], "the release may have reached the dock");
 });
 
 test("a booking posts CreateBooking in the app's field order, as plain JSON without Accept, once", async () => {
@@ -127,8 +128,9 @@ test("a booking is never retried either", async () => {
     assert.equal(outcome.ok, false);
   }
   const expired = recorder({ status: 401 });
-  await assert.rejects(postBooking(booking, expired.send), (error) => error instanceof VelovError && error.code === "expired");
+  const { outcome: unauthorized } = await postBooking(booking, expired.send);
   assert.equal(expired.calls.length, 1);
+  assert.deepEqual([unauthorized.httpStatus, isUncertain(unauthorized)], [401, true]);
 });
 
 test("the booking and unlock routes outlive the action timeout, so the platform never cuts an answer that may confirm a booking or a release", () => {
