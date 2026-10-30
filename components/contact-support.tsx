@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useState } from "react";
-import { EnvelopeSimpleIcon, XIcon } from "./icons";
+import { EnvelopeSimpleIcon, SendIcon, XIcon } from "./icons";
 import { type Outcome, type Trip, capitalize, formatDate, outcomeSchema } from "@/lib/models";
 import { UNCERTAIN, isUncertain, networkFailure, routeFailure } from "@/lib/outcome";
 import { blockedMessage, runOnce } from "@/lib/operations";
@@ -78,7 +78,7 @@ export function ContactSupport({ trips, account }: { trips: Trip[] | null; accou
       {recent.length ? <SelectField label="Trajet (facultatif)" value={tripId} onChange={setTripId} options={[{ value: "none", label: "Aucun" }, ...recent.map((item) => ({ value: item.id, label: `${formatDate(item.startedAt)} · ${item.startStation ?? "Trajet"}` }))]}/> : null}
       <label className="field"><span className="metric-label">Message</span><textarea rows={5} maxLength={1500} value={message} onChange={(event) => setMessage(event.target.value)}/></label>
       {error && !draft ? <p className="form-error" role="alert">{error}</p> : null}
-      <div className="profile-form-actions"><Button variant="ghost" onClick={() => setOpen(false)}>Annuler</Button><Button onClick={review}>Envoyer</Button></div>
+      <div className="profile-form-actions"><Button variant="ghost" onClick={() => setOpen(false)}>Annuler</Button><Button onClick={review}><SendIcon size={17} weight="light" aria-hidden="true"/>Envoyer</Button></div>
     </div>}
     {draft || status ? <Modal titleId={titleId} onClose={closeConfirmation}>
       <div className="modal-heading"><h2 id={titleId}>Envoyer au service client ?</h2><button className="icon-button" aria-label="Fermer" disabled={sending && sendingHere} onClick={closeConfirmation}><XIcon size={20}/></button></div>

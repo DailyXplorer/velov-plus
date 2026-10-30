@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useSyncExternalStore } from "react";
 import dynamic from "next/dynamic";
-import { BicycleIcon, CaretRightIcon, DownloadSimpleIcon, EnvelopeSimpleIcon, type Icon, LetterCirclePIcon, LightningIcon, MagnifyingGlassIcon, NavigationArrowIcon, SignOutIcon, StarFourIcon, StarIcon, TicketIcon, TrendUpIcon, XIcon } from "./icons";
+import { BicycleIcon, CaretRightIcon, DownloadSimpleIcon, EnvelopeSimpleIcon, type Icon, LetterCirclePIcon, LightningIcon, MagnifyingGlassIcon, NavigationArrowIcon, PencilIcon, SignOutIcon, StarFourIcon, StarIcon, TicketIcon, TrendUpIcon, XIcon } from "./icons";
 import { ViaAction } from "./via-action";
 import { type Dashboard, type Page, type Resource, type Station, type Trip, formatCount, formatCountSans, formatDate, formatDuration, formatName, formatPrice } from "@/lib/models";
 import { describeLocationFailure, findPosition, formatDistance, haversine, type Point } from "@/lib/geo";
@@ -434,7 +434,7 @@ export function PointsSkeleton() {
       <div className="setting-row skeleton" aria-hidden="true"><div><span className="metric-label">Utilisation automatique</span><strong className="setting-value">Activée</strong></div><span className="switch"/></div>
       <div className="soon-row invite-row skeleton" aria-hidden="true">
         <div><span className="metric-label">Inviter un ami</span><p>Échangez vos points contre un code à offrir à un ami.</p><small className="soon-note">Il vous manque 255 points.</small></div>
-        <span className="button button-secondary"><span className="button-content">Obtenir un code</span></span>
+        <span className="button button-secondary"><span className="button-content"><TicketIcon size={17} weight="light"/>Obtenir un code</span></span>
       </div>
       <section className="earn-section">
         <SectionHeading title="Gagner des points"/>
@@ -481,7 +481,7 @@ export function AccountSkeleton() {
             <div><dt>Adresse</dt><dd>1 rue de la République<small>69002 Lyon · France</small></dd></div>
             <div><dt>Téléphone</dt><dd>06 00 00 00 00</dd></div>
           </dl>
-          <span className="button button-secondary"><span className="button-content">Modifier mes coordonnées</span></span>
+          <span className="button button-secondary"><span className="button-content"><PencilIcon size={17} weight="light"/>Modifier mes coordonnées</span></span>
         </section>
         <section className="account-section skeleton">
           <h2>Abonnement</h2>

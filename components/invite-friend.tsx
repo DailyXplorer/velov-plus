@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useState } from "react";
-import { CopyIcon, XIcon } from "./icons";
+import { CopyIcon, TicketIcon, XIcon } from "./icons";
 import { promoResultSchema, type PromoResult } from "@/lib/promo-models";
 import { preparePromoStorage, promoStorageKey, readPromoCodes, savePromoCode, type SavedPromo } from "@/lib/promo-storage";
 import { type Outcome, capitalize, formatCountSans } from "@/lib/models";
@@ -120,7 +120,7 @@ export function InviteFriend({ cost, balance, account, onChanged }: { onChanged:
   return <>
     <div className="soon-row invite-row">
       <div><span className="metric-label">Inviter un ami</span><p>Échangez vos points contre un code à offrir à un ami.</p>{cost === null ? <small className="soon-note">L’offre est momentanément indisponible.</small> : null}{cost !== null && balance !== null && balance < cost ? <small className="soon-note">Il vous manque {formatCountSans(cost - balance)} points.</small> : null}</div>
-      <Button variant="secondary" disabled={!operation && !canObtain} onClick={open}>{codes.length ? "Obtenir un autre code" : "Obtenir un code"}</Button>
+      <Button variant="secondary" disabled={!operation && !canObtain} onClick={open}><TicketIcon size={17} weight="light" aria-hidden="true"/>{codes.length ? "Obtenir un autre code" : "Obtenir un code"}</Button>
     </div>
     {codeList}
     {!asking && warning ? <p className="form-error" role="alert">{warning}</p> : null}

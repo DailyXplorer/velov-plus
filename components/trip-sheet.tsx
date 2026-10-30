@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { BicycleIcon, CaretDownIcon, CaretRightIcon, CheckIcon, CopyIcon, LightningIcon, StarIcon, XIcon } from "./icons";
+import { BicycleIcon, CaretDownIcon, CaretRightIcon, CheckIcon, CopyIcon, LightningIcon, SendIcon, StarIcon, XIcon } from "./icons";
 import { type Outcome, type Trip, canRate, formatCountSans, formatDate, formatDuration, formatPrice } from "@/lib/models";
 import { type Stars, dismissTrip, sendStars, starLabels } from "@/lib/trip-end";
 import { UNCERTAIN, isUncertain } from "@/lib/outcome";
@@ -93,7 +93,7 @@ function RateBike({ trip, bikeNumber, onLater, onRated }: { trip: Trip; bikeNumb
       <div className="trip-rate-actions">
         {operation ? <>{!sendingHere ? <TextButton onClick={onLater}>Plus tard</TextButton> : null}<Button variant="secondary" pending={sending || checking} onClick={() => void verify()}>Vérifier</Button></> : <>
           {!sendingHere ? <TextButton onClick={onLater}>Plus tard</TextButton> : null}
-          <Button disabled={stars == null} onClick={() => { if (stars != null) void submit(stars); }}>Envoyer</Button>
+          <Button disabled={stars == null} onClick={() => { if (stars != null) void submit(stars); }}><SendIcon size={17} weight="light" aria-hidden="true"/>Envoyer</Button>
         </>}
       </div>
     </section>

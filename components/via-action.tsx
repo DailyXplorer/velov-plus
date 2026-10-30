@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useState } from "react";
-import { TimerIcon, XIcon } from "./icons";
+import { NavigationArrowIcon, TimerIcon, XIcon } from "./icons";
 import { type Outcome, type Station, capitalize, outcomeSchema } from "@/lib/models";
 import { fullStations } from "@/lib/via-models";
 import { UNCERTAIN, isUncertain, networkFailure, routeFailure } from "@/lib/outcome";
@@ -70,7 +70,7 @@ export function ViaAction({ stations, account, tripId }: { stations: Station[]; 
         </> : <>
           <p>Choisissez la station pleine où vous vouliez rendre votre vélo.</p>
           <label className="field"><span className="metric-label">Rechercher une station pleine</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Nom, adresse ou numéro"/></label>
-          <Button variant="ghost" pending={locating} onClick={locate}>Les plus proches</Button>
+          <Button variant="ghost" pending={locating} onClick={locate}><NavigationArrowIcon size={17} weight="light" aria-hidden="true"/>Les plus proches</Button>
           {locationError ? <><p className="soon-note">{locationError.message}</p>{locationError.raw ? <p className="bike-action-raw">{locationError.raw}</p> : null}</> : null}
           {choices.length ? <SelectField label="Station pleine" hideLabel value={selected} onChange={setSelected} options={[{ value: "", label: "Choisir une station" }, ...choices.map((item) => ({ value: String(item.number), label: `${item.name} · N° ${item.number}${position ? ` · ${formatDistance(haversine(position, item))}` : ""}` }))]}/> : <p>Aucune station pleine ne correspond à votre recherche.</p>}
           <div className="modal-actions"><Button variant="ghost" onClick={close}>Annuler</Button><Button disabled={!station} onClick={() => setReviewing(true)}>Continuer</Button></div>

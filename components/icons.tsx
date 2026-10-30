@@ -4,7 +4,7 @@ import {
   Alert02Icon, AlertCircleIcon, ArrowDown01Icon, ArrowLeft02Icon, ArrowRight01Icon, ArrowRight02Icon, ArrowUpRight01Icon,
   BatteryEmptyIcon as BatteryEmpty, BatteryFullIcon as BatteryFull, BatteryLowIcon as BatteryLow, BatteryMedium01Icon, BatteryMedium02Icon,
   BikeIcon, Cancel01Icon, ChartLineData02Icon, Clock01Icon, Coins01Icon, Copy01Icon, Download01Icon, FlashIcon, Home03Icon, Leaf01Icon, Loading03Icon, Location01Icon, Login01Icon, Logout05Icon,
-  Mail01Icon, Navigation03Icon, ParkingAreaCircleIcon, Refresh01Icon, Route01Icon, Search01Icon, SparkleIcon, SquareUnlock02Icon,
+  Mail01Icon, Navigation03Icon, ParkingAreaCircleIcon, PencilEdit02Icon, Refresh01Icon, Route01Icon, Search01Icon, SentIcon, SparkleIcon, SquareUnlock02Icon,
   StarHalfIcon as StarHalf, StarIcon as Star, ThumbsDownIcon as ThumbsDown, ThumbsUpIcon as ThumbsUp, Ticket01Icon, Tick02Icon,
   Timer02Icon, TrendingUpIcon, UserCircleIcon as UserCircle
 } from "@hugeicons/core-free-icons";
@@ -55,7 +55,9 @@ export const LockOpenIcon = hugeicon(SquareUnlock02Icon);
 export const MagnifyingGlassIcon = hugeicon(Search01Icon);
 export const MapPinIcon = hugeicon(Location01Icon);
 export const NavigationArrowIcon = hugeicon(Navigation03Icon);
+export const PencilIcon = hugeicon(PencilEdit02Icon);
 export const RouteIcon = hugeicon(Route01Icon);
+export const SendIcon = hugeicon(SentIcon);
 export const SignInIcon = hugeicon(Login01Icon);
 export const SignOutIcon = hugeicon(Logout05Icon);
 export const SpinnerGapIcon = hugeicon(Loading03Icon);
