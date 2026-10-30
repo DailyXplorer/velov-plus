@@ -219,7 +219,7 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
 .select-inline .select-popover { left: auto; right: 0; min-width: 220px; }
 .select-short { display: none; }
 .stations-explorer { display: grid; grid-template-columns: 296px minmax(0, 1fr); gap: 24px; height: 560px; }
-.stations-list { min-width: 0; overflow-y: auto; padding: 0 6px 0 0; }
+.stations-list { min-width: 0; overflow-y: auto; }
 .station-item { display: block; width: 100%; padding: 16px 15px; border: 0; border-radius: 12px; background: var(--white); text-align: left; transition: background-color .2s ease; }
 .station-item:hover { background: var(--mist); }
 .station-item.selected { background: var(--mist); box-shadow: inset 0 0 0 1px var(--ink-line); }
@@ -708,7 +708,7 @@ h3.metric-label, h3.trip-rate-title { font-family: var(--font); font-weight: 500
   .skeleton, .skeleton-text, .points-summary > .skeleton, .account-logout > .skeleton { background-image: none; animation: none; }
 }
 .modal { scrollbar-gutter: stable both-edges; }
-.modal.bikes-drawer, .stations-list, .station-sheet, .select-popover { scrollbar-gutter: stable; }
+.modal.bikes-drawer, .station-sheet { scrollbar-gutter: stable; }
 .station-numbers { grid-template-columns: repeat(3, auto); justify-content: space-between; gap: 8px 12px; }
 .station-numbers small { white-space: nowrap; }
 .points-balance, .points-total { font-size: clamp(28px, 26cqi, 64px) !important; white-space: nowrap; }
