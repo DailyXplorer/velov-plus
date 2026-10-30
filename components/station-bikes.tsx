@@ -2,11 +2,11 @@
 
 import { type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
-import { ArrowClockwiseIcon, ArrowLeftIcon, BatteryEmptyIcon, BatteryFullIcon, BatteryHighIcon, BatteryLowIcon, BatteryMediumIcon, BicycleIcon, CaretDownIcon, CaretRightIcon, type Icon, LightningIcon, StarHalfIcon, StarIcon, ThumbsUpIcon, WarningIcon, XIcon } from "./icons";
+import { ArrowClockwiseIcon, ArrowLeftIcon, BatteryEmptyIcon, BatteryFullIcon, BatteryHighIcon, BatteryLowIcon, BatteryMediumIcon, BicycleIcon, CaretDownIcon, CaretRightIcon, type Icon, LightningIcon, SignInIcon, StarHalfIcon, StarIcon, ThumbsUpIcon, WarningIcon, XIcon } from "./icons";
 import { type AssessedBike, assessBikes, isCheckOverdue } from "@/lib/bike-score";
 import { type Bike, type Resource, type Station, bikeSchema, capitalize, formatCountSans, formatDate } from "@/lib/models";
 import { Button, EmptyState, Eyebrow, Ghost, Modal } from "./ui";
-import { BikeActions, BookingsContext } from "./bike-actions";
+import { BikeActions, BookingsContext, SignInContext } from "./bike-actions";
 import { useSending } from "./operations";
 import { getJson } from "./get-json";
 
@@ -128,7 +128,8 @@ function VerdictMark({ verdict }: { verdict: AssessedBike["verdict"] }) {
 
 function StationActions({ bike, station, onDone }: { bike: Bike; station: Station; onDone: () => void }) {
   const account = useContext(BookingsContext);
-  if (!account) return <p className="bike-action-signin">Connectez-vous pour réserver ou déverrouiller un vélo.</p>;
+  const signIn = useContext(SignInContext);
+  if (!account) return signIn ? <button className="text-button bike-signin" onClick={signIn}><SignInIcon size={18} weight="light" aria-hidden="true"/>Se connecter pour réserver ou déverrouiller</button> : null;
   const booking = account.bookings.find((item) => item.bikeNumber === bike.number) ?? null;
   if (bike.status !== "AVAILABLE" || bike.standNumber == null || (bike.isReserved && !booking)) return null;
   return <BikeActions place={{ stationNumber: station.number, stationName: station.name, standNumber: bike.standNumber, bikeNumber: bike.number, lat: station.lat, lon: station.lon }} booking={booking} onDone={onDone}/>;

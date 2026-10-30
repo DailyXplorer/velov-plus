@@ -492,6 +492,8 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
 .bike-action-mine { margin-bottom: 12px; }
 .bike-action .form-error { margin-top: 10px; }
 .bike-action-signin { margin-top: 18px; color: var(--ink-soft); font-size: 13px; }
+.text-button.bike-signin { gap: 8px; margin-top: 14px; font-size: 13px; white-space: normal; text-align: left; text-wrap: balance; }
+@media (max-width: 620px) { .text-button.bike-signin { font-size: 12px; } }
 .modal .bike-action { margin-top: 18px; }
 .booking-banner { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; padding: 6px 6px 6px 16px; border-radius: var(--radius); color: var(--white); background: var(--red); }
 .booking-banner .booking-left { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
