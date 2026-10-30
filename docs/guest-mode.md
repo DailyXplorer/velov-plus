@@ -37,7 +37,7 @@ Les offres et les tarifs ne sont pas publiés en GBFS (`system_pricing_plans.jso
 | Autour de moi | Public (position du navigateur) | Affiché |
 | Itinéraire | Public (lien Google Maps) | Affiché |
 | Liste des vélos d’une station, note, batterie, vélo recommandé | Public (jeton d’application) | Affiché |
-| Fiche d’un vélo | Public (jeton d’application) | Affichée, avec un seul lien « Se connecter pour réserver ou déverrouiller » à la place des actions |
+| Fiche d’un vélo | Public (jeton d’application) | Affichée, avec un bouton « Se connecter » dans la rangée d’actions, seulement pour un vélo disponible, non réservé et en station |
 | Réserver, Déverrouiller, bandeau de réservation | Compte | Absent |
 | Vue d’ensemble (points, trajets, abonnement, derniers trajets) | Compte | Absente |
 | Trajet en cours, Via (15 minutes de plus), Trajet terminé et note du vélo | Compte | Absent |

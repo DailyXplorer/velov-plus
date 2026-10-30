@@ -13,6 +13,11 @@ test("guest mode reuses the signed-in layout and styles, with no rule of its own
   assert.match(source("components/station-bikes.tsx"), /if \(bike\.status !== "AVAILABLE"[^\n]*return null;\n\s*if \(!account\) return signIn \? \(\n\s*<section className="bike-action"/);
 });
 
+test("the signed-in loading skeleton sits in the page slot the phone map layout keys on", () => {
+  assert.match(source("app/globals.css"), /\.app-main:has\(\.page-slot:not\(\[hidden\]\) > \.stations-page\)/);
+  assert.match(source("components/companion.tsx"), /state\.kind === "loading" \? <div className="page-slot"><PageSkeleton\/><\/div>/);
+});
+
 function memoryStorage(initial?: string) {
   const values = new Map<string, string>();
   if (initial !== undefined) values.set(FAVORITES_KEY, initial);

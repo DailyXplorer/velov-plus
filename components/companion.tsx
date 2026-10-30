@@ -268,7 +268,7 @@ export function Companion({ start }: { start: StartMode }) {
           </header>
           <main id="main-content" className="main-content">
             {bookings.map((booking) => <BookingBanner key={booking.id} booking={booking} onUnlock={() => setUnlocking(booking)}/>)}
-            {state.kind === "loading" ? <PageSkeleton/> : state.kind === "error" ? (
+            {state.kind === "loading" ? <div className="page-slot"><PageSkeleton/></div> :state.kind === "error" ? (
               <LoadFailure failure={state} layout="page" pending={refreshing} onRetry={() => void loadDashboard()}/>
             ) : (
               <>
