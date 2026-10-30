@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { test } from "node:test";
 import { CALLBACK, CLIENT_ID, IAM, OIDC, VelovError, login, makeAuthorization, readCallback, readForm, refresh, requireSameOrigin } from "../lib/auth-protocol.ts";
+import { loginError } from "../lib/models.ts";
+import { readFileSync } from "node:fs";
 
 test("a login starts with a unique state, nonce and S256 proof", () => {
   const first = makeAuthorization();
@@ -78,4 +80,13 @@ test("a rejected refresh expires the session; an outage preserves the option to 
   const unavailable: typeof fetch = async () => new Response(null, { status: 503 });
   await assert.rejects(refresh("test-token", rejected), (error: unknown) => error instanceof VelovError && error.code === "expired");
   await assert.rejects(refresh("test-token", unavailable), (error: unknown) => error instanceof VelovError && error.code === "unavailable");
+});
+
+test("a login cut by the platform's own error page reads as a failed login, not as a lost Internet connection", () => {
+  assert.equal(loginError("<html><body>An error occurred with your deployment. FUNCTION_INVOCATION_TIMEOUT</body></html>"), "Connexion impossible. Réessayez.");
+  assert.equal(loginError(""), "Connexion impossible. Réessayez.");
+  assert.equal(loginError(JSON.stringify({ error: "Adresse e-mail ou code secret incorrect." })), "Adresse e-mail ou code secret incorrect.");
+  const source = readFileSync("components/login.tsx", "utf8");
+  assert.match(source, /const text = await response\.text\(\);/);
+  assert.doesNotMatch(source, /response\.json\(\)/);
 });

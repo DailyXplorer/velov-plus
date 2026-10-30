@@ -243,10 +243,7 @@ export function Companion({ start }: { start: StartMode }) {
 
   if (state.kind === "guest") return <GuestApp onSignIn={signIn}/>;
   if (state.kind === "signedOut") return (
-    <>
-      {state.message ? <p className="session-notice" role="status">{state.message}</p> : null}
-      <Login onConnected={connected} onGuest={continueAsGuest}/>
-    </>
+    <Login key={state.message ?? ""} onConnected={connected} onGuest={continueAsGuest} notice={state.message}/>
   );
 
   const data = state.kind === "ready" ? state.data : null;

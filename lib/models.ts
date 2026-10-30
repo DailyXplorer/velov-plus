@@ -191,3 +191,10 @@ export function normalizePhone(raw: string, country: string | null) {
 export const autoSpendResultSchema = outcomeSchema.extend({ autoSpend: z.boolean().nullable() });
 export type AutoSpendResult = z.infer<typeof autoSpendResultSchema>;
 
+export function loginError(text: string): string {
+  try {
+    const data: unknown = JSON.parse(text);
+    if (data && typeof data === "object" && "error" in data && typeof data.error === "string") return data.error;
+  } catch {}
+  return "Connexion impossible. Réessayez.";
+}

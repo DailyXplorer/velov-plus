@@ -3,12 +3,13 @@
 import { useState, type FormEvent } from "react";
 import { MapPinIcon } from "./icons";
 import { Button } from "./ui";
+import { loginError } from "@/lib/models";
 
-export function Login({ onConnected, onGuest }: { onConnected: () => void; onGuest: () => void }) {
+export function Login({ onConnected, onGuest, notice = null }: { onConnected: () => void; onGuest: () => void; notice?: string | null }) {
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [pending, setPending] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState(notice ?? "");
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -21,11 +22,9 @@ export function Login({ onConnected, onGuest }: { onConnected: () => void; onGue
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: email.trim(), code })
       });
-      const data: unknown = await response.json();
+      const text = await response.text();
       if (!response.ok) {
-        const message = typeof data === "object" && data !== null && "error" in data && typeof data.error === "string"
-          ? data.error : "Connexion impossible. Réessayez.";
-        setError(message);
+        setError(loginError(text));
         return;
       }
       setCode("");
