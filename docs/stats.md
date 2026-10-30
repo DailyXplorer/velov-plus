@@ -36,10 +36,19 @@ Une page en échec après la première garde les pages déjà lues et marque l�
 
 - **Trajets comptés.** Tous les trajets de l’historique sauf ceux au statut `REVERSED` (annulés).
 - **Périodes.** 30 derniers jours (par jour), 12 derniers mois (par mois), depuis le début (par mois). Les jours, heures et jours de la semaine sont en heure de Paris.
-- **Km estimés.** Distance en ligne droite entre les deux stations (formule de haversine), multipliée par 1,3 pour les détours. Un retour à la même station compte 0 km. La distance est inconnue quand le trajet n’a plus ses stations, ou quand une station n’existe plus dans la liste GBFS. L’interface dit « km estimés » et indique le nombre de trajets sans distance.
-- **CO₂ évité estimé.** 200 g de CO₂ par km estimé, ordre de grandeur d’une voiture thermique en ville. Le facteur est affiché en note sous les cartes.
+- **Km estimés.** Distance en ligne droite entre les deux stations (formule de haversine), multipliée par 1,3 pour les détours. Un retour à la même station compte 0 km. La distance est inconnue quand le trajet n’a plus ses stations, ou quand une station n’existe plus dans la liste GBFS.
+- **CO₂ évité estimé.** 200 g de CO₂ par km estimé, ordre de grandeur d’une voiture thermique en ville. Ce facteur reste à valider.
 - **Dépenses.** Somme des prix payés après réduction ; les économies sont la somme des réductions (`discount`).
 - **Points gagnés.** Somme des crédits de `rewards/history` sur la période. Si cet historique est indisponible, somme des `rewardsEarned` des trajets.
 - **Évolution des points.** Solde à la fin de chaque jour ou mois : solde actuel moins les mouvements postérieurs.
-- **Trajets sans stations.** Comptés et signalés (« 12 trajets sans stations : Vélo’v a effacé ces données »). Ils comptent dans les trajets, les minutes, les dépenses et le type de vélo, mais pas dans les stations, les trajets favoris ni les km.
+- **Trajets sans stations.** Ils comptent dans les trajets, les minutes, les dépenses et le type de vélo, mais pas dans les stations, les trajets favoris ni les km.
 - **Historique tronqué.** Les trajets que `GET /trips` ne rend plus (environ 13 mois et plus) sont absents : « Depuis le début » commence au plus ancien trajet encore rendu.
+- **Cause de l’effacement.** Elle n’est pas prouvée : lire le JSON brut des trajets, sans rien écrire, avant d’en affirmer une. La seule correction durable serait de garder chaque trajet côté serveur dès qu’il est vu ; elle est proposée, pas construite.
+
+## Écran
+
+L’interface n’affiche ni note de méthode ni compteur de trajets sans stations ; seule la mention « Historique partiel » apparaît sous le choix de la période.
+
+L’écran validé contient, dans l’ordre : le choix de la période ; six cartes rouges (Trajets, Minutes à vélo, Distance, CO₂ évité, Dépenses, Points gagnés), chacune avec une seule ligne de détail courte (« 5 min en moyenne », « Solde de 540 points ») ; le graphique du temps par mois ; la carte des horaires de départ et l’anneau des types de vélo ; les records en quatre tuiles, un libellé court et une valeur, sans sous-ligne ; les cinq stations les plus fréquentes.
+
+Les graphiques sont dessinés à la main en SVG, sans bibliothèque. L’axe des mois utilise les initiales (N D J F…), et l’infobulle donne le mois en entier.

@@ -1,6 +1,6 @@
 # Formats d’API non confirmés
 
-Certaines requêtes de Vélo’v+ reposent sur des formats que personne n’a encore vérifiés par un envoi réel. Ils sont regroupés dans `lib/guesses.ts`, avec le niveau de confiance et la source de chacun ci-dessous. Ces constantes servent à corriger le format après vérification. Elles ne sont jamais des solutions de repli : en cas de refus, l’application n’essaie pas un autre corps ni un autre identifiant. Un format se change dans le code, après relecture, et la requête suivante part avec le nouveau format.
+Certaines requêtes de Vélo’v+ reposent sur des formats que personne n’a encore vérifiés par un envoi réel. Ils sont regroupés dans `lib/guesses.ts`, avec le niveau de confiance et la source de chacun ci-dessous. Ces constantes servent à corriger le format après vérification. Elles ne sont jamais des solutions de repli : en cas de refus, l’application n’essaie pas un autre corps ni un autre identifiant. Un format se change dans le code, après relecture, et la requête suivante part avec le nouveau format. C’est un choix produit : une fonction dont le format n’est pas documenté part avec la meilleure hypothèse plutôt que d’être grisée avec « Bientôt disponible », et elle ne porte aucun badge « Expérimental ».
 
 Les sources sont la [documentation communautaire](community-README.md) et le client Swift [Fyroeo/VLSKit](https://github.com/Fyroeo/VLSKit/tree/5fea3c62a541de8b0061755c17b76e612dcfa155), lu au commit `5fea3c62`.
 
@@ -14,7 +14,7 @@ Le type de média et le champ `stationId` sont connus avec une bonne confiance (
 
 ## Message au service client
 
-Le message part en `multipart/form-data` avec les champs `complaintType` et `message`, ce que la documentation communautaire établit avec une bonne confiance (tableau du § 10). Les catégories `TRIP`, `SUBSCRIPTION`, `PAYMENT` et `PARKING` viennent de `EmailService.swift`, lignes 6 à 14, et restent moins sûres. Le champ `tripId` n’est pas envoyé, car VLSKit l’appelle `tripNumber` alors que le tableau de bord ne connaît que l’UUID du trajet. La référence du trajet choisi est ajoutée au texte du message.
+Le message part en `multipart/form-data` avec les champs `complaintType` et `message`, ce que la documentation communautaire établit avec une bonne confiance (tableau du § 10). Les catégories `TRIP`, `SUBSCRIPTION`, `PAYMENT` et `PARKING` viennent de `EmailService.swift`, lignes 6 à 14, et restent moins sûres. Le champ `tripId` n’est pas envoyé, car VLSKit l’appelle `tripNumber` alors que le tableau de bord ne connaît que l’UUID du trajet. La référence du trajet choisi est ajoutée au texte du message. Le lien vers l’adresse e-mail du service client reste visible à côté du formulaire.
 
 ## Code à offrir à un ami
 

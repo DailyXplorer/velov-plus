@@ -68,11 +68,13 @@ Le site est déployé sur Vercel. Comme il ne dépend d’aucune variable d’en
 - `components/` contient l’interface React : carte, fiches des stations et des vélos, statistiques, compte.
 - `lib/` contient le client Cyclocity, la gestion de session, les modèles validés avec Zod et les calculs purs.
 - `test/` contient les tests unitaires.
-- `docs/` contient la documentation de l’API et les notes sur les statistiques.
+- `docs/` contient la documentation de l’API, les règles de conception et de développement, et les notes sur les statistiques.
 
 ## Documentation
 
 La [documentation communautaire de l’API Cyclocity](docs/api/community-README.md), écrite par Yann Lombard et publiée sous licence CC BY 4.0, décrit les routes utilisées par l’application. Elle est accompagnée de sa description OpenAPI et de sa collection Postman dans le même dossier. La note [docs/stats.md](docs/stats.md) explique d’où viennent les chiffres de l’onglet Statistiques et quelles sont leurs limites.
+
+Avant de modifier le projet, lisez les règles de [docs/development.md](docs/development.md) (sécurité des actions, conventions, déploiement, relecture) et de [docs/design-rules.md](docs/design-rules.md) (règles produit et de conception, communes au site et à l’app iOS). La note [docs/api-notes.md](docs/api-notes.md) rassemble les comportements de l’API observés par le projet et absents de la documentation communautaire, ainsi que les étapes pour libérer un compte lié à un autre appareil. Ces trois fichiers sont en anglais, pour les agents de programmation.
 
 ## Avertissement
 
