@@ -129,8 +129,11 @@ export function Overview({ data, stations, navigate, reload, reloading }: { data
             {chosen ? (
               <div className="map-station-card">
                 <div className="station-card-heading"><strong>{chosen.name}</strong><button className="icon-button" aria-label="Voir les stations" onClick={() => navigate("stations")}><CaretRightIcon size={18} weight="light"/></button></div>
-                <StationNumbers station={chosen}/>
-                <Button onClick={() => setBikesOpen(true)}>Voir les vélos</Button>
+                <StationNumbers station={chosen} compact/>
+                <div className="station-card-actions">
+                  <Button onClick={() => setBikesOpen(true)}>Voir les vélos</Button>
+                  <a className="button button-secondary" href={directionsTo(chosen)} target="_blank" rel="noreferrer">Itinéraire</a>
+                </div>
               </div>
             ) : null}
             <MapAttribution/>
@@ -201,6 +204,10 @@ export function PointsPage({ data, onAutoSpend, onChanged }: { onChanged: () => 
   );
 }
 
+function directionsTo(station: Station) {
+  return `https://www.google.com/maps/dir/?api=1&destination=${station.lat},${station.lon}&travelmode=walking`;
+}
+
 function distanceTo(station: Station, position: Point) {
   return haversine(position, station);
 }
@@ -224,7 +231,7 @@ export function StationsPage({ resource, reload, reloading, favorites: favoriteL
   }, [stations, query, filter, position, favorites]);
   const chosen = filtered.find((station) => station.id === selected) ?? (phone ? undefined : filtered.find((station) => station.number === 2002) ?? filtered[0]);
   const chosenDistance = chosen && position ? formatDistance(distanceTo(chosen, position)) : null;
-  const directions = chosen ? `https://www.google.com/maps/dir/?api=1&destination=${chosen.lat},${chosen.lon}&travelmode=walking` : "";
+  const directions = chosen ? directionsTo(chosen) : "";
 
   function located(coords: GeolocationCoordinates) {
     const here: UserPosition = { lat: coords.latitude, lon: coords.longitude, accuracy: coords.accuracy };
@@ -257,7 +264,6 @@ export function StationsPage({ resource, reload, reloading, favorites: favoriteL
         </div>
         <Button variant="secondary" pending={locating} onClick={locate} aria-label="Stations autour de moi" title="Autour de moi"><NavigationArrowIcon size={18} weight="light"/><span className="location-label">Autour de moi</span></Button>
       </div>
-      {resource.kind === "error" ? <LoadFailure failure={resource} layout="inline" pending={reloading} onRetry={reload}/> : null}
       <div className="stations-explorer">
         {query && resource.kind === "ready" ? (
           <div className="stations-list" role="list" aria-label="Résultats de recherche">
@@ -272,6 +278,7 @@ export function StationsPage({ resource, reload, reloading, favorites: favoriteL
         ) : null}
         <div className="explorer-map">
           <StationMap stations={filtered} selected={chosen?.id ?? null} onSelect={setSelected} onClear={phone ? () => setSelected(null) : undefined} userPosition={position} fit={fit}/>
+          {resource.kind === "error" ? <LoadFailure failure={resource} layout="floating" pending={reloading} onRetry={reload}/> : null}
           {!query && filter !== "all" && resource.kind === "ready" && !filtered.length ? (
             <div className="filter-empty" role="status"><span>Aucune station pour ce filtre.</span><TextButton onClick={() => setFilter("all")}>Toutes les stations</TextButton></div>
           ) : null}
@@ -295,12 +302,12 @@ export function StationsPage({ resource, reload, reloading, favorites: favoriteL
             ) : chosen ? (
               <div className="selected-station-panel">
                 <div className="station-card-heading"><StationTitle station={chosen} favorite={favorites.has(chosen.number)} account={account} onFavorite={onFavorite}/>{!chosen.open ? <span className="closed-station">Fermée</span> : null}</div>
-                {chosenDistance ? <p className="station-distance">À {chosenDistance}</p> : null}
+                {chosenDistance ? <p className="station-distance">{chosenDistance}</p> : null}
                 <StationNumbers station={chosen}/>
                 <Button onClick={() => setBikesOpen(true)}>Voir les vélos</Button>
                 <a className="button button-secondary" href={directions} target="_blank" rel="noreferrer">Itinéraire</a>
               </div>
-            ) : null}
+            ) : resource.kind === "loading" && !phone ? <StationPanelGhost/> : null}
             <MapAttribution/>
           </div>
           {bikesOpen && chosen ? <StationBikes key={chosen.id} station={chosen} onClose={() => setBikesOpen(false)}/> : null}
@@ -445,7 +452,7 @@ export function PointsSkeleton() {
       </div>
       <div className="setting-row skeleton" aria-hidden="true"><div><span className="metric-label">Utilisation automatique</span><strong className="setting-value">Activée</strong></div><span className="switch"/></div>
       <div className="soon-row invite-row skeleton" aria-hidden="true">
-        <div><span className="metric-label">Inviter un ami</span><p>Échangez vos points contre un code à offrir à un ami.</p><small className="soon-note">Il vous manque 255 points.</small></div>
+        <div><span className="metric-label">Inviter un ami</span><p>Échangez vos points contre un code à offrir à un ami.</p></div>
         <span className="button button-secondary"><span className="button-content"><TicketIcon size={17} weight="light"/>Obtenir un code</span></span>
       </div>
       <section className="earn-section">
@@ -466,6 +473,19 @@ export function PointsSkeleton() {
   );
 }
 
+const GHOST_STATION: Station = { id: "ghost", number: 0, name: "", address: "", lat: 0, lon: 0, electrical: 3, mechanical: 6, stands: 12, open: true };
+
+function StationPanelGhost() {
+  return (
+    <div className="selected-station-panel" aria-hidden="true">
+      <div className="station-card-heading"><div className="station-title"><h2 className="skeleton-text">Bellecour / Ferrandière</h2></div></div>
+      <div className="skeleton-text"><StationNumbers station={GHOST_STATION}/></div>
+      <span className="button skeleton"><span className="button-content">Voir les vélos</span></span>
+      <span className="button skeleton"><span className="button-content">Itinéraire</span></span>
+    </div>
+  );
+}
+
 export function StationsSkeleton() {
   return (
     <div className="page-content stations-page" aria-busy="true" aria-label="Chargement des stations">
@@ -476,7 +496,14 @@ export function StationsSkeleton() {
         </div>
         <span className="button skeleton"><span className="button-content"><NavigationArrowIcon size={18} weight="light"/><span className="location-label">Autour de moi</span></span></span>
       </div>
-      <div className="stations-explorer"><div className="explorer-map skeleton" aria-hidden="true"/></div>
+      <div className="stations-explorer">
+        <div className="explorer-map" aria-hidden="true">
+          <div className="map-skeleton skeleton"/>
+          <div className="map-foot station-panel-ghost">
+            <StationPanelGhost/>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -502,7 +529,7 @@ export function AccountSkeleton() {
           <div className="setting-row renewal-setting"><div><span className="metric-label">Renouvellement automatique</span><strong className="setting-value">Désactivé</strong></div><span className="switch"/></div>
           <div className="receipts">
             <h3 className="metric-label">Reçus</h3>
-            <ul><li className="receipt-row"><span><strong>Vélo’v Plus 1 an Jeunes</strong><small>Du 1 janv. 2026 au 1 janv. 2027</small></span><span className="button button-secondary"><span className="button-content"><DownloadSimpleIcon size={17} weight="light"/>Reçu</span></span></li></ul>
+            <ul>{[0, 1].map((row) => <li className="receipt-row" key={row}><span><strong>Vélo’v Plus 1 an Jeunes</strong><small>Du 1 janv. 2026 au 1 janv. 2027</small></span><span className="button button-secondary"><span className="button-content"><DownloadSimpleIcon size={17} weight="light"/>Reçu</span></span></li>)}</ul>
           </div>
           <span className="text-link">Gérer sur Vélo’v</span>
         </section>
