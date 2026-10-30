@@ -89,6 +89,8 @@ h1, h2, h3, .metric-value, .metric-subscription, .points-balance, .points-total,
 .login-form > .button { width: 100%; margin-top: 6px; }
 .form-error { color: var(--error); font-size: 13px; line-height: 1.6; }
 .button.login-guest { width: 100%; margin-top: 12px; }
+.not-found-message { margin-top: 36px; text-align: center; font-size: 15px; line-height: 1.5; }
+.button.not-found-home { width: 100%; margin-top: 24px; text-decoration: none; }
 .toast-region { position: fixed; z-index: 10001; top: 24px; right: 24px; width: min(420px, calc(100vw - 48px)); pointer-events: none; }
 .toast { display: flex; width: fit-content; max-width: 100%; margin-left: auto; align-items: center; gap: 4px; padding: 4px 4px 4px 18px; border-radius: var(--radius); color: var(--error); background: var(--white); box-shadow: var(--shadow-ring); font-family: var(--font); font-size: 14px; line-height: 1.4; letter-spacing: -.02em; text-align: left; pointer-events: auto; animation: select-in .16s ease-out; }
 .toast > p { flex: 1; min-width: 0; padding: 9px 0; text-wrap: wrap; }
