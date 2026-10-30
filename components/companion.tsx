@@ -4,7 +4,7 @@ import "@/lib/zod-jitless";
 import { memo, type ReactNode, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { z } from "zod";
 import { ArrowClockwiseIcon, BicycleIcon, ChartIcon, HouseIcon, MapPinIcon, SignOutIcon, StarFourIcon, UserCircleIcon, WarningCircleIcon, XIcon } from "./icons";
-import { bookingSchema, dashboardSchema, stationsSchema, type Booking, type Dashboard, type Page, type Resource, type Trip, formatDate, formatName } from "@/lib/models";
+import { bookingSchema, dashboardSchema, type Booking, type Dashboard, type Page, type Trip, formatDate, formatName } from "@/lib/models";
 import { createDockWatch, tripCheckSchema, tripToGreet } from "@/lib/trip-end";
 import { createRefreshGate, createThrottle } from "@/lib/refresh-gate";
 import { createSessionGate } from "@/lib/session-gate";
@@ -16,6 +16,7 @@ import { StatsPage, StatsSkeleton, dropStats, forgetStats } from "./stats";
 import { BookingBanner, BookingsContext, UnlockModal } from "./bike-actions";
 import { ApiError, getJson } from "./get-json";
 import { TripEndedSheet } from "./trip-sheet";
+import { useStations } from "./use-stations";
 
 const navigation = [
   { id: "overview", label: "Vue d’ensemble", mobile: "Accueil", icon: HouseIcon },
@@ -32,7 +33,6 @@ const skeletons: Record<Page, () => ReactNode> = { overview: OverviewSkeleton, t
 const logoutSchema = z.object({ remoteLogout: z.boolean().optional() });
 const remoteLogoutUnconfirmed = "Déconnexion effectuée. Vélo’v ne l’a pas encore confirmée.";
 type State = { kind: "guest"; message: string | null } | { kind: "loading" } | { kind: "ready"; data: Dashboard } | { kind: "error"; message: string };
-type StationData = z.infer<typeof stationsSchema>;
 
 function pageFromHash(): Page {
   return navigation.find((item) => item.id === window.location.hash.slice(1))?.id ?? "overview";
@@ -49,11 +49,9 @@ function subscribeHash(changed: () => void) {
 export function Companion({ initialSession }: { initialSession: boolean }) {
   const [state, setState] = useState<State>(initialSession ? { kind: "loading" } : { kind: "guest", message: null });
   const page = useSyncExternalStore(subscribeHash, pageFromHash, () => null);
-  const [stations, setStations] = useState<Resource<StationData>>({ kind: "loading" });
-  const [stationsPending, setStationsPending] = useState(false);
+  const { resource: stations, pending: stationsPending, inFlight: stationsInFlight, reload: reloadStations } = useStations();
   const [refreshing, setRefreshing] = useState(false);
   const dashboardInFlight = useRef(false);
-  const stationsInFlight = useRef(false);
   const [logoutOpen, setLogoutOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [logoutError, setLogoutError] = useState<string | null>(null);
@@ -78,21 +76,6 @@ export function Companion({ initialSession }: { initialSession: boolean }) {
     if (stamp.live()) setBookings(list);
   }));
   const account = useMemo(() => ({ bookings, changed: () => { forgetStats(); void loadBookings(); }, unlocked: (tripId: string | null) => watch.current?.follow(tripId) }), [bookings, loadBookings]);
-
-  const loadStations = useCallback(async () => {
-    if (stationsInFlight.current) return;
-    stationsInFlight.current = true;
-    setStationsPending(true);
-    try {
-      setStations({ kind: "ready", data: await getJson("/api/stations", stationsSchema, "Les stations sont momentanément indisponibles.") });
-    } catch (error) {
-      setStations({ kind: "error", message: error instanceof ApiError ? error.message : "Les stations sont momentanément indisponibles." });
-    } finally {
-      stationsInFlight.current = false;
-      setStationsPending(false);
-    }
-  }, []);
-  const reloadStations = useCallback(() => void loadStations(), [loadStations]);
 
   const patchData = useCallback((change: (data: Dashboard) => Dashboard) => {
     setState((current) => current.kind === "ready" ? { kind: "ready", data: change(current.data) } : current);
@@ -165,9 +148,9 @@ export function Companion({ initialSession }: { initialSession: boolean }) {
   useEffect(() => {
     const changed = () => window.scrollTo({ top: 0, behavior: "auto" });
     window.addEventListener("hashchange", changed);
-    if (initialSession) { void loadDashboard(); void loadStations(); void loadBookings(); }
+    if (initialSession) { void loadDashboard(); reloadStations(); void loadBookings(); }
     return () => window.removeEventListener("hashchange", changed);
-  }, [initialSession, loadDashboard, loadStations, loadBookings]);
+  }, [initialSession, loadDashboard, reloadStations, loadBookings]);
 
   function connected() {
     session.current.end();
@@ -175,14 +158,14 @@ export function Companion({ initialSession }: { initialSession: boolean }) {
     setState({ kind: "loading" });
     dashboardInFlight.current = false;
     void loadDashboard();
-    void loadStations();
+    reloadStations();
     void loadBookings();
   }
 
   function refreshAll() {
     if (!refreshGate.current(dashboardInFlight.current || stationsInFlight.current)) return;
     forgetStats();
-    void loadDashboard(); void loadStations(); void loadBookings();
+    void loadDashboard(); reloadStations(); void loadBookings();
   }
 
   function openLogout() { setLogoutError(null); setLogoutOpen(true); }
