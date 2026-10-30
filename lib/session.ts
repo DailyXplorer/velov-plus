@@ -29,6 +29,12 @@ export function clearSessionCookies(response: NextResponse) {
   for (const name of [COOKIE.access, COOKIE.refresh, COOKIE.identity]) writeCookie(response, name, "", 0);
 }
 
+export function forgetSession() {
+  const response = jsonResponse({ connected: false });
+  clearSessionCookies(response);
+  return response;
+}
+
 export async function getSession(request: NextRequest): Promise<Session | null> {
   const device = deviceOf(request);
   const access = request.cookies.get(COOKIE.access)?.value;

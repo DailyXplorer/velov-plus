@@ -47,6 +47,9 @@ function navigate(next: Page) {
 function rememberGuest(on: boolean) {
   document.cookie = guestCookie(on, window.location.protocol === "https:");
 }
+function forgetSession() {
+  void fetch("/api/auth/forget", { method: "POST" }).catch(() => {});
+}
 function subscribeHash(changed: () => void) {
   window.addEventListener("hashchange", changed);
   return () => window.removeEventListener("hashchange", changed);
@@ -94,6 +97,15 @@ export function Companion({ start }: { start: StartMode }) {
     return { ...data, profile: { ...data.profile, favorites: favorite ? [...others, number] : others } };
   }), [patchData]);
 
+  const expire = useCallback(() => {
+    session.current.close();
+    forgetSession();
+    setBookings([]);
+    setEnded(null);
+    setUnlocking(null);
+    setState({ kind: "signedOut", message: "Votre session a expiré. Reconnectez-vous." });
+  }, []);
+
   const loadDashboard = useCallback(async (): Promise<Dashboard | null> => {
     if (dashboardInFlight.current) return null;
     const stamp = session.current.stamp();
@@ -107,7 +119,7 @@ export function Companion({ start }: { start: StartMode }) {
       return data;
     } catch (error) {
       if (!stamp.live()) return null;
-      if (error instanceof ApiError && error.status === 401) { setState({ kind: "signedOut", message: "Votre session a expiré. Reconnectez-vous." }); return null; }
+      if (error instanceof ApiError && error.status === 401) { expire(); return null; }
       const failure = loadError(error, "Votre compte est momentanément indisponible.");
       if (dashboardShown.current) toaster.show(failure.message);
       else setState({ kind: "error", ...failure });
@@ -116,14 +128,14 @@ export function Companion({ start }: { start: StartMode }) {
       dashboardInFlight.current = false;
       setRefreshing(false);
     }
-  }, []);
+  }, [expire]);
 
   useEffect(() => {
     const current = createDockWatch({
       check: () => {
         const stamp = session.current.stamp();
         return getJson("/api/trips/current", tripCheckSchema, "", stamp.signal).catch((error: unknown) => {
-          if (stamp.live() && error instanceof ApiError && error.status === 401) setState({ kind: "signedOut", message: "Session expirée. Reconnectez-vous." });
+          if (stamp.live() && error instanceof ApiError && error.status === 401) expire();
           throw error;
         });
       },
@@ -141,7 +153,7 @@ export function Companion({ start }: { start: StartMode }) {
     const changed = () => current.visibilityChanged();
     document.addEventListener("visibilitychange", changed);
     return () => { document.removeEventListener("visibilitychange", changed); current.stop(); watch.current = null; };
-  }, [loadDashboard]);
+  }, [loadDashboard, expire]);
 
   useEffect(() => {
     if (state.kind === "signedOut") { watch.current?.stop(); return; }
@@ -163,6 +175,7 @@ export function Companion({ start }: { start: StartMode }) {
   }, [start, loadDashboard, reloadStations, loadBookings]);
 
   function continueAsGuest() {
+    forgetSession();
     rememberGuest(true);
     setState({ kind: "guest" });
   }

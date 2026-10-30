@@ -55,6 +55,7 @@ Les offres et les tarifs ne sont pas publiés en GBFS (`system_pricing_plans.jso
 | `GET /api/stations/{numéro}/bikes` | Public | Oui |
 | `GET /api/bikes/{numéro}` | Public | Non (ouverte depuis un trajet) |
 | `POST /api/auth/login` | Connexion | Seulement depuis la page de connexion |
+| `POST /api/auth/forget` | Connexion, sans appel à Vélo’v | Une fois, en passant au mode sans compte, pour effacer les cookies d’une session expirée |
 | `GET /api/auth/session`, `POST /api/auth/logout` | Compte | Non |
 | `GET /api/dashboard`, `GET /api/stats`, `GET /api/trips/current` | Compte | Non |
 | `GET`, `POST /api/bookings`, `POST /api/unlock` | Compte | Non |

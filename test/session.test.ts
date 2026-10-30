@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
 import { afterEach, beforeEach, test } from "node:test";
 import { CLIENT_ID, OIDC, SessionRevoked, VelovError, endSession, readJsonBody, refresh } from "../lib/auth-protocol.ts";
-import { type Session, errorResponse, setSessionCookies } from "../lib/session.ts";
+import { type Session, errorResponse, forgetSession, setSessionCookies } from "../lib/session.ts";
 import { NextResponse } from "next/server.js";
+import { readFileSync } from "node:fs";
 
 const realFetch = globalThis.fetch;
 beforeEach(() => { globalThis.fetch = (() => { throw new Error("network call in a unit test"); }) as typeof fetch; });
@@ -99,4 +100,20 @@ test("a request body is read up to 4 KB of JSON, nothing more", async () => {
   const chunks = [new TextEncoder().encode('{"padding":"'), new TextEncoder().encode("x".repeat(5000)), new TextEncoder().encode('"}')];
   const stream = new ReadableStream({ pull(controller) { const chunk = chunks.shift(); if (chunk) controller.enqueue(chunk); else controller.close(); } });
   assert.equal(await readJsonBody(new Request("https://app.example/api", { method: "POST", headers: { "content-type": "application/json" }, body: stream, duplex: "half" } as RequestInit)), undefined);
+});
+
+test("forgetting a session locally empties the three session cookies without calling Vélo’v", () => {
+  const response = forgetSession();
+  for (const name of ["vv_access", "vv_refresh", "vv_identity"]) assert.deepEqual([response.cookies.get(name)?.value, response.cookies.get(name)?.maxAge], ["", 0], name);
+  assert.equal(response.cookies.get("vv_device"), undefined);
+});
+
+test("continuing as a guest and every expiry forget the session cookies", () => {
+  const source = readFileSync("components/companion.tsx", "utf8");
+  const guest = /function continueAsGuest\(\) \{[\s\S]*?\n  \}/.exec(source)?.[0] ?? "";
+  assert.match(guest, /forgetSession\(\)/);
+  assert.match(readFileSync("app/api/auth/forget/route.ts", "utf8"), /requireSameOrigin\(request\);[\s\S]*forgetSession\(\)/);
+  assert.doesNotMatch(source, /Session expirée/);
+  assert.equal(source.match(/kind: "signedOut", message: "Votre session a expiré/g)?.length, 1);
+  assert.equal(source.match(/\bexpire\(\)/g)?.length, 2);
 });
