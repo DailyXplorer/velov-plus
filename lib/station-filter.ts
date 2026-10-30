@@ -16,3 +16,9 @@ export function nearestSupplied(stations: Station[], here: Point, filter: Statio
     .sort((left, right) => haversine(here, left) - haversine(here, right))
     .slice(0, count);
 }
+
+export function locateMessage(resource: { kind: "loading" | "error" | "ready" }, supplied: number): string | null {
+  if (resource.kind === "loading") return "Les stations sont en cours de chargement. Réessayez dans un instant.";
+  if (resource.kind === "error") return "Les stations sont momentanément indisponibles.";
+  return supplied ? null : "Aucune station ouverte ne correspond à ce filtre.";
+}

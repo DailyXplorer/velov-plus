@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import dynamic from "next/dynamic";
 import { BicycleIcon, CaretRightIcon, DownloadSimpleIcon, EnvelopeSimpleIcon, type Icon, LetterCirclePIcon, LightningIcon, MagnifyingGlassIcon, NavigationArrowIcon, PencilIcon, SignOutIcon, StarFourIcon, StarIcon, TicketIcon, TrendUpIcon, XIcon } from "./icons";
 import { ViaAction } from "./via-action";
@@ -8,7 +8,7 @@ import { RedBanner, useSecondsSince } from "./bike-actions";
 import { type Dashboard, type Page, type Resource, type Station, type Trip, formatCount, formatCountSans, formatDate, formatDuration, formatName, formatPrice } from "@/lib/models";
 import { findPosition, formatDistance, haversine, reportLocationFailure, type Point } from "@/lib/geo";
 import { toaster } from "@/lib/toast";
-import { type StationFilter, matchesFilter, nearestSupplied } from "@/lib/station-filter";
+import { type StationFilter, matchesFilter, nearestSupplied, locateMessage } from "@/lib/station-filter";
 import { Button, CardTag, CircleArrow, EmptyState, Eyebrow, FavoriteToggle, Ghost, LoadFailure, SectionHeading, SelectField, SelectSkeleton, TextButton } from "./ui";
 import { StationBikes } from "./station-bikes";
 import { TripSheet } from "./trip-sheet";
@@ -222,6 +222,8 @@ export function StationsPage({ resource, reload, reloading, favorites: favoriteL
   const [fit, setFit] = useState<Point[] | null>(null);
   const [locating, setLocating] = useState(false);
   const stations = resource.kind === "ready" ? resource.data.stations : NO_STATIONS;
+  const latest = useRef(resource);
+  useEffect(() => { latest.current = resource; }, [resource]);
   const favorites = useMemo(() => new Set(favoriteList), [favoriteList]);
   const filtered = useMemo(() => {
     const normalize = (value: string) => value.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
@@ -235,11 +237,13 @@ export function StationsPage({ resource, reload, reloading, favorites: favoriteL
 
   function located(coords: GeolocationCoordinates) {
     const here: UserPosition = { lat: coords.latitude, lon: coords.longitude, accuracy: coords.accuracy };
-    const supplied = nearestSupplied(stations, here, filter, favorites);
+    const current = latest.current;
+    const supplied = nearestSupplied(current.kind === "ready" ? current.data.stations : NO_STATIONS, here, filter, favorites);
     setPosition(here);
     setSelected(supplied[0]?.id ?? null);
     setFit([here, ...supplied]);
-    if (!supplied.length) toaster.show("Aucune station ouverte ne correspond à ce filtre.");
+    const message = locateMessage(current, supplied.length);
+    if (message) toaster.show(message);
     setLocating(false);
   }
 

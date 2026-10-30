@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { Station } from "../lib/models.ts";
-import { nearestSupplied } from "../lib/station-filter.ts";
+import { locateMessage, nearestSupplied } from "../lib/station-filter.ts";
+import { readFileSync } from "node:fs";
 
 const here = { lat: 45.7566, lon: 4.8318 };
 function station(number: number, metresNorth: number, supply: Partial<Station> = {}): Station {
@@ -29,4 +30,12 @@ test("locate keeps the three nearest supplied stations and finds none when nothi
   const stations = [5, 4, 3, 2, 1].map((index) => station(index, index * 100, { mechanical: 1 }));
   assert.deepEqual(numbers(nearestSupplied(stations, here, "available", new Set())), [1, 2, 3]);
   assert.deepEqual(nearestSupplied([station(1, 50, { stands: 3 })], here, "all", new Set()), []);
+});
+
+test("« Autour de moi » before the stations arrive says they are loading or unavailable, not that none matches", () => {
+  assert.equal(locateMessage({ kind: "loading" }, 0), "Les stations sont en cours de chargement. Réessayez dans un instant.");
+  assert.equal(locateMessage({ kind: "error" }, 0), "Les stations sont momentanément indisponibles.");
+  assert.equal(locateMessage({ kind: "ready" }, 0), "Aucune station ouverte ne correspond à ce filtre.");
+  assert.equal(locateMessage({ kind: "ready" }, 2), null);
+  assert.match(readFileSync("components/dashboard.tsx", "utf8"), /const message = locateMessage\(current, supplied\.length\);/);
 });
