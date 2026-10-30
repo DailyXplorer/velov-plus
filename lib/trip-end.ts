@@ -33,12 +33,12 @@ export async function sendStars(tripId: string, bikeNumber: number, stars: Stars
 type Store = Pick<Storage, "getItem" | "setItem">;
 const dismissedKey = (tripId: string) => `velov:trip-ended:v1:${tripId}`;
 
-export function dismissTrip(storage: Store, tripId: string) {
-  try { storage.setItem(dismissedKey(tripId), "1"); } catch {}
+export function dismissTrip(storage: Store | null, tripId: string) {
+  try { storage?.setItem(dismissedKey(tripId), "1"); } catch {}
 }
 
-export function wasDismissed(storage: Store, tripId: string) {
-  try { return storage.getItem(dismissedKey(tripId)) !== null; } catch { return false; }
+export function wasDismissed(storage: Store | null, tripId: string) {
+  try { return storage ? storage.getItem(dismissedKey(tripId)) !== null : false; } catch { return false; }
 }
 
 export function latestFinished(trips: Trip[]): Trip | null {
@@ -50,7 +50,7 @@ export function latestFinished(trips: Trip[]): Trip | null {
   return latest;
 }
 
-export function tripToGreet(trips: Trip[], storage: Store, now = Date.now()): Trip | null {
+export function tripToGreet(trips: Trip[], storage: Store | null, now = Date.now()): Trip | null {
   const latest = latestFinished(trips);
   return latest && canRate(latest, now) && !wasDismissed(storage, latest.id) ? latest : null;
 }

@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
-import { FAVORITES_KEY, guestCookie, readFavorites, saveFavorites, startMode, toggleFavorite } from "../lib/guest.ts";
+import { FAVORITES_KEY, guestCookie, readFavorites, safeStorage, saveFavorites, startMode, toggleFavorite } from "../lib/guest.ts";
+import { dismissTrip, wasDismissed } from "../lib/trip-end.ts";
 
 const source = (path: string) => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
 
@@ -56,6 +57,16 @@ test("favourites never throw when storage itself fails", () => {
   const broken = { getItem: () => { throw new Error("blocked"); }, setItem: () => { throw new Error("full"); } };
   assert.deepEqual(readFavorites(broken), []);
   assert.doesNotThrow(() => saveFavorites(broken, [2002]));
+});
+
+test("a browser that blocks site storage still opens the guest map: reading the storage itself may throw", () => {
+  const blocked = safeStorage(() => { throw new DOMException("The operation is insecure.", "SecurityError"); });
+  assert.equal(blocked, null);
+  assert.deepEqual(readFavorites(blocked), []);
+  assert.doesNotThrow(() => saveFavorites(blocked, [2002]));
+  assert.doesNotThrow(() => dismissTrip(blocked, "trip-1"));
+  assert.equal(wasDismissed(blocked, "trip-1"), false);
+  for (const file of ["components/guest.tsx", "components/trip-sheet.tsx", "components/companion.tsx"]) assert.doesNotMatch(readFileSync(file, "utf8"), /\(window\.localStorage|\(localStorage,|, localStorage\)/, file);
 });
 
 test("saved favourites read back", () => {

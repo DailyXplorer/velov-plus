@@ -9,7 +9,7 @@ import { createDockWatch, tripCheckSchema, tripToGreet } from "@/lib/trip-end";
 import { createRefreshGate, createRevisionLoader, createThrottle } from "@/lib/refresh-gate";
 import { sessionGate } from "@/lib/session-gate";
 import { whenIdle } from "@/lib/idle";
-import { type StartMode, guestCookie } from "@/lib/guest";
+import { type StartMode, browserStorage, guestCookie } from "@/lib/guest";
 import { AccountPage, AccountSkeleton, Overview as OverviewPage, OverviewSkeleton, PointsPage, PointsSkeleton, StationsPage as StationsMapPage, StationsSkeleton, TripsPage, TripsSkeleton } from "./dashboard";
 import { Button, LoadFailure, Modal } from "./ui";
 import { Login } from "./login";
@@ -170,7 +170,7 @@ export function Companion({ start }: { start: StartMode }) {
     if (greeted.current) return;
     greeted.current = true;
     if (!state.data.ongoing?.length && state.data.trips) {
-      try { const recent = tripToGreet(state.data.trips, localStorage); if (recent) setEnded(recent); } catch {}
+      try { const recent = tripToGreet(state.data.trips, browserStorage()); if (recent) setEnded(recent); } catch {}
     }
   }, [state]);
 

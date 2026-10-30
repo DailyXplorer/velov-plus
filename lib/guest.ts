@@ -17,9 +17,15 @@ export function guestCookie(on: boolean, secure: boolean): string {
   return `${GUEST_COOKIE}=${on ? "1" : ""}; Path=/; SameSite=Lax; Max-Age=${on ? YEAR : 0}${secure ? "; Secure" : ""}`;
 }
 
-export function readFavorites(storage: Store): number[] {
+export function safeStorage(read: () => Storage): Storage | null {
+  try { return read(); } catch { return null; }
+}
+
+export const browserStorage = () => safeStorage(() => window.localStorage);
+
+export function readFavorites(storage: Store | null): number[] {
   try {
-    const stored = storedSchema.safeParse(JSON.parse(storage.getItem(FAVORITES_KEY) ?? "[]"));
+    const stored = storedSchema.safeParse(JSON.parse(storage?.getItem(FAVORITES_KEY) ?? "[]"));
     if (!stored.success) return [];
     return [...new Set(stored.data.filter((value): value is number => stationNumberSchema.safeParse(value).success))];
   } catch {
@@ -27,8 +33,8 @@ export function readFavorites(storage: Store): number[] {
   }
 }
 
-export function saveFavorites(storage: Store, list: number[]) {
-  try { storage.setItem(FAVORITES_KEY, JSON.stringify(list)); } catch {}
+export function saveFavorites(storage: Store | null, list: number[]) {
+  try { storage?.setItem(FAVORITES_KEY, JSON.stringify(list)); } catch {}
 }
 
 export function toggleFavorite(list: number[], number: number, on: boolean): number[] {

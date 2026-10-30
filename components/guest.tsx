@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { ArrowClockwiseIcon, MapPinIcon, SignInIcon } from "./icons";
-import { readFavorites, saveFavorites, toggleFavorite } from "@/lib/guest";
+import { browserStorage, readFavorites, saveFavorites, toggleFavorite } from "@/lib/guest";
 import { StationsPage } from "./dashboard";
 import { SignInContext } from "./bike-actions";
 import { Button } from "./ui";
@@ -13,11 +13,11 @@ export function GuestApp({ onSignIn }: { onSignIn: () => void }) {
   const [favorites, setFavorites] = useState<number[]>([]);
   useEffect(() => {
     reload();
-    setFavorites(readFavorites(window.localStorage));
+    setFavorites(readFavorites(browserStorage()));
   }, [reload]);
   const favorite = useCallback((number: number, on: boolean) => setFavorites((list) => {
     const next = toggleFavorite(list, number, on);
-    saveFavorites(window.localStorage, next);
+    saveFavorites(browserStorage(), next);
     return next;
   }), []);
 

@@ -4,6 +4,7 @@ import { useContext, useEffect, useState } from "react";
 import { BicycleIcon, CaretDownIcon, CaretRightIcon, CheckIcon, CopyIcon, LightningIcon, SendIcon, StarIcon, XIcon } from "./icons";
 import { type Outcome, type Trip, canRate, formatCountSans, formatDate, formatDuration, formatPrice } from "@/lib/models";
 import { type Stars, dismissTrip, sendStars, starLabels } from "@/lib/trip-end";
+import { browserStorage } from "@/lib/guest";
 import { UNCERTAIN, isUncertain } from "@/lib/outcome";
 import { ratingCheck } from "@/lib/checks";
 import { blockedMessage, runOnce, settleHeld } from "@/lib/operations";
@@ -157,7 +158,7 @@ export function TripSheet({ trip, onClose }: { trip: Trip; onClose: () => void }
             <a className="text-link" href={`mailto:contact.velov@jcdecaux.com?subject=${encodeURIComponent(subject)}`}>Contacter le service client</a>
           </div>
         ) : null}
-        {!rated && trip.bikeNumber != null && canRate(trip) ? <RateBike trip={trip} bikeNumber={trip.bikeNumber} onLater={() => { dismissTrip(localStorage, trip.id); onClose(); }} onRated={() => setRatedNow(trip.id)}/> : null}
+        {!rated && trip.bikeNumber != null && canRate(trip) ? <RateBike trip={trip} bikeNumber={trip.bikeNumber} onLater={() => { dismissTrip(browserStorage(), trip.id); onClose(); }} onRated={() => setRatedNow(trip.id)}/> : null}
         <details className="bike-more">
           <summary>Détails<CaretDownIcon size={14} weight="bold" aria-hidden="true"/></summary>
           <div className="detail-type">
@@ -178,7 +179,7 @@ export function TripSheet({ trip, onClose }: { trip: Trip; onClose: () => void }
 
 export function TripEndedSheet({ trip, onClose }: { trip: Trip; onClose: () => void }) {
   const sending = useSending();
-  const close = () => { dismissTrip(localStorage, trip.id); onClose(); };
+  const close = () => { dismissTrip(browserStorage(), trip.id); onClose(); };
   const [rateable] = useState(() => trip.isRated !== true && !ratedHere.has(trip.id) && canRate(trip));
   return (
     <Modal titleId="trip-ended-title" onClose={sending ? () => {} : close}>
