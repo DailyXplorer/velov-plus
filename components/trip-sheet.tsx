@@ -87,7 +87,7 @@ function RateBike({ trip, bikeNumber, onLater, onRated }: { trip: Trip; bikeNumb
       </div>
       <p className={`trip-rate-label${stars == null ? " is-empty" : ""}`} aria-live="polite">{stars != null ? starLabels[stars] : "Touchez une étoile"}</p>
       {failure ? (
-        <div className="trip-rate-failure" role="alert"><p className="form-error">{failure.message}</p><p className="bike-action-raw">{[`HTTP ${failure.httpStatus || "aucune réponse"}`, failure.code && !failure.code.startsWith("local.") && failure.code !== "network" ? `Code ${failure.code}` : null].filter(Boolean).join(" · ")}</p>{uncertain ? <p className="uncertain-note">{UNCERTAIN}</p> : null}</div>
+        <div className="trip-rate-failure" role="alert"><p className="form-error">{failure.message}</p>{uncertain ? <p className="uncertain-note">{UNCERTAIN}</p> : null}</div>
       ) : null}
       {notice ? <p className="form-error" role="alert">{notice}</p> : null}
       <div className="trip-rate-actions">

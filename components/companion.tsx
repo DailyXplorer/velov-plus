@@ -17,6 +17,7 @@ import { GuestApp } from "./guest";
 import { StatsPage, StatsSkeleton, dropStats, forgetStats } from "./stats";
 import { BookingBanner, BookingsContext, UnlockModal } from "./bike-actions";
 import { ApiError, getJson, loadError } from "./get-json";
+import { toaster } from "@/lib/toast";
 import { TripEndedSheet } from "./trip-sheet";
 import { useStations } from "./use-stations";
 
@@ -71,7 +72,9 @@ export function Companion({ start }: { start: StartMode }) {
   const [kept, setKept] = useState(new Set<Page>());
   if (page && mapPages.has(page) && !kept.has(page)) setKept(new Set(kept).add(page));
   const ready = state.kind === "ready";
+  const dashboardShown = useRef(false);
   useEffect(() => {
+    dashboardShown.current = ready;
     if (ready) return whenIdle(() => setKept(new Set(mapPages)));
   }, [ready]);
 
@@ -104,8 +107,10 @@ export function Companion({ start }: { start: StartMode }) {
       return data;
     } catch (error) {
       if (!stamp.live()) return null;
-      if (error instanceof ApiError && error.status === 401) setState({ kind: "signedOut", message: "Votre session a expiré. Reconnectez-vous." });
-      else setState({ kind: "error", ...loadError(error, "Votre compte est momentanément indisponible.") });
+      if (error instanceof ApiError && error.status === 401) { setState({ kind: "signedOut", message: "Votre session a expiré. Reconnectez-vous." }); return null; }
+      const failure = loadError(error, "Votre compte est momentanément indisponible.");
+      if (dashboardShown.current) toaster.show(failure.message);
+      else setState({ kind: "error", ...failure });
       return null;
     } finally {
       dashboardInFlight.current = false;

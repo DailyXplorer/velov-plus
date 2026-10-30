@@ -1,3 +1,6 @@
+import { journal } from "./journal.ts";
+import { toaster } from "./toast.ts";
+
 export type Point = { lat: number; lon: number };
 
 export function haversine(from: Point, to: Point) {
@@ -36,12 +39,11 @@ export async function findPosition(geolocation: Locator) {
   }
 }
 
-function failureMessage(code: number) {
-  if (code === PERMISSION_DENIED) return "Localisation refusée. Autorisez-la pour ce site dans votre navigateur, puis dans les réglages de localisation de votre appareil.";
-  if (code === POSITION_UNAVAILABLE) return "Votre appareil ne trouve pas votre position. Vérifiez que le service de localisation est activé pour ce navigateur.";
-  if (code === TIMEOUT) return "La localisation a pris trop de temps. Réessayez.";
-  return "Impossible de vous localiser pour le moment.";
-}
+const failureMessages: Record<number, string> = {
+  [PERMISSION_DENIED]: "Autorisez la localisation dans votre navigateur pour trouver les stations autour de vous.",
+  [POSITION_UNAVAILABLE]: "Position introuvable pour le moment.",
+  [TIMEOUT]: "La localisation a pris trop de temps. Réessayez."
+};
 
 export function shortAgent(userAgent: string) {
   const browser = /Edg/.test(userAgent) ? "Edge" : /OPR|Opera/.test(userAgent) ? "Opera" : /SamsungBrowser/.test(userAgent) ? "Samsung Internet"
@@ -56,6 +58,12 @@ type Browser = { userAgent: string; permissions?: Pick<Permissions, "query"> };
 export async function describeLocationFailure(error: unknown, browser: Browser) {
   const { code, message } = (error ?? {}) as Partial<PositionFailure>;
   const permission = await Promise.resolve().then(() => browser.permissions?.query({ name: "geolocation" })).then((status) => status?.state, () => undefined);
-  const raw = [`Code ${code ?? "—"}`, message || "—", shortAgent(browser.userAgent), permission && `Permission ${permission}`].filter(Boolean).join(" · ");
-  return { message: failureMessage(code ?? 0), raw };
+  const technical = [code != null && `Code ${code}`, message, shortAgent(browser.userAgent), permission && `Permission ${permission}`].filter(Boolean).join(" · ");
+  return { message: failureMessages[code ?? 0] ?? "Impossible de vous localiser pour le moment.", technical };
+}
+
+export async function reportLocationFailure(error: unknown) {
+  const { message, technical } = await describeLocationFailure(error, navigator);
+  journal(`geolocation · ${technical}`);
+  toaster.show(message);
 }

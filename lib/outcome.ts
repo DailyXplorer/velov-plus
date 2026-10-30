@@ -13,6 +13,10 @@ export function isUncertain(outcome: Outcome) {
   return !(httpStatus >= 400 && httpStatus < 500 && code);
 }
 
+export function technicalLine({ transactionState, httpStatus, code, detail }: Outcome) {
+  return [transactionState && `TransactionState ${transactionState}`, `HTTP ${httpStatus || "aucune réponse"}`, code && `Code ${code}`, detail].filter(Boolean).join(" · ");
+}
+
 export function noAnswer(message: string): Outcome {
   return { ok: false, httpStatus: 0, transactionState: null, code: "network", message, detail: null };
 }

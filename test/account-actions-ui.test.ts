@@ -42,12 +42,19 @@ test("the profile confirmation is the question alone, without a before/after lis
   assert.doesNotMatch(component, /Avant :|\.changes\b/);
 });
 
-test("failures stay in the dialog with the raw status, and Confirmer stays available to retry", () => {
+test("failures stay in the dialog as the French message alone, and Confirmer stays available to retry", () => {
   for (const file of dialogs) {
     const component = source(`components/${file}.tsx`);
-    assert.match(component, /bike-action-raw|<Raw|<RawStatus/, file);
+    assert.doesNotMatch(component, /HTTP |Code \{|httpStatus \|\||TransactionState|\.raw\b/, file);
     assert.match(component, />Confirmer</, file);
   }
+});
+
+test("no screen renders a technical line: it goes to the browser console only", () => {
+  for (const file of ["ui", "dashboard", "companion", "station-bikes", "stats", "trip-sheet", "guest", "login", "toast", ...dialogs]) {
+    assert.doesNotMatch(source(`components/${file}.tsx`), /bike-action-raw|<Raw|RawLine|RawStatus|\.raw\b|HTTP \{/, file);
+  }
+  assert.doesNotMatch(source("app/globals.css"), /bike-action-raw/);
 });
 
 test("after a failure whose outcome is uncertain, the dialog says so and offers Fermer alone, never Confirmer again", () => {

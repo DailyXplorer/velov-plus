@@ -4,18 +4,15 @@ import { useEffect, useId, useState } from "react";
 import { CopyIcon, TicketIcon, XIcon } from "./icons";
 import { promoResultSchema, type PromoResult } from "@/lib/promo-models";
 import { preparePromoStorage, promoStorageKey, readPromoCodes, savePromoCode, type SavedPromo } from "@/lib/promo-storage";
-import { type Outcome, capitalize, formatCountSans } from "@/lib/models";
+import { formatCountSans } from "@/lib/models";
 import { UNCERTAIN, isUncertain, networkFailure, routeFailure } from "@/lib/outcome";
+import { toaster } from "@/lib/toast";
 import { DEBIT_SLACK, type Verification, blockedMessage, inviteDebit, retryVerified, rewardsHistorySchema, runOnce, verificationOf } from "@/lib/operations";
 import { getJson } from "./get-json";
 import { operations, useAccountKey, useOperation, useSending } from "./operations";
 import { Button, Modal } from "./ui";
 
 const storageWarning = "Ce navigateur ne peut pas garder le code. Copiez-le maintenant.";
-
-function RawLine({ outcome }: { outcome: Outcome }) {
-  return <p className="bike-action-raw">HTTP {outcome.httpStatus || "aucune réponse"} · Code {outcome.code ?? "—"} · {capitalize(outcome.detail ?? outcome.message ?? "—")}</p>;
-}
 
 export function InviteFriend({ cost, balance, account, onChanged }: { onChanged: () => void; cost: number | null; balance: number | null; account: string }) {
   const titleId = useId();
@@ -105,7 +102,7 @@ export function InviteFriend({ cost, balance, account, onChanged }: { onChanged:
 
   async function copy(code: string) {
     try { await navigator.clipboard.writeText(code); setCopied(code); }
-    catch { setWarning("Copie impossible. Sélectionnez le code pour le copier."); }
+    catch { toaster.show("Copie impossible. Sélectionnez le code pour le copier."); }
   }
   const pending = operation?.status === "sending";
   const blocked = pending && sendingHere;
@@ -128,7 +125,7 @@ export function InviteFriend({ cost, balance, account, onChanged }: { onChanged:
       <div className="modal-heading"><h2 id={titleId}>Obtenir un code ?</h2><button className="icon-button" disabled={blocked} aria-label="Fermer" onClick={close}><XIcon size={20}/></button></div>
       <p>{costText} points sont débités dès la création du code, même s’il n’est jamais utilisé.</p>
       {verification?.kind === "debited" ? <p className="form-error" role="status">Vos points ont été débités, mais aucun code n’a été reçu. Contactez le service client pour le récupérer.</p>
-        : shown ? <><p className={shown.ok ? "write-done" : "form-error"} role="status">{shown.ok ? "Code créé. Copiez-le pour l’envoyer à votre ami." : shown.message}</p>{!shown.ok ? <RawLine outcome={shown}/> : null}{isUncertain(shown) ? <p className="uncertain-note">{UNCERTAIN}</p> : null}{codeList}</> : null}
+        : shown ? <><p className={shown.ok ? "write-done" : "form-error"} role="status">{shown.ok ? "Code créé. Copiez-le pour l’envoyer à votre ami." : shown.message}</p>{isUncertain(shown) ? <p className="uncertain-note">{UNCERTAIN}</p> : null}{codeList}</> : null}
       {verification?.kind === "not-debited" ? <p className="soon-note" role="status">Votre historique complet ne montre aucun débit de {costText} points depuis la demande.</p> : null}
       {verification?.kind === "unknown" ? <p className="soon-note" role="status">Votre historique de points ne permet pas encore d’exclure un débit. Vérifiez de nouveau dans quelques minutes ou écrivez au service client.</p> : null}
       {verification?.kind === "failed" ? <p className="form-error" role="alert">Votre historique de points n’a pas pu être lu. Réessayez dans un instant.</p> : null}

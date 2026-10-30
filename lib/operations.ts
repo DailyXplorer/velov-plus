@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { type Outcome, outcomeSchema } from "./models.ts";
-import { type Check, type Settled, HISTORY_LAG, isUncertain, networkFailure, noAnswer, settle } from "./outcome.ts";
+import { type Check, type Settled, HISTORY_LAG, isUncertain, networkFailure, noAnswer, settle, technicalLine } from "./outcome.ts";
+import { journal } from "./journal.ts";
 
 type Store = Pick<Storage, "getItem" | "setItem" | "removeItem">;
 export type Locks = { request<T>(name: string, run: () => Promise<T>): Promise<T> };
@@ -150,6 +151,7 @@ export async function runOnce<T extends Outcome>(operations: Operations, key: st
   try { outcome = await Promise.race([send(), late]); }
   catch (error) { outcome = networkFailure("Le serveur ne répond pas.", error, startedAt); }
   finally { clearTimeout(timer); }
+  if (!outcome.ok) journal(`${key.split(":")[0]} · ${technicalLine(outcome)}`);
   await operations.finish(key, outcome);
   return outcome;
 }

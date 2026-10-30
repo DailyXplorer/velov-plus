@@ -52,20 +52,23 @@ test("a refusal never retries", async () => {
 const safariMac = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.1 Safari/605.1.15";
 const permissions = (state: PermissionState) => ({ query: async () => ({ state }) as PermissionStatus });
 
-test("each code has its own French message", async () => {
-  const messages = await Promise.all([denied, unavailable, timeout].map(async (error) => (await describeLocationFailure(error, { userAgent: safariMac })).message));
+test("each code has its own French message, and any other failure a generic one", async () => {
+  const messages = await Promise.all([denied, unavailable, timeout, { code: 0, message: "" }, null].map(async (error) => (await describeLocationFailure(error, { userAgent: safariMac })).message));
   assert.deepEqual(messages, [
-    "Localisation refusée. Autorisez-la pour ce site dans votre navigateur, puis dans les réglages de localisation de votre appareil.",
-    "Votre appareil ne trouve pas votre position. Vérifiez que le service de localisation est activé pour ce navigateur.",
-    "La localisation a pris trop de temps. Réessayez."
+    "Autorisez la localisation dans votre navigateur pour trouver les stations autour de vous.",
+    "Position introuvable pour le moment.",
+    "La localisation a pris trop de temps. Réessayez.",
+    "Impossible de vous localiser pour le moment.",
+    "Impossible de vous localiser pour le moment."
   ]);
 });
 
-test("the raw line carries the code, the browser message, the browser and the permission state", async () => {
-  assert.equal((await describeLocationFailure(denied, { userAgent: safariMac, permissions: permissions("denied") })).raw, "Code 1 · User denied Geolocation · Safari macOS · Permission denied");
-  assert.equal((await describeLocationFailure({ code: 2, message: "" }, { userAgent: safariMac })).raw, "Code 2 · — · Safari macOS");
+test("the technical line carries the code, the browser message, the browser and the permission state, and omits what is unknown", async () => {
+  assert.equal((await describeLocationFailure(denied, { userAgent: safariMac, permissions: permissions("denied") })).technical, "Code 1 · User denied Geolocation · Safari macOS · Permission denied");
+  assert.equal((await describeLocationFailure({ code: 2, message: "" }, { userAgent: safariMac })).technical, "Code 2 · Safari macOS");
   const throwing = { query: () => { throw new TypeError("unsupported"); } };
-  assert.equal((await describeLocationFailure(timeout, { userAgent: safariMac, permissions: throwing })).raw, "Code 3 · Timeout expired · Safari macOS");
+  assert.equal((await describeLocationFailure(timeout, { userAgent: safariMac, permissions: throwing })).technical, "Code 3 · Timeout expired · Safari macOS");
+  assert.doesNotMatch((await describeLocationFailure(denied, { userAgent: safariMac })).message, /Code|denied|Safari/);
 });
 
 test("the user agent shortens to browser and system", () => {

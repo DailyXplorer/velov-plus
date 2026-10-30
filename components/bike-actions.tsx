@@ -3,7 +3,7 @@
 import { type ReactNode, createContext, useContext, useEffect, useState } from "react";
 import { z } from "zod";
 import { ClockIcon, type Icon, LockOpenIcon, TimerIcon, WarningIcon, XIcon } from "./icons";
-import { BOOKING_MINUTES, BOOKING_POINTS, RELEASE_DISTANCE, type Booking, type Outcome, bookingSchema, capitalize, formatDate } from "@/lib/models";
+import { BOOKING_MINUTES, BOOKING_POINTS, RELEASE_DISTANCE, type Booking, type Outcome, bookingSchema, formatDate } from "@/lib/models";
 import { formatDistance, haversine } from "@/lib/geo";
 import { UNCERTAIN, UNCERTAIN_UNLOCK, UNVERIFIED, isUncertain } from "@/lib/outcome";
 import { bookingCheck, sendBikeAction, unlockCheck } from "@/lib/bike-action";
@@ -78,11 +78,6 @@ function useKnownDistance(place: Place) {
     return () => { live = false; };
   }, [place.lat, place.lon]);
   return distance;
-}
-
-function Raw({ outcome, extra }: { outcome: Outcome; extra?: string }) {
-  const parts = [outcome.transactionState && `TransactionState ${outcome.transactionState}`, `Code ${outcome.code ?? "—"}`, `HTTP ${outcome.httpStatus || "aucune réponse"}`, outcome.detail && capitalize(outcome.detail), extra].filter(Boolean);
-  return <p className="bike-action-raw">{parts.join(" · ")}</p>;
 }
 
 function Confirm({ action, place, onCancel, onClose, onConfirm, onVerify, sending, checking, uncertain, children }: { action: Action; place: Place; onCancel: () => void; onClose: () => void; onConfirm: () => void; onVerify: () => void; sending: boolean; checking: boolean; uncertain: boolean; children: ReactNode }) {
@@ -186,7 +181,7 @@ export function BikeActions({ place, booking = null, initial, dialog = false, on
         <>
           <Confirm action={step.action} place={place} sending={step.kind === "sending"} checking={checking} onVerify={() => void verify(step.action)} uncertain={failure !== null && isUncertain(failure)} onCancel={() => { setFailure(null); setNotice(null); setStep({ kind: "start" }); }} onClose={onDone} onConfirm={() => void send(step.action)}>
             {notice ? <p className="form-error" role="alert">{notice}</p> : null}
-            {failure ? <><p className="form-error" role="alert">{failure.message ?? (step.action === "book" ? "Réservation impossible." : "Déverrouillage impossible.")}</p><Raw outcome={failure}/>{isUncertain(failure) ? <p className="uncertain-note">{step.action === "unlock" ? UNCERTAIN_UNLOCK : UNCERTAIN}</p> : null}</> : null}
+            {failure ? <><p className="form-error" role="alert">{failure.message ?? (step.action === "book" ? "Réservation impossible." : "Déverrouillage impossible.")}</p>{isUncertain(failure) ? <p className="uncertain-note">{step.action === "unlock" ? UNCERTAIN_UNLOCK : UNCERTAIN}</p> : null}</> : null}
           </Confirm>
         </>
       )}

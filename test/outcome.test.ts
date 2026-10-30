@@ -3,7 +3,7 @@ import { afterEach, beforeEach, test } from "node:test";
 import { postBooking, postRelease, postVia, refusal } from "../lib/cyclocity.ts";
 import { postContactMail } from "../lib/contact-mail.ts";
 import { postPromoCode } from "../lib/promo.ts";
-import { isUncertain, noAnswer, routeFailure } from "../lib/outcome.ts";
+import { isUncertain, networkFailure, noAnswer, routeFailure, technicalLine } from "../lib/outcome.ts";
 
 const realFetch = globalThis.fetch;
 beforeEach(() => { globalThis.fetch = (() => { throw new Error("network call in a unit test"); }) as typeof fetch; });
@@ -71,4 +71,11 @@ test("our route failing after the confirmation is uncertain: its 503, a platform
   assert.equal(isUncertain(routeFailure(504, null, "Réponse inattendue.")), true);
   assert.equal(isUncertain(routeFailure(200, null, "Réponse inattendue.")), true);
   assert.deepEqual(routeFailure(504, null, "Réponse inattendue."), { ok: false, httpStatus: 504, transactionState: null, code: "local.unreadable", message: "Réponse inattendue.", detail: null });
+});
+
+test("the technical line names the state, the HTTP status, the code and the detail, and omits what is unknown", () => {
+  assert.equal(technicalLine({ ok: false, httpStatus: 200, transactionState: "TIME_OUT", code: "release.timeout", message: "La borne ne répond pas.", detail: "Borne 4" }), "TransactionState TIME_OUT · HTTP 200 · Code release.timeout · Borne 4");
+  assert.equal(technicalLine(routeFailure(503, { error: "Le service est momentanément indisponible.", code: "unavailable" }, "")), "HTTP 503 · Code unavailable");
+  assert.equal(technicalLine({ ok: false, httpStatus: 409, transactionState: null, code: null, message: null, detail: null }), "HTTP 409");
+  assert.equal(technicalLine(networkFailure("Le serveur ne répond pas.", new DOMException("aborted", "TimeoutError"), 0, 40_000)), "HTTP aucune réponse · Code network · Délai dépassé après 40 s · TimeoutError");
 });

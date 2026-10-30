@@ -9,6 +9,7 @@ import { EmptyState, Eyebrow, Ghost, LoadFailure, Modal } from "./ui";
 import { BikeActions, BookingsContext, SignInContext } from "./bike-actions";
 import { useSending } from "./operations";
 import { getJson, loadError } from "./get-json";
+import { toaster } from "@/lib/toast";
 
 const unavailable = "Les vélos de cette station sont momentanément indisponibles.";
 const missing = "Ce vélo est momentanément indisponible.";
@@ -212,11 +213,16 @@ export function StationBikes({ station, onClose }: { station: Station; onClose: 
   const returnTo = useRef<number | null>(null);
   const list = useRef<HTMLUListElement>(null);
   const sending = useSending();
+  const shown = useRef(false);
 
   const { run: load, refreshing } = useLatestLoad(
     useCallback((signal: AbortSignal) => getJson(`/api/stations/${station.number}/bikes`, z.array(bikeSchema), unavailable, signal), [station.number]),
-    useCallback((result: Settled<Bike[]>) => setBikes(result.ok ? { kind: "ready", data: result.value }
-      : { kind: "error", ...loadError(result.error, unavailable) }), [])
+    useCallback((result: Settled<Bike[]>) => {
+      if (result.ok) { shown.current = true; setBikes({ kind: "ready", data: result.value }); return; }
+      const failure = loadError(result.error, unavailable);
+      if (shown.current) toaster.show(failure.message);
+      else setBikes({ kind: "error", ...failure });
+    }, [])
   );
 
   useEffect(() => { void load(); }, [load]);

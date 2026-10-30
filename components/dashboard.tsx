@@ -6,7 +6,8 @@ import { BicycleIcon, CaretRightIcon, DownloadSimpleIcon, EnvelopeSimpleIcon, ty
 import { ViaAction } from "./via-action";
 import { RedBanner, useSecondsSince } from "./bike-actions";
 import { type Dashboard, type Page, type Resource, type Station, type Trip, formatCount, formatCountSans, formatDate, formatDuration, formatName, formatPrice } from "@/lib/models";
-import { describeLocationFailure, findPosition, formatDistance, haversine, type Point } from "@/lib/geo";
+import { findPosition, formatDistance, haversine, reportLocationFailure, type Point } from "@/lib/geo";
+import { toaster } from "@/lib/toast";
 import { type StationFilter, matchesFilter, nearestSupplied } from "@/lib/station-filter";
 import { Button, CardTag, CircleArrow, EmptyState, Eyebrow, FavoriteToggle, Ghost, LoadFailure, SectionHeading, SelectField, SelectSkeleton, TextButton } from "./ui";
 import { StationBikes } from "./station-bikes";
@@ -207,7 +208,6 @@ export function StationsPage({ resource, reload, reloading, favorites: favoriteL
   const [position, setPosition] = useState<UserPosition | null>(null);
   const [fit, setFit] = useState<Point[] | null>(null);
   const [locating, setLocating] = useState(false);
-  const [locationError, setLocationError] = useState<{ message: string; raw?: string } | null>(null);
   const stations = resource.kind === "ready" ? resource.data.stations : NO_STATIONS;
   const favorites = useMemo(() => new Set(favoriteList), [favoriteList]);
   const filtered = useMemo(() => {
@@ -226,17 +226,16 @@ export function StationsPage({ resource, reload, reloading, favorites: favoriteL
     setPosition(here);
     setSelected(supplied[0]?.id ?? null);
     setFit([here, ...supplied]);
-    if (!supplied.length) setLocationError({ message: "Aucune station ouverte ne correspond à ce filtre." });
+    if (!supplied.length) toaster.show("Aucune station ouverte ne correspond à ce filtre.");
     setLocating(false);
   }
 
   function locate() {
-    setLocationError(null);
-    if (!window.isSecureContext) { setLocationError({ message: "Localisation indisponible sur cette page. Recherchez une station par son nom." }); return; }
-    if (!("geolocation" in navigator)) { setLocationError({ message: "Ce navigateur ne permet pas la localisation. Recherchez une station par son nom." }); return; }
+    if (!window.isSecureContext) { toaster.show("Localisation indisponible sur cette page. Recherchez une station par son nom."); return; }
+    if (!("geolocation" in navigator)) { toaster.show("Ce navigateur ne permet pas la localisation. Recherchez une station par son nom."); return; }
     setLocating(true);
     findPosition(navigator.geolocation).then((result) => located(result.coords),
-      async (error: unknown) => { setLocationError(await describeLocationFailure(error, navigator)); setLocating(false); });
+      async (error: unknown) => { await reportLocationFailure(error); setLocating(false); });
   }
 
   return (
@@ -252,7 +251,6 @@ export function StationsPage({ resource, reload, reloading, favorites: favoriteL
         </div>
         <Button variant="secondary" pending={locating} onClick={locate} aria-label="Stations autour de moi" title="Autour de moi"><NavigationArrowIcon size={18} weight="light"/><span className="location-label">Autour de moi</span></Button>
       </div>
-      {locationError ? <div className="inline-notice" role="status"><p>{locationError.message}</p>{locationError.raw ? <p className="bike-action-raw">{locationError.raw}</p> : null}</div> : null}
       {resource.kind === "error" ? <LoadFailure failure={resource} layout="inline" pending={reloading} onRetry={reload}/> : null}
       <div className="stations-explorer">
         {query && resource.kind === "ready" ? (

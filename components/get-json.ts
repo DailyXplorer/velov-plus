@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { type LoadError, dashboardSchema } from "@/lib/models";
 import { networkDetail } from "@/lib/outcome";
+import { journal } from "@/lib/journal";
 
 const errorSchema = z.object({ error: z.string(), code: z.string().optional() });
 
@@ -19,7 +20,8 @@ function statusLine(status: number, code?: string) {
 }
 
 export function loadError(error: unknown, fallback: string): LoadError {
-  return error instanceof ApiError ? { message: error.message, raw: error.raw } : { message: fallback, raw: null };
+  journal(`${fallback} · ${error instanceof ApiError ? error.raw : String(error)}`);
+  return { message: error instanceof ApiError ? error.message : fallback };
 }
 
 export async function getJson<T>(url: string, schema: z.ZodType<T>, unavailable: string, signal?: AbortSignal): Promise<T> {

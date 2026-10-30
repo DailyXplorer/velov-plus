@@ -163,7 +163,7 @@ const failureLayouts = { page: "dashboard-error", inline: "notice-error", floati
 export function LoadFailure({ failure, layout, pending = false, onRetry }: { failure: LoadError; layout: keyof typeof failureLayouts; pending?: boolean; onRetry: () => void }) {
   return (
     <div className={failureLayouts[layout]} role="alert">
-      <div className="failure-text"><p>{failure.message}</p>{failure.raw ? <p className="bike-action-raw">{failure.raw}</p> : null}</div>
+      <p className="failure-text">{failure.message}</p>
       <Button variant="secondary" pending={pending} onClick={onRetry}>Réessayer</Button>
     </div>
   );

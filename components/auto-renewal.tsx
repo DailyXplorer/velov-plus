@@ -3,7 +3,7 @@
 import { useId, useState } from "react";
 import { z } from "zod";
 import { autoRenewalResultSchema, type AutoRenewalResult } from "@/lib/renewal-models";
-import { type Outcome, capitalize } from "@/lib/models";
+import type { Outcome } from "@/lib/models";
 import { UNCERTAIN, isUncertain, networkFailure } from "@/lib/outcome";
 import { blockedMessage, runOnce, settleHeld } from "@/lib/operations";
 import { renewalCheck } from "@/lib/checks";
@@ -80,7 +80,6 @@ export function AutoRenewal({ subscriptionId, account, value, allowed, onSaved }
       {next ? <div className="write-question"><p>Votre abonnement sera renouvelé et facturé à son échéance.</p></div> : null}
       {failure ? <>
         <p className="form-error" role="alert">{failure.message}</p>
-        <p className="bike-action-raw">HTTP {failure.httpStatus || "aucune réponse"} · Code {failure.code ?? "—"} · {capitalize(failure.detail ?? failure.message ?? "")}</p>
         {uncertain ? <p className="uncertain-note">{UNCERTAIN}</p> : null}
       </> : null}
       {notice ? <p className="form-error" role="alert">{notice}</p> : null}

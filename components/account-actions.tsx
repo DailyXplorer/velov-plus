@@ -3,9 +3,11 @@
 import { type ReactNode, useId, useRef, useState } from "react";
 import { z } from "zod";
 import { DownloadSimpleIcon, PencilIcon, XIcon } from "./icons";
-import { ADDRESS_MAX, NAME_MAX, type Dashboard, type Outcome, type ProfileBody, type Receipt, type Station, type Trip, autoSpendResultSchema, capitalize, formatDate, formatPhone, outcomeSchema, profileBodySchema } from "@/lib/models";
+import { ADDRESS_MAX, NAME_MAX, type Dashboard, type Outcome, type ProfileBody, type Receipt, type Station, type Trip, autoSpendResultSchema, formatDate, formatPhone, outcomeSchema, profileBodySchema } from "@/lib/models";
 import { type Draft, changesOf, countries, countryName, draftOf } from "@/lib/profile-draft";
-import { type Check, UNCERTAIN, UNVERIFIED, isUncertain, networkFailure } from "@/lib/outcome";
+import { type Check, UNCERTAIN, UNVERIFIED, isUncertain, networkFailure, technicalLine } from "@/lib/outcome";
+import { journal } from "@/lib/journal";
+import { toaster } from "@/lib/toast";
 import { type Operation, blockedMessage, runOnce, settleHeld } from "@/lib/operations";
 import { autoSpendCheck, favoriteCheck, profileCheck } from "@/lib/checks";
 import { readDashboard } from "./get-json";
@@ -31,10 +33,6 @@ async function sendWrite(url: string, method: "POST" | "PATCH" | "DELETE", body?
   }
   const outcome = outcomeSchema.safeParse(data);
   return { outcome: outcome.success ? outcome.data : failure(response.status, "local.unreadable", "Réponse inattendue. Actualisez la page avant de réessayer."), data };
-}
-
-function RawStatus({ outcome }: { outcome: Outcome }) {
-  return <p className="bike-action-raw">{[`HTTP ${outcome.httpStatus || "aucune réponse"}`, `Code ${outcome.code ?? "—"}`, outcome.detail && capitalize(outcome.detail)].filter(Boolean).join(" · ")}</p>;
 }
 
 type Step = { kind: "confirm" } | { kind: "failed"; outcome: Outcome } | { kind: "notice"; message: string };
@@ -76,7 +74,7 @@ function ConfirmDialog({ title, children, operationKey, meta, run, check, onDone
         <button className="icon-button" aria-label="Fermer" disabled={busy} onClick={onClose}><XIcon size={20} weight="light"/></button>
       </div>
       {children ? <div className="write-question">{children}</div> : null}
-      {shown ? <><p className="form-error" role="alert">{shown.message ?? (uncertain ? UNVERIFIED : "La modification n’a pas abouti.")}</p><RawStatus outcome={shown}/></> : null}
+      {shown ? <p className="form-error" role="alert">{shown.message ?? (uncertain ? UNVERIFIED : "La modification n’a pas abouti.")}</p> : null}
       {uncertain ? <p className="uncertain-note">{UNCERTAIN}</p> : null}
       {step.kind === "notice" ? <p className="form-error" role="alert">{step.message}</p> : null}
       <div className="modal-actions">
@@ -151,19 +149,22 @@ function periodLabel({ start, end }: Receipt) {
 
 function ReceiptRow({ receipt }: { receipt: Receipt }) {
   const [pending, setPending] = useState(false);
-  const [failed, setFailed] = useState<Outcome | null>(null);
+
+  function failed(outcome: Outcome) {
+    journal(`receipt · ${technicalLine(outcome)}`);
+    toaster.show(outcome.message ?? "Le reçu n’a pas pu être téléchargé.");
+  }
 
   async function download() {
     if (pending) return;
     setPending(true);
-    setFailed(null);
     try {
       let response: Response;
       const startedAt = Date.now();
       try {
         response = await fetch("/api/account/receipts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ subscriptionId: receipt.subscriptionId, periodId: receipt.periodId }), signal: AbortSignal.timeout(40_000) });
       } catch (error) {
-        setFailed(networkFailure("Le serveur ne répond pas. Réessayez dans un instant.", error, startedAt));
+        failed(networkFailure("Le serveur ne répond pas. Réessayez dans un instant.", error, startedAt));
         return;
       }
       if (response.ok && response.headers.get("content-type")?.startsWith("application/pdf")) {
@@ -178,7 +179,7 @@ function ReceiptRow({ receipt }: { receipt: Receipt }) {
       const data: unknown = await response.json().catch(() => null);
       const outcome = outcomeSchema.safeParse(data);
       const error = errorSchema.safeParse(data);
-      setFailed(outcome.success ? outcome.data : failure(response.status, error.success ? error.data.code ?? null : null, error.success ? error.data.error : "Le reçu n’a pas pu être téléchargé."));
+      failed(outcome.success ? outcome.data : failure(response.status, error.success ? error.data.code ?? null : null, error.success ? error.data.error : "Le reçu n’a pas pu être téléchargé."));
     } finally {
       setPending(false);
     }
@@ -187,9 +188,7 @@ function ReceiptRow({ receipt }: { receipt: Receipt }) {
   return (
     <li className="receipt-row">
       <span><strong>{receipt.title}</strong><small>{periodLabel(receipt)}</small></span>
-      <Button variant="secondary" pending={pending} onClick={() => void download()} aria-label={`Télécharger le reçu, ${periodLabel(receipt)}`}><DownloadSimpleIcon size={17} weight="light" aria-hidden="true"/>Reçu</Button>
-      {failed ? <div className="receipt-failed"><p className="form-error" role="alert">{failed.message}</p><RawStatus outcome={failed}/></div> : null}
-    </li>
+      <Button variant="secondary" pending={pending} onClick={() => void download()} aria-label={`Télécharger le reçu, ${periodLabel(receipt)}`}><DownloadSimpleIcon size={17} weight="light" aria-hidden="true"/>Reçu</Button>    </li>
   );
 }
 
