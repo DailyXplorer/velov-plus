@@ -145,9 +145,9 @@ export function FavoriteButton({ station, favorite, account, onChanged }: { stat
 }
 
 function periodLabel({ start, end }: Receipt) {
-  const day = { day: "numeric", month: "short", year: "numeric" } as const;
-  if (start && end) return `Du ${formatDate(start, day)} au ${formatDate(end, day)}`;
-  return start ? `Depuis le ${formatDate(start, day)}` : end ? `Jusqu’au ${formatDate(end, day)}` : "Dates inconnues";
+  const date = (value: string) => formatDate(value, { day: "numeric", month: "short", year: "numeric" }).replace(/ /g, "\u00a0");
+  if (start && end) return `Du ${date(start)} au ${date(end)}`;
+  return start ? `Depuis le ${date(start)}` : end ? `Jusqu’au ${date(end)}` : "Dates inconnues";
 }
 
 function ReceiptRow({ receipt }: { receipt: Receipt }) {

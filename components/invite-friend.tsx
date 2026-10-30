@@ -122,8 +122,8 @@ export function InviteFriend({ cost, balance, account, onChanged }: { onChanged:
     {codeList}
     {!asking && warning ? <p className="form-error" role="alert">{warning}</p> : null}
     {asking ? <Modal titleId={titleId} onClose={close}>
-      <div className="modal-heading"><h2 id={titleId}>Obtenir un code ?</h2><button className="icon-button" disabled={blocked} aria-label="Fermer" onClick={close}><XIcon size={20}/></button></div>
-      <p>{costText} points sont débités dès la création du code, même s’il n’est jamais utilisé.</p>
+      <div className="modal-heading"><h2 id={titleId}>{shown?.ok ? "Votre code" : "Obtenir un code ?"}</h2><button className="icon-button" disabled={blocked} aria-label="Fermer" onClick={close}><XIcon size={20}/></button></div>
+      {shown?.ok ? null : <p>{costText} points sont débités dès la création du code, même s’il n’est jamais utilisé.</p>}
       {verification?.kind === "debited" ? <p className="form-error" role="status">Vos points ont été débités, mais aucun code n’a été reçu. Contactez le service client pour le récupérer.</p>
         : shown ? <><p className={shown.ok ? "write-done" : "form-error"} role="status">{shown.ok ? "Code créé. Copiez-le pour l’envoyer à votre ami." : shown.message}</p>{isUncertain(shown) ? <p className="uncertain-note">{UNCERTAIN}</p> : null}{codeList}</> : null}
       {verification?.kind === "not-debited" ? <p className="soon-note" role="status">Votre historique complet ne montre aucun débit de {costText} points depuis la demande.</p> : null}

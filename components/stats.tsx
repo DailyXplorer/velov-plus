@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type PointerEvent, type ReactNode } from "react";
-import { BicycleIcon, ClockIcon, CoinsIcon, type Icon, LeafIcon, RouteIcon, StarFourIcon } from "./icons";
+import { BicycleIcon, CaretRightIcon, ClockIcon, CoinsIcon, type Icon, LeafIcon, RouteIcon, StarFourIcon } from "./icons";
 import { CardTag, EmptyState, Ghost, LoadFailure, SelectField, SelectSkeleton } from "./ui";
 import { BikeDrawer } from "./station-bikes";
 import { accountJson, loadError } from "./get-json";
@@ -414,7 +414,7 @@ function Records({ data }: { data: PeriodStats }) {
       <div><dt>Plus long trajet</dt><dd>{longestMinutes != null ? hours(longestMinutes, figure) : "—"}</dd></div>
       <div><dt>Jour record</dt><dd>{busiestDayTrips ? plural(busiestDayTrips, "trajet", figure) : "—"}</dd></div>
       <div><dt>Série</dt><dd>{streakDays ? plural(streakDays, "jour", figure) : "—"}</dd></div>
-      <div><dt>Vélo favori</dt><dd>{bike ? <button className="stat-bike" onClick={() => setBikeOpen(true)} aria-label={`Voir la fiche du vélo ${bike}`}>N° {bike}</button> : "—"}</dd></div>
+      <div><dt>Vélo favori</dt><dd>{bike ? <button className="stat-bike" onClick={() => setBikeOpen(true)} aria-label={`Voir la fiche du vélo ${bike}`}>N° {bike}<CaretRightIcon size={16} weight="light" aria-hidden="true"/></button> : "—"}</dd></div>
     </dl>
     {bikeOpen && bike ? <BikeDrawer number={bike} onClose={() => setBikeOpen(false)}/> : null}
     </>

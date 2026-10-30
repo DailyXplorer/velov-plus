@@ -142,7 +142,8 @@ test("F2: the invite state lives in the store, Obtenir un code keeps it, and a r
 });
 
 test("confirmation titles keep a non-breaking space before the question mark", () => {
-  assert.match(source("components/invite-friend.tsx"), /<h2 id=\{titleId\}>Obtenir un code\u00a0\?<\/h2>/);
+  assert.match(source("components/invite-friend.tsx"), /<h2 id=\{titleId\}>\{shown\?\.ok \? "Votre code" : "Obtenir un code\u00a0\?"\}<\/h2>/);
+  assert.match(source("components/invite-friend.tsx"), /\{shown\?\.ok \? null : <p>\{costText\} points sont débités/);
   assert.match(source("components/contact-support.tsx"), /<h2 id=\{titleId\}>Envoyer au service client\u00a0\?<\/h2>/);
 });
 

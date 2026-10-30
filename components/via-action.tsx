@@ -64,7 +64,7 @@ export function ViaAction({ stations, account, tripId }: { stations: Station[]; 
       <div onKeyDownCapture={(event) => { if (pending && sendingHere && event.key === "Escape") event.preventDefault(); }}>
         <div className="modal-heading"><h2 id={titleId}>15 minutes de plus</h2><button className="icon-button" aria-label="Fermer" disabled={pending && sendingHere} onClick={close}><XIcon size={20} weight="light"/></button></div>
         {(reviewing || held) && station ? <>
-          <p className="write-question">La station <strong>{station.name} (n° {station.number})</strong> est pleine. Demander 15 minutes de plus pour rejoindre une autre station ?</p>
+          <p className="write-question">La station <strong>{station.name} (N° {station.number})</strong> est pleine. Demander 15 minutes de plus pour rejoindre une autre station ?</p>
           {failure ? <><p className="form-error" role="alert">{failure.message}</p>{isUncertain(failure) ? <p className="uncertain-note">{UNCERTAIN}</p> : null}</> : null}
           {notice ? <p className="form-error" role="alert">{notice}</p> : null}
           <div className="modal-actions">{failure && isUncertain(failure) ? <Button variant="ghost" onClick={close}>Fermer</Button> : <><Button variant="ghost" disabled={pending} onClick={() => { setFailure(null); setNotice(null); setReviewing(false); }}>Retour</Button><Button pending={pending} disabled={!operationKey} onClick={() => void confirm()}>Confirmer</Button></>}</div>
@@ -72,7 +72,7 @@ export function ViaAction({ stations, account, tripId }: { stations: Station[]; 
           <p>Choisissez la station pleine où vous vouliez rendre votre vélo.</p>
           <label className="field"><span className="metric-label">Rechercher une station pleine</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Nom, adresse ou numéro"/></label>
           <Button variant="ghost" pending={locating} onClick={locate}><NavigationArrowIcon size={17} weight="light" aria-hidden="true"/>Les plus proches</Button>
-          {choices.length ? <SelectField label="Station pleine" hideLabel value={selected} onChange={setSelected} options={[{ value: "", label: "Choisir une station" }, ...choices.map((item) => ({ value: String(item.number), label: `${item.name} · N° ${item.number}${position ? ` · ${formatDistance(haversine(position, item))}` : ""}` }))]}/> : <p>Aucune station pleine ne correspond à votre recherche.</p>}
+          {choices.length ? <SelectField label="Station pleine" hideLabel placeholder="Choisir une station" value={selected} onChange={setSelected} options={[...choices.map((item) => ({ value: String(item.number), label: `${item.name} · N° ${item.number}${position ? ` · ${formatDistance(haversine(position, item))}` : ""}` }))]}/> : <p>Aucune station pleine ne correspond à votre recherche.</p>}
           <div className="modal-actions"><Button variant="ghost" onClick={close}>Annuler</Button><Button disabled={!station} onClick={() => setReviewing(true)}>Continuer</Button></div>
         </>}
       </div>

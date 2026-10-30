@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState, type ButtonHTMLAttributes, type KeyboardEvent, type ReactNode } from "react";
-import { ArrowRightIcon, type Icon, SpinnerGapIcon, StarIcon } from "./icons";
+import { ArrowRightIcon, CaretRightIcon, type Icon, SpinnerGapIcon, StarIcon } from "./icons";
 import type { LoadError } from "@/lib/models";
 
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
@@ -43,14 +43,15 @@ export function CardTag({ icon: TagIcon, children }: { icon: Icon; children: Rea
   return <span className="card-tag"><span className="card-tag-icon"><TagIcon size={13} weight="bold" aria-hidden="true"/></span>{children}</span>;
 }
 
-export function SelectField<T extends string>({ label, hideLabel = false, value, options, onChange, className = "" }: { label: string; hideLabel?: boolean; value: T; options: { value: T; label: string; short?: string }[]; onChange: (value: T) => void; className?: string }) {
+export function SelectField<T extends string>({ label, hideLabel = false, value, options, onChange, placeholder, className = "" }: { label: string; hideLabel?: boolean; value: T; options: { value: T; label: string; short?: string }[]; onChange: (value: T) => void; placeholder?: string; className?: string }) {
   const id = useId();
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
   const root = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const listbox = useRef<HTMLUListElement>(null);
-  const selected = Math.max(0, options.findIndex((option) => option.value === value));
+  const found = options.findIndex((option) => option.value === value);
+  const selected = placeholder && found < 0 ? -1 : Math.max(0, found);
 
   useEffect(() => {
     if (!open) return;
@@ -67,7 +68,7 @@ export function SelectField<T extends string>({ label, hideLabel = false, value,
   }, [open, active]);
 
   function show() {
-    setActive(selected);
+    setActive(Math.max(0, selected));
     setOpen(true);
   }
 
@@ -110,13 +111,14 @@ export function SelectField<T extends string>({ label, hideLabel = false, value,
           aria-controls={open ? `${id}-list` : undefined} aria-labelledby={`${id}-label ${id}-value`}
           onClick={() => (open ? close() : show())} onKeyDown={onTriggerKeyDown}>
           <span className="select-value" id={`${id}-value`}>
+            {placeholder ? <span className="select-placeholder" aria-hidden={selected !== -1 || undefined}>{placeholder}</span> : null}
             {options.map((option, index) => (
               <span key={option.value} aria-hidden={index !== selected || undefined}>
                 {option.short ? <><span className="select-long">{option.label}</span><span className="select-short">{option.short}</span></> : option.label}
               </span>
             ))}
           </span>
-          <span className="select-chevron"><ArrowRightIcon size={13} weight="bold" aria-hidden="true"/></span>
+          <span className="select-chevron"><CaretRightIcon size={14} weight="bold" aria-hidden="true"/></span>
         </button>
         {open ? (
           <ul ref={listbox} id={`${id}-list`} className="select-popover" role="listbox" tabIndex={-1} aria-labelledby={`${id}-label`}
