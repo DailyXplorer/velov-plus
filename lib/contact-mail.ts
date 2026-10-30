@@ -1,8 +1,9 @@
 import { accountCall, BASE, type Auth } from "./cyclocity.ts";
 import { type ContactBody, contactMessage } from "./contact-models.ts";
 import { MAIL_ACCEPT, MAIL_FIELDS } from "./guesses.ts";
+import { sendWrite } from "./write-transport.ts";
 
-export async function postContactMail({ body, ...auth }: Auth & { body: ContactBody }, send: typeof fetch = fetch) {
+export async function postContactMail({ body, ...auth }: Auth & { body: ContactBody }, send: typeof fetch = sendWrite) {
   const form = new FormData();
   form.set(MAIL_FIELDS.complaintType, body.complaintType);
   form.set(MAIL_FIELDS.message, contactMessage(body));

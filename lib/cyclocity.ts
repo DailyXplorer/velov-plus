@@ -4,6 +4,7 @@ import { VIA_MEDIA_TYPE, VIA_STATION_FIELD, VIA_SUCCESS_STATE, VIA_STATE_FIELD }
 import { type AutoSpendResult, type Outcome, type ProfileBody, type RateBody, type Station, type Trip, type UnlockBody, stationTitle } from "./models.ts";
 import { haversine } from "./geo.ts";
 import { VelovError } from "./auth-protocol.ts";
+import { sendWrite } from "./write-transport.ts";
 
 export const API = "https://api.cyclocity.fr";
 export const BASE = `${API}/contracts/lyon`;
@@ -57,7 +58,7 @@ export function normalizeTrip(value: z.infer<typeof rawTrip>, stations: Map<numb
   };
 }
 
-export async function postRating({ accountId, tripId, body, token, identity }: { accountId: string; tripId: string; body: RateBody; token: string; identity: string }, send: typeof fetch = fetch): Promise<Outcome> {
+export async function postRating({ accountId, tripId, body, token, identity }: { accountId: string; tripId: string; body: RateBody; token: string; identity: string }, send: typeof fetch = sendWrite): Promise<Outcome> {
   let response: Response;
   try {
     response = await send(`${BASE}/accounts/${encodeURIComponent(accountId)}/trips/${encodeURIComponent(tripId)}/rate`, {
@@ -134,7 +135,7 @@ export function bookingOutcome(httpStatus: number, reply: { code: string | null;
   return { ok, httpStatus, transactionState: null, code: reply.code, message, detail: reply.detail };
 }
 
-export async function postRelease({ accountId, subscriptionId, body, token, identity }: { accountId: string; subscriptionId: string; body: UnlockBody; token: string; identity: string }, send: typeof fetch = fetch): Promise<Outcome> {
+export async function postRelease({ accountId, subscriptionId, body, token, identity }: { accountId: string; subscriptionId: string; body: UnlockBody; token: string; identity: string }, send: typeof fetch = sendWrite): Promise<Outcome> {
   let response: Response;
   try {
     response = await send(`${BASE}/accounts/${encodeURIComponent(accountId)}/subscriptions/${encodeURIComponent(subscriptionId)}/trips`, {
@@ -152,7 +153,7 @@ export async function postRelease({ accountId, subscriptionId, body, token, iden
 
 export type CreateBooking = { stationId: string; stationNumber: number; standNumber: number; subscriptionId: string; bikeId: string };
 
-export async function postBooking({ accountId, body, token, identity }: { accountId: string; body: CreateBooking; token: string; identity: string }, send: typeof fetch = fetch): Promise<{ outcome: Outcome; booking: z.infer<typeof rawBooking> | null }> {
+export async function postBooking({ accountId, body, token, identity }: { accountId: string; body: CreateBooking; token: string; identity: string }, send: typeof fetch = sendWrite): Promise<{ outcome: Outcome; booking: z.infer<typeof rawBooking> | null }> {
   let response: Response;
   try {
     response = await send(`${BASE}/accounts/${encodeURIComponent(accountId)}/bookings`, {
@@ -194,20 +195,20 @@ export async function accountCall(url: string, init: { method: "POST" | "PATCH" 
 
 const accountUrl = (accountId: string) => `${BASE}/accounts/${encodeURIComponent(accountId)}`;
 
-export async function patchAutoSpend({ autoSpend, ...auth }: Auth & { autoSpend: boolean }, send: typeof fetch = fetch): Promise<AutoSpendResult> {
+export async function patchAutoSpend({ autoSpend, ...auth }: Auth & { autoSpend: boolean }, send: typeof fetch = sendWrite): Promise<AutoSpendResult> {
   const { outcome, value } = await accountCall(`${accountUrl(auth.accountId)}/rewards`, { method: "PATCH", headers: { "Content-Type": "application/vnd.rewards.v5+json" }, body: JSON.stringify({ autoSpend }) }, auth, "Vélo’v n’a pas enregistré ce réglage.", send);
   const answered = z.object({ autoSpend: z.boolean() }).safeParse(value);
   return { ...outcome, autoSpend: answered.success ? answered.data.autoSpend : outcome.ok ? autoSpend : null };
 }
 
-export async function putStationBookmark({ stationNumber, on, ...auth }: Auth & { stationNumber: number; on: boolean }, send: typeof fetch = fetch): Promise<Outcome> {
+export async function putStationBookmark({ stationNumber, on, ...auth }: Auth & { stationNumber: number; on: boolean }, send: typeof fetch = sendWrite): Promise<Outcome> {
   const { outcome } = await accountCall(`${accountUrl(auth.accountId)}/stationbookmarks/${stationNumber}/`, { method: on ? "POST" : "DELETE", headers: { Accept: "application/vnd.account.v4+json" } }, auth, on ? "Vélo’v n’a pas ajouté cette station aux favoris." : "Vélo’v n’a pas retiré cette station des favoris.", send);
   return outcome;
 }
 
 const report = z.object({ filename: lenient(z.string()), translations: z.object({ content: z.string().min(1) }) });
 
-export async function postPeriodReport({ subscriptionId, periodId, ...auth }: Auth & { subscriptionId: string; periodId: string }, send: typeof fetch = fetch): Promise<{ outcome: Outcome; pdf: { filename: string; bytes: Buffer } | null }> {
+export async function postPeriodReport({ subscriptionId, periodId, ...auth }: Auth & { subscriptionId: string; periodId: string }, send: typeof fetch = sendWrite): Promise<{ outcome: Outcome; pdf: { filename: string; bytes: Buffer } | null }> {
   const { outcome, value } = await accountCall(`${accountUrl(auth.accountId)}/subscriptions/${encodeURIComponent(subscriptionId)}/periods/${encodeURIComponent(periodId)}/reports`, { method: "POST", headers: { Accept: "application/json" } }, auth, "Ce reçu n’est pas disponible.", send);
   if (!outcome.ok) return { outcome, pdf: null };
   const parsed = report.safeParse(value);
@@ -216,7 +217,7 @@ export async function postPeriodReport({ subscriptionId, periodId, ...auth }: Au
   return { outcome, pdf: { filename: parsed.data.filename?.replace(/[^\w.-]/g, "") || `recu-${periodId}.pdf`, bytes } };
 }
 
-export async function patchProfile({ body, ...auth }: Auth & { body: ProfileBody }, send: typeof fetch = fetch): Promise<Outcome> {
+export async function patchProfile({ body, ...auth }: Auth & { body: ProfileBody }, send: typeof fetch = sendWrite): Promise<Outcome> {
   const ordered = { firstName: body.firstName, lastName: body.lastName, country: body.country, zipCode: body.zipCode, city: body.city, phoneNumber: body.phoneNumber, address: body.address };
   const { outcome } = await accountCall(accountUrl(auth.accountId), { method: "PATCH", headers: { "Content-Type": "application/vnd.account.v4+json" }, body: JSON.stringify(ordered) }, auth, "Vélo’v n’a pas enregistré ces coordonnées.", send);
   const renamed = body.firstName !== undefined || body.lastName !== undefined;
@@ -224,14 +225,14 @@ export async function patchProfile({ body, ...auth }: Auth & { body: ProfileBody
 }
 
 
-export async function patchAutoRenewal({ subscriptionId, autoRenewal, ...auth }: Auth & { subscriptionId: string; autoRenewal: boolean }, send: typeof fetch = fetch): Promise<Outcome> {
+export async function patchAutoRenewal({ subscriptionId, autoRenewal, ...auth }: Auth & { subscriptionId: string; autoRenewal: boolean }, send: typeof fetch = sendWrite): Promise<Outcome> {
   const { outcome } = await accountCall(`${accountUrl(auth.accountId)}/subscriptions/${encodeURIComponent(subscriptionId)}`, {
     method: "PATCH", headers: { "Content-Type": SUBSCRIPTION_MEDIA_TYPE }, body: JSON.stringify({ [AUTO_RENEWAL_FIELD]: autoRenewal })
   }, auth, "Vélo’v n’a pas enregistré le renouvellement automatique.", send, true);
   return outcome;
 }
 
-export async function postVia({ subscriptionId, stationId, ...auth }: Auth & { subscriptionId: string; stationId: string | number }, send: typeof fetch = fetch): Promise<Outcome> {
+export async function postVia({ subscriptionId, stationId, ...auth }: Auth & { subscriptionId: string; stationId: string | number }, send: typeof fetch = sendWrite): Promise<Outcome> {
   const { outcome, value } = await accountCall(`${accountUrl(auth.accountId)}/subscriptions/${encodeURIComponent(subscriptionId)}/via`, {
     method: "POST", headers: { "Content-Type": VIA_MEDIA_TYPE }, body: JSON.stringify({ [VIA_STATION_FIELD]: stationId })
   }, auth, "Les 15 minutes supplémentaires n’ont pas été accordées.", send, true);

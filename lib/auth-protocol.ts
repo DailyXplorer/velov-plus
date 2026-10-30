@@ -3,6 +3,7 @@ import { load } from "cheerio";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import { z } from "zod";
 import { memo } from "./memo.ts";
+import { sendByMethod, sendWrite } from "./write-transport.ts";
 
 export const IAM = "https://iam.cyclocity.fr";
 export const REALM = `${IAM}/realms/vls-default`;
@@ -132,7 +133,7 @@ class LoginTransport {
   }
 }
 
-export async function login(credentials: Credentials, deviceId: string = randomUUID(), http: Http = fetch) {
+export async function login(credentials: Credentials, deviceId: string = randomUUID(), http: Http = sendByMethod) {
   const authorization = makeAuthorization();
   const transport = new LoginTransport(http);
   let response = await transport.request(authorization.url);
@@ -160,7 +161,7 @@ export async function login(credentials: Credentials, deviceId: string = randomU
 
 const refreshes = memo<Tokens>(30_000);
 
-export function refresh(refreshToken: string, http: Http = fetch) {
+export function refresh(refreshToken: string, http: Http = sendWrite) {
   return refreshes(refreshToken, async () => {
     const response = await http(`${OIDC}/token`, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ grant_type: "refresh_token", client_id: CLIENT_ID, refresh_token: refreshToken }), redirect: "manual", cache: "no-store", signal: AbortSignal.timeout(20_000) });
     if ([400, 401].includes(response.status)) throw new SessionRevoked();
@@ -170,7 +171,7 @@ export function refresh(refreshToken: string, http: Http = fetch) {
   });
 }
 
-export async function endSession({ refreshToken, idToken }: { refreshToken?: string; idToken?: string }, http: Http = fetch) {
+export async function endSession({ refreshToken, idToken }: { refreshToken?: string; idToken?: string }, http: Http = sendByMethod) {
   try {
     if (refreshToken) {
       const response = await http(`${OIDC}/logout`, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ client_id: CLIENT_ID, refresh_token: refreshToken }), redirect: "manual", cache: "no-store", signal: AbortSignal.timeout(10_000) });

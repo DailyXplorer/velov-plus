@@ -18,6 +18,7 @@ Rules for anyone, human or coding agent, who changes this repo. Product and desi
 - While a request is sending, block every way out, not only the visible arrow: Esc, backdrop click, X and browser back on the web; swipe-back, back button and sheet drag-to-dismiss on iOS.
 - An uncertain operation offers no « Nouvelle demande » escape. One owner-approved exception: the support message keeps « Écrire un nouveau message » under « Votre premier message est peut-être déjà arrivé. », because no check exists and a duplicate message is harmless.
 - Logout and account change bump a session generation, checked before any late response updates the UI or saves tokens (web and iOS).
+- Every server-side write to Cyclocity and every login, token, refresh and logout POST goes through `sendWrite` (`lib/write-transport.ts`): one fresh connection closed after the answer, never the pooled global `fetch`, because a reused connection can drop the request and undici's fetch resends a request after a 421. Reads keep `fetch`.
 - A new write route has `requireSameOrigin`, a session, a zod-validated body capped at 4 KB (`readJsonBody`), `maxDuration`, no retry (never `fetchTransient`), one request per confirmation, a mocked-fetch test, and the French failure message in its dialog. Its technical line (HTTP status, code, detail) goes to the journal through `runOnce`, never to the screen.
 - When reviewing a diff, yours or another agent’s, grep it for retries added to state-changing calls before it ships.
 
