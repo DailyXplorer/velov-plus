@@ -21,7 +21,7 @@ export type Credentials = { email: string; code: string };
 type Http = typeof fetch;
 
 export class VelovError extends Error {
-  readonly code: "credentials" | "device" | "expired" | "unavailable" | "protocol" | "origin";
+  readonly code: "credentials" | "device" | "expired" | "unavailable" | "protocol" | "origin" | "unsent";
   constructor(code: VelovError["code"], message: string) {
     super(message);
     this.code = code;

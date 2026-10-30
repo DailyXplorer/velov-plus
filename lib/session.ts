@@ -54,10 +54,20 @@ export function jsonResponse(data: unknown, session: Session | null = null, stat
   return response;
 }
 
+export const NOTHING_SENT = "Vélo’v ne répond pas. Rien n’a été envoyé.";
+
+export async function beforeSend<T>(read: () => Promise<T>): Promise<T> {
+  try { return await read(); }
+  catch (error) {
+    if (error instanceof VelovError && error.code === "expired") throw error;
+    throw new VelovError("unsent", NOTHING_SENT);
+  }
+}
+
 export function errorResponse(error: unknown, session: Session | null = null) {
   const known = error instanceof VelovError;
-  const status = known ? error.code === "expired" ? 401 : error.code === "origin" ? 403 : error.code === "credentials" ? 401 : error.code === "device" ? 409 : 503 : 503;
-  const response = jsonResponse({ error: known ? error.message : "Le service est momentanément indisponible. Réessayez dans un instant.", code: known ? error.code : "unavailable" }, session, status);
+  const status = known ? error.code === "expired" ? 401 : error.code === "origin" ? 403 : error.code === "credentials" ? 401 : error.code === "device" ? 409 : error.code === "unsent" ? 424 : 503 : 503;
+  const response = jsonResponse({ error: known ? error.message : "Le service est momentanément indisponible. Réessayez dans un instant.", code: known ? error.code === "unsent" ? "local.unavailable" : error.code : "unavailable" }, session, status);
   if (error instanceof SessionRevoked) clearSessionCookies(response);
   return response;
 }

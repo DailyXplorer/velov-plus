@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { requireSameOrigin } from "@/lib/auth-protocol";
 import { setFavorite } from "@/lib/velov";
-import { errorResponse, getSession, jsonResponse, type Session } from "@/lib/session";
+import { beforeSend, errorResponse, getSession, jsonResponse, type Session } from "@/lib/session";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -14,7 +14,7 @@ async function bookmark(request: NextRequest, { params }: Context, on: boolean) 
     requireSameOrigin(request);
     const { number } = await params;
     if (!/^\d{1,9}$/.test(number) || Number(number) <= 0) return jsonResponse({ error: "Numéro de station invalide.", code: "invalid" }, null, 400);
-    session = await getSession(request);
+    session = await beforeSend(() => getSession(request));
     if (!session) return jsonResponse({ error: "Connectez-vous pour modifier vos favoris.", code: "expired" }, null, 401);
     return jsonResponse(await setFavorite(session, Number(number), on), session);
   } catch (error) { return errorResponse(error, session); }

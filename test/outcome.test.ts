@@ -4,6 +4,9 @@ import { postBooking, postRelease, postVia, refusal } from "../lib/cyclocity.ts"
 import { postContactMail } from "../lib/contact-mail.ts";
 import { postPromoCode } from "../lib/promo.ts";
 import { isUncertain, networkFailure, noAnswer, routeFailure, technicalLine } from "../lib/outcome.ts";
+import { beforeSend, errorResponse } from "../lib/session.ts";
+import { SessionRevoked, VelovError } from "../lib/auth-protocol.ts";
+import { readFileSync } from "node:fs";
 
 const realFetch = globalThis.fetch;
 beforeEach(() => { globalThis.fetch = (() => { throw new Error("network call in a unit test"); }) as typeof fetch; });
@@ -71,6 +74,24 @@ test("our route failing after the confirmation is uncertain: its 503, a platform
   assert.equal(isUncertain(routeFailure(504, null, "Réponse inattendue.")), true);
   assert.equal(isUncertain(routeFailure(200, null, "Réponse inattendue.")), true);
   assert.deepEqual(routeFailure(504, null, "Réponse inattendue."), { ok: false, httpStatus: 504, transactionState: null, code: "local.unreadable", message: "Réponse inattendue.", detail: null });
+});
+
+test("a read that fails before the write is a clear « nothing sent », only an expired session still signs out", async () => {
+  for (const failure of [new VelovError("unavailable", "Certaines informations Vélo’v ne sont pas disponibles pour le moment."), new TypeError("fetch failed")]) {
+    const thrown = await beforeSend(async () => { throw failure; }).catch((error: unknown) => error);
+    const response = errorResponse(thrown);
+    const outcome = routeFailure(response.status, await response.json(), "");
+    assert.equal(outcome.code, "local.unavailable");
+    assert.equal(outcome.message, "Vélo’v ne répond pas. Rien n’a été envoyé.");
+    assert.equal(isUncertain(outcome), false, failure.message);
+  }
+  await assert.rejects(beforeSend(async () => { throw new SessionRevoked(); }), SessionRevoked);
+  assert.equal(await beforeSend(async () => 42), 42);
+  for (const route of ["unlock", "bookings", "trips/[id]/rate", "account/rewards", "account/promocode", "account/profile", "account/favorites/[number]", "account/via", "account/auto-renewal", "account/contact"]) {
+    const source = readFileSync(`app/api/${route}/route.ts`, "utf8");
+    const write = source.slice(source.search(/async function (POST|PATCH|DELETE|bookmark)\(/));
+    assert.match(write, /beforeSend\(\(\) => getSession\(request\)\)/, route);
+  }
 });
 
 test("the technical line names the state, the HTTP status, the code and the detail, and omits what is unknown", () => {

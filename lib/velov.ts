@@ -17,7 +17,7 @@ import { type TripCheck, latestFinished } from "./trip-end";
 import { buildStats, collectPages, statsTtl, type Stats } from "./stats";
 import { type RewardsHistory, historySince, signedAmount } from "./operations";
 import { appToken, fetchTransient, getStations, getWithAppToken } from "./upstream";
-import type { Session } from "./session";
+import { type Session, beforeSend } from "./session";
 
 const date = z.string().nullish();
 const text = lenient(z.string());
@@ -117,13 +117,17 @@ export async function getBookings(session: Session): Promise<Booking[]> {
 }
 
 export async function bookBike(session: Session, body: BookBody): Promise<BookResult> {
-  const accountId = await accountIdOf(session);
-  const [subscriptionId, station, bikes] = await Promise.all([
-    currentSubscriptionId(`/accounts/${accountId}`, session),
-    getWithAppToken(publicToken, `${BASE}/stations/${body.stationNumber}`, (token) => ({ Authorization: `Taknv1 ${token}`, Accept: "application/vnd.station.v4+json", "User-Agent": BROWSER_AGENT }))
-      .then(async (response) => response.ok ? z.object({ id: z.string() }).safeParse(await response.json()).data?.id ?? null : null),
-    getRawBikes(`stationNumber=${body.stationNumber}`, "Les vélos de cette station sont momentanément indisponibles.")
-  ]);
+  const { accountId, token, subscriptionId, station, bikes } = await beforeSend(async () => {
+    const accountId = await accountIdOf(session);
+    const [subscriptionId, station, bikes, token] = await Promise.all([
+      currentSubscriptionId(`/accounts/${accountId}`, session),
+      getWithAppToken(publicToken, `${BASE}/stations/${body.stationNumber}`, (token) => ({ Authorization: `Taknv1 ${token}`, Accept: "application/vnd.station.v4+json", "User-Agent": BROWSER_AGENT }))
+        .then(async (response) => response.ok ? z.object({ id: z.string() }).safeParse(await response.json()).data?.id ?? null : null),
+      getRawBikes(`stationNumber=${body.stationNumber}`, "Les vélos de cette station sont momentanément indisponibles."),
+      publicToken.get()
+    ]);
+    return { accountId, token, subscriptionId, station, bikes };
+  });
   const stop = (outcome: ReturnType<typeof refusal>): BookResult => ({ ...outcome, booking: null });
   const bike = bikes.find((item) => item.number === body.bikeNumber);
   if (!subscriptionId) return stop(noSubscription());
@@ -131,16 +135,19 @@ export async function bookBike(session: Session, body: BookBody): Promise<BookRe
   if (bike.isReserved) return stop(refusal("local.bike.reserved", "Ce vélo est déjà réservé."));
   if (bike.standNumber == null) return stop(refusal("local.bike.no.stand", "Ce vélo n’est pas accroché à une borne : il ne peut pas être réservé."));
   if (!bike.id || !station) return stop(refusal("local.missing.id", "Ce vélo ne peut pas être réservé pour le moment. Réessayez dans un instant."));
-  const { outcome, booking } = await postBooking({ accountId, token: await publicToken.get(), identity: session.accessToken, body: { stationId: station, stationNumber: body.stationNumber, standNumber: bike.standNumber, subscriptionId, bikeId: bike.id } });
+  const { outcome, booking } = await postBooking({ accountId, token, identity: session.accessToken, body: { stationId: station, stationNumber: body.stationNumber, standNumber: bike.standNumber, subscriptionId, bikeId: bike.id } });
   return { ...outcome, booking: booking ? toBooking(booking, await stationsByNumber(), new Map([[bike.id, bike.number]])) : null };
 }
 
 export async function unlockBike(session: Session, body: UnlockBody): Promise<UnlockResult> {
-  const accountId = await accountIdOf(session);
+  const { accountId, subscriptionId, token } = await beforeSend(async () => {
+    const accountId = await accountIdOf(session);
+    const [subscriptionId, token] = await Promise.all([currentSubscriptionId(`/accounts/${accountId}`, session), publicToken.get()]);
+    return { accountId, subscriptionId, token };
+  });
   const account = `/accounts/${accountId}`;
-  const subscriptionId = await currentSubscriptionId(account, session);
   if (!subscriptionId) return { ...noSubscription(), ongoing: null };
-  const outcome = await postRelease({ accountId, subscriptionId, body, token: await publicToken.get(), identity: session.accessToken });
+  const outcome = await postRelease({ accountId, subscriptionId, body, token, identity: session.accessToken });
   if (outcome.httpStatus === 0) return { ...outcome, ongoing: null };
   await new Promise((resolve) => setTimeout(resolve, 2_000));
   const [ongoing, stations] = await Promise.all([read(`${account}/trips/ongoing`, z.array(rawTrip), session, "application/vnd.trip.v6+json").catch(() => null), stationsByNumber()]);
@@ -161,12 +168,12 @@ export async function getTripCheck(session: Session): Promise<TripCheck> {
 }
 
 export async function rateTrip(session: Session, tripId: string, body: RateBody): Promise<Outcome> {
-  const accountId = await accountIdOf(session);
-  return postRating({ accountId, tripId, body, token: await publicToken.get(), identity: session.accessToken });
+  const { accountId, token } = await writer(session);
+  return postRating({ accountId, tripId, body, token, identity: session.accessToken });
 }
 
-async function writer(session: Session) {
-  return { accountId: await accountIdOf(session), token: await publicToken.get(), identity: session.accessToken };
+function writer(session: Session) {
+  return beforeSend(async () => ({ accountId: await accountIdOf(session), token: await publicToken.get(), identity: session.accessToken }));
 }
 
 export async function setAutoSpend(session: Session, autoSpend: boolean): Promise<AutoSpendResult> {
@@ -239,7 +246,7 @@ export async function setAutoRenewal(session: Session, body: AutoRenewalBody) {
   const auth = await writer(session);
   const path = `/accounts/${encodeURIComponent(auth.accountId)}/subscriptions?periods=CURRENT&typeList=ST&typeList=LT&isLocked=false`;
   const readState = async () => renewalStateOf((await read(path, z.array(rawSubscription), session, "application/vnd.subscription.v6+json")).find((item) => item.id === body.subscriptionId));
-  const before = await readState();
+  const before = await beforeSend(readState);
   if (!before.autoRenewalAllowed || before.autoRenewal === null) return { ...refusal("local.renewal.not.allowed", "Le renouvellement automatique ne peut pas être modifié pour cet abonnement."), ...before, verified: true };
   return completeRenewalChange(() => patchAutoRenewal({ ...auth, ...body }), readState);
 }
@@ -247,13 +254,15 @@ export async function setAutoRenewal(session: Session, body: AutoRenewalBody) {
 export async function requestExtraTime(session: Session, body: ViaBody): Promise<Outcome> {
   const auth = await writer(session);
   const account = `/accounts/${auth.accountId}`;
-  const subscriptions = await read(`${account}/subscriptions?periods=CURRENT&typeList=ST&typeList=LT&isLocked=false`, z.array(rawSubscription), session, VIA_MEDIA_TYPE);
-  const renting = await Promise.all(subscriptions.filter((item) => item.id && !item.isLocked).map(async (item) => ({
-    id: item.id!, ongoing: await read(`${account}/subscriptions/${encodeURIComponent(item.id!)}/rentbike`, z.boolean(), session, VIA_MEDIA_TYPE)
-  })));
-  const active = renting.filter((item) => item.ongoing);
+  const active = await beforeSend(async () => {
+    const subscriptions = await read(`${account}/subscriptions?periods=CURRENT&typeList=ST&typeList=LT&isLocked=false`, z.array(rawSubscription), session, VIA_MEDIA_TYPE);
+    const renting = await Promise.all(subscriptions.filter((item) => item.id && !item.isLocked).map(async (item) => ({
+      id: item.id!, ongoing: await read(`${account}/subscriptions/${encodeURIComponent(item.id!)}/rentbike`, z.boolean(), session, VIA_MEDIA_TYPE)
+    })));
+    return renting.filter((item) => item.ongoing);
+  });
   if (active.length !== 1) return refusal("local.via.trip", active.length ? "Vous avez plusieurs trajets en cours. Utilisez l’app Vélo’v." : "Vous n’avez aucun trajet en cours.");
-  const station = await read(`/stations/${body.stationNumber}`, z.object({ id: z.string(), number: z.number(), open: z.boolean(), availabilities: z.object({ main: z.object({ stands: z.number() }) }) }), session, "application/vnd.station.v4+json");
+  const station = await beforeSend(() => read(`/stations/${body.stationNumber}`, z.object({ id: z.string(), number: z.number(), open: z.boolean(), availabilities: z.object({ main: z.object({ stands: z.number() }) }) }), session, "application/vnd.station.v4+json"));
   if (station.number !== body.stationNumber || !station.open || station.availabilities.main.stands !== 0) return refusal("local.via.not.full", "Cette station n’est plus pleine ou est fermée. Choisissez-en une autre.");
   return postVia({ ...auth, subscriptionId: active[0].id, stationId: VIA_STATION_IDENTIFIER === "uuid" ? station.id : station.number });
 }
@@ -272,10 +281,10 @@ export async function getRewardsSince(session: Session, since: number): Promise<
 
 export async function consumePromoCode(session: Session, expectedCost: number) {
   const auth = await writer(session);
-  const [config, rewards] = await Promise.all([
+  const [config, rewards] = await beforeSend(() => Promise.all([
     read("/rewards/configurations", z.array(ruleSchema), session, PROMOCODE_ACCEPT),
     read(`/accounts/${auth.accountId}/rewards`, rawRewards, session, PROMOCODE_ACCEPT)
-  ]);
+  ]));
   const rule = config.find((entry) => entry.name === PROMOCODE_REWARD && entry.enable);
   if (!rule || rule.reward !== expectedCost) return { ...refusal("local.promo.price.changed", "L’offre a changé. Actualisez la page avant de confirmer."), promoCode: null };
   if (rewards.balance < rule.reward) return { ...refusal("local.promo.balance", "Votre solde de points est insuffisant."), promoCode: null };
