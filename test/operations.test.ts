@@ -290,3 +290,21 @@ test("an uncertain unlock stays held in memory when the browser can read storage
   assert.equal(await runOnce(tab, "unlock:1", send), "busy");
   assert.equal(posts, 1);
 });
+
+test("a sending entry restored after a reload re-renders once its two minutes pass, so its sheet turns uncertain", (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  let clock = 1_000_000;
+  const store = memoryStore();
+  store.setItem(OPERATIONS_KEY, JSON.stringify({ "unlock:42": { id: "restored", status: "sending", at: clock - 60_000, keep: true, outcome: null, meta: { bikeNumber: 42 } } }));
+  const operations = createOperations(() => store, () => clock);
+  let fired = 0;
+  operations.subscribe(() => { fired++; });
+  assert.equal(operations.get("unlock:42")?.status, "sending");
+  clock += 59_000;
+  t.mock.timers.tick(59_000);
+  assert.equal(fired, 0);
+  clock += 1_001;
+  t.mock.timers.tick(1_001);
+  assert.equal(fired, 1);
+  assert.equal(operations.get("unlock:42")?.status, "uncertain");
+});

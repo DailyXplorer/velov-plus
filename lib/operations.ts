@@ -41,6 +41,7 @@ export function createOperations(storage: () => Store | null, now: () => number 
   const running = new Map<string, string>();
   const memory = new Map<string, Operation>();
   const listeners = new Set<() => void>();
+  const expiring = new Map<string, ReturnType<typeof setTimeout>>();
   let version = 0;
 
   function saved(): Record<string, Operation> | null {
@@ -61,6 +62,17 @@ export function createOperations(storage: () => Store | null, now: () => number 
   function changed() {
     version += 1;
     for (const listener of listeners) listener();
+    watchSending();
+  }
+  function watchSending() {
+    for (const [key, entry] of Object.entries(saved() ?? Object.fromEntries(memory))) {
+      const mark = `${key}:${entry.id}`;
+      const wait = entry.at + SENDING_LIMIT - now() + 1;
+      if (entry.status !== "sending" || running.has(key) || expiring.has(mark) || wait <= 0) continue;
+      const timer = setTimeout(() => { expiring.delete(mark); changed(); }, wait);
+      timer.unref?.();
+      expiring.set(mark, timer);
+    }
   }
   function write(key: string, entry: Operation | null, required: boolean) {
     try {
@@ -92,6 +104,7 @@ export function createOperations(storage: () => Store | null, now: () => number 
     return Object.values(all).some((entry) => live(entry)?.status === "sending");
   }
 
+  watchSending();
   return {
     get, busy,
     sending: () => running.size > 0,
