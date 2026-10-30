@@ -6,7 +6,7 @@ import { ClockIcon, type Icon, LockOpenIcon, TimerIcon, WarningIcon, XIcon } fro
 import { BOOKING_MINUTES, BOOKING_POINTS, RELEASE_DISTANCE, type Booking, type Outcome, bookingSchema, formatDate } from "@/lib/models";
 import { formatDistance, haversine } from "@/lib/geo";
 import { UNCERTAIN, UNCERTAIN_UNLOCK, UNVERIFIED, isUncertain } from "@/lib/outcome";
-import { bookingCheck, sendBikeAction, unlockCheck } from "@/lib/bike-action";
+import { bookingCheck, pollUnlock, sendBikeAction, unlockCheck } from "@/lib/bike-action";
 import { tripCheckSchema } from "@/lib/trip-end";
 import { blockedMessage, runOnce, settleHeld } from "@/lib/operations";
 import { getJson } from "./get-json";
@@ -120,6 +120,12 @@ export function BikeActions({ place, booking = null, initial, dialog = false, on
 
   const reservingId = reserving?.id ?? "";
   useEffect(() => { if (bookedNow) { void operations.clear(`book:${place.bikeNumber}`, reservingId); setFailure(null); setStep({ kind: "start" }); } }, [bookedNow, place.bikeNumber, reservingId]);
+  const pollId = account && unlocking?.status === "uncertain" ? unlocking.id : null;
+  const pollAt = unlocking?.at ?? 0;
+  useEffect(() => {
+    if (!pollId) return;
+    return pollUnlock(() => verify("unlock", false), pollAt);
+  }, [pollId, pollAt]);
   const step: Step = held && chosen.kind !== "expired" ? { kind: held.operation.status === "sending" ? "sending" : "confirm", action: held.action } : chosen;
   const failure = held ? held.operation.outcome : refused;
 
@@ -141,10 +147,10 @@ export function BikeActions({ place, booking = null, initial, dialog = false, on
     setFailure({ ...outcome, message: outcome.message ?? (action === "book" ? "Réservation impossible." : "Déverrouillage impossible.") });
     setStep({ kind: "confirm", action });
     if (action === "book" && isUncertain(outcome)) account?.changed();
-    if (action === "unlock" && isUncertain(outcome)) await verify(action, false);
+    if (action === "unlock" && isUncertain(outcome)) account?.unlocked(null);
   }
 
-  async function verify(action: Action, asked = true) {
+  async function verify(action: Action, asked = true): Promise<boolean> {
     const key = `${action}:${place.bikeNumber}`;
     let tripId: string | null = null;
     setChecking(true);
@@ -165,6 +171,7 @@ export function BikeActions({ place, booking = null, initial, dialog = false, on
       setFailure(settled.outcome);
       setStep({ kind: "confirm", action });
     } else if (settled && asked) setNotice(UNVERIFIED);
+    return settled?.kind !== "uncertain";
   }
 
   return (

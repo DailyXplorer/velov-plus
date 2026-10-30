@@ -1,5 +1,5 @@
 import { type Booking, type Outcome, bookResultSchema, unlockResultSchema } from "./models.ts";
-import { type Check, networkFailure, routeFailure } from "./outcome.ts";
+import { type Check, HISTORY_LAG, networkFailure, routeFailure } from "./outcome.ts";
 import type { TripCheck } from "./trip-end.ts";
 
 export const BIKE_ACTION_TIMEOUT = 60_000;
@@ -25,6 +25,26 @@ export async function sendBikeAction(action: BikeAction, target: Target, send: t
 }
 
 export const START_SLACK = 5 * 60_000;
+export const UNLOCK_POLLS = [2, 3, 5, 5, 5, 10, 10, 10, 10, 10];
+const UNLOCK_MARKS = [...UNLOCK_POLLS.map((_, index) => UNLOCK_POLLS.slice(0, index + 1).reduce((sum, wait) => sum + wait, 0) * 1000), HISTORY_LAG];
+
+export function pollUnlock(check: () => Promise<boolean>, at: number, now: () => number = Date.now): () => void {
+  let stopped = false;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const elapsed = now() - at;
+  const upcoming = UNLOCK_MARKS.filter((mark) => mark > elapsed);
+  const marks = upcoming.length ? upcoming : [elapsed];
+  const next = (index: number) => {
+    if (stopped || index >= marks.length) return;
+    timer = setTimeout(async () => {
+      if (stopped) return;
+      const finished = await check().catch(() => false);
+      if (!finished) next(index + 1);
+    }, Math.max(0, marks[index] - (now() - at)));
+  };
+  next(0);
+  return () => { stopped = true; clearTimeout(timer); };
+}
 
 export function unlockCheck(trips: TripCheck, bikeNumber: number, at: number): { check: Check; tripId: string | null } {
   if (trips.ongoing === null) return { check: "unknown", tripId: null };
