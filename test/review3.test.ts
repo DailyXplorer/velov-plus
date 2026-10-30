@@ -235,6 +235,14 @@ test("every account read carries the session signal, so a logout aborts it befor
   assert.match(source("components/invite-friend.tsx"), /await accountJson\(`\/api\/account\/rewards/);
 });
 
+test("browser back is held while an action sends, and leaving a page closes its open dialog", () => {
+  const companion = source("components/companion.tsx");
+  assert.match(companion, /const sending = useSending\(\);\n  useEffect\(\(\) => \{\n    if \(!sending\) return;\n    const hold = \(\) => window\.history\.pushState\(window\.history\.state, "", window\.location\.href\);\n    hold\(\);\n    window\.addEventListener\("popstate", hold\);\n    return \(\) => window\.removeEventListener\("popstate", hold\);\n  \}, \[sending\]\);/);
+  const modal = source("components/ui.tsx");
+  assert.match(modal, /window\.addEventListener\("hashchange", leave\);/);
+  assert.match(modal, /const leave = \(\) => closing\.current\(\);/);
+});
+
 test("parity: review counts are grouped, an uncertain unlock is re-read automatically, durations and logout match iOS", () => {
   assert.match(source("components/station-bikes.tsx"), /\{formatCountSans\(bike\.rating\.count\)\} avis/);
   assert.match(source("components/bike-actions.tsx"), /return pollUnlock\(\(\) => verify\("unlock", false\), pollAt\);/);

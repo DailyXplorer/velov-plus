@@ -179,6 +179,13 @@ export function SectionHeading({ title, children }: { title: string; children?: 
 
 export function Modal({ children, titleId, onClose, className = "" }: { children: ReactNode; titleId: string; onClose: () => void; className?: string }) {
   const element = useRef<HTMLDialogElement>(null);
+  const closing = useRef(onClose);
+  useEffect(() => { closing.current = onClose; });
+  useEffect(() => {
+    const leave = () => closing.current();
+    window.addEventListener("hashchange", leave);
+    return () => window.removeEventListener("hashchange", leave);
+  }, []);
   useEffect(() => {
     const dialog = element.current;
     const previous = document.activeElement;

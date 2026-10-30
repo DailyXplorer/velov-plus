@@ -20,6 +20,7 @@ import { ApiError, getJson, loadError } from "./get-json";
 import { toaster } from "@/lib/toast";
 import { TripEndedSheet } from "./trip-sheet";
 import { useStations } from "./use-stations";
+import { useSending } from "./operations";
 
 const navigation = [
   { id: "overview", label: "Vue d’ensemble", mobile: "Accueil", icon: HouseIcon },
@@ -72,6 +73,14 @@ export function Companion({ start }: { start: StartMode }) {
   const greeted = useRef(false);
   const refreshGate = useRef(createRefreshGate());
   const session = useRef(sessionGate);
+  const sending = useSending();
+  useEffect(() => {
+    if (!sending) return;
+    const hold = () => window.history.pushState(window.history.state, "", window.location.href);
+    hold();
+    window.addEventListener("popstate", hold);
+    return () => window.removeEventListener("popstate", hold);
+  }, [sending]);
   const [kept, setKept] = useState(new Set<Page>());
   if (page && mapPages.has(page) && !kept.has(page)) setKept(new Set(kept).add(page));
   const ready = state.kind === "ready";
