@@ -25,17 +25,23 @@ These are the owner's product rules. They apply to the web app and the iOS app (
 ## Colour and surfaces
 
 - Fill every filled surface (nav tabs including mobile, summary cards, pins, arrow circles) with red #df2537 and white text and icons.
-- Use red for surfaces and active states, not for big figures: balances and numbers are in ink (« Solde actuel » like « Total gagné »).
+- Use red for surfaces and active states, not for big figures: balances and numbers are in ink (« Solde actuel » like « Total gagné »). Earned points (« +5 » rules, credited movements) are ink too; the « + » carries the meaning.
+- Use one error colour, `--error` #b62938, for every error and warning text. Never use terracotta or brown text.
+- Make an eyebrow pill on a mist card white, so it stays visible (Points « Solde actuel », « Total gagné »).
 - Draw charts in red and mist/light grey only: the second donut segment is grey (never black), lines have no tinted area fill, empty heatmap cells are mist.
 - Keep arrow circles visible on their background: white circle on red buttons, red outline on light ones.
-- Make disabled buttons neutral grey (mist background, ink-soft text; outline variants grey text and grey ring), never red at reduced opacity, which reads as pink.
+- Make disabled buttons neutral grey (mist background, ink-soft text; outline variants grey text and grey ring), never red at reduced opacity, which reads as pink. On a mist card the disabled primary also gets the ink-line ring. Disabled ghost, icon and text buttons are ink at 30 %.
 - Mobile bottom nav (web and iOS): black icons and labels, the active tab white on its red pill.
 
 ## Layout and components
 
 - Harmonise, do not invent: the whole interface is the same everywhere. A new button or badge on a red surface reuses the summary-card pill (white pill, red circle with white icon, ink label); a circled icon on red reuses the white-ring circle of the card arrows.
 - Give paired action buttons (Annuler/Confirmer, Réserver/Déverrouiller, form actions) identical width and height, hover background included: rows are a grid with `grid-auto-columns: minmax(120px, 1fr)` (1fr on phone), buttons `width: 100%`. Never size them by their text.
-- Give every action button a leading Hugeicon like « Déverrouiller » (Réserver = timer).
+- Give every action button a leading Hugeicon like « Déverrouiller » (Réserver = timer, Obtenir un code = ticket, Modifier mes coordonnées = pencil, Envoyer = send, Les plus proches = location arrow, Écrire au service client = envelope). Dialog buttons (Annuler, Confirmer, Fermer, Vérifier, Retour, Continuer, Réessayer) and « Voir les vélos » stay text only.
+- On phone (≤ 620 px) every control is 44 px tall (buttons, fields, select triggers, text links, disclosure summaries) and every icon button has a 44 px hit area. Screen, sheet and dialog side margins are 24 px.
+- On phone, spacing follows the iOS scale: section gap 32, card gap 12, section title to content 16, content card padding 20, metric card padding 16.
+- Station cards (map card, station sheet, selected station panel): « Voir les vélos » is the primary button, « Itinéraire » the secondary one with the outline external arrow; side by side they have equal width and a 12 px gap.
+- A disclosure (`<details>`, such as « Certaines informations sont indisponibles ») keeps its caret even when it has a leading icon; the caret turns when it opens.
 - Make select triggers and text fields look like the buttons beside them: pill shape, same height, white with the 1px ink-line ring (no grey fill, no shadow), chevron in a small mist circle.
 - Web selects: a custom dropdown in the site style (white card, selected option in red text, no check mark, no focus or open ring on fields or triggers), never the OS-native menu.
 - Drop a visible label that only repeats the control (« Afficher », « Trier par ») and keep it as `aria-label`. Keep labels where the value alone is ambiguous (Pays, Objet).
@@ -72,7 +78,8 @@ These are the owner's product rules. They apply to the web app and the iOS app (
 
 - Capitalise every segment that starts a line or follows a separator (« · », « — »): « Vélo 27619 · Borne 4 », « 91 avis · Le dernier il y a 4 h ». Lowercase only after « : » or mid-sentence. The UPPERCASE of buttons and labels stays.
 - Write natural, short, idiomatic French, as SNCF Connect would: one idea per sentence, vouvoiement, no translated-English clause chains (« X, puis Y. Elle ne… »), « minutes » in sentences and « min » only in compact data. Drop caveats that do not prevent a costly mistake (« ne s’annule pas »).
-- Put a non-breaking space before ? ! : ; on the web as on iOS.
+- Put a non-breaking space before ? ! : ; on the web as on iOS, and between a number and its unit (« 18 min », « 2 h », « 84 % », « 200 m » in a sentence). Distances from `formatDistance` keep a plain space, as on iOS.
+- Show « Inactif » under a subscription without an end date only when it is inactive; never show « Actif ».
 - Make section and card titles noun phrases, never sentences or bare enumerations (« Horaires de départ », « Répartition par type de vélo », « Temps à vélo par mois »). Put no subtitle or caption beside a title (« En minutes »): units belong on the axis.
 - Action buttons and card titles carry no cost or duration (« Réserver », « Inviter un ami »). The cost appears only in the confirmation step, as the cost line alone.
 - Unlock copy states the two steps: confirm on the phone, then press the dock button within 60 s and pull the bike.
@@ -83,7 +90,9 @@ These are the owner's product rules. They apply to the web app and the iOS app (
 - On success the dialog closes itself and the page shows the new state: no success screen, no Fermer. Exception: results that are the information (the invite code).
 - Show no inline success message either (« Merci ! +5 points » was removed): the Trajet terminé sheet closes itself after rating and the rating card just disappears.
 - An unknown outcome (network error, timeout, 5xx) on a state-changing action shows the error, the raw line and « Le résultat est incertain : vérifiez avant de réessayer. », with only Annuler/Fermer. A clear refusal (4xx with a Vélo’v code) stays in the dialog with Annuler/Confirmer.
-- Show debug output (raw `transactionState`, code, HTTP line) only on failure screens and on a feature’s first live test; remove it from success screens once the owner confirms the action works.
+- Show debug output (raw `transactionState`, code, HTTP line) only on failure screens and on a feature’s first live test; remove it from success screens once the owner confirms the action works. A raw line omits a segment whose value is unknown (no « TransactionState — »).
+- The message of an uncertain action states only its cause (« Vélo’v ne répond pas. Le vélo est peut-être déverrouillé. »); the instruction appears once, in the uncertain note.
+- Show every load failure (account, statistics, stations, bikes) as the French message, a separate raw line (HTTP status and code, or the browser error and elapsed time) and « Réessayer » (`LoadFailure`). Over a map it sits in a white ringed card with radius 16.
 - Rating: five stars mapped onto the three stored levels (5–4 = recommended, rating `null`; 3–2 = 60; 1 = 30), one word per level (Parfait, Bien, Moyen, Décevant, À réparer), no defect picker. The buttons are a plain « Envoyer » (no « +5 points ») and « Plus tard » (remembered per trip).
 - Offer the Trajet terminé sheet automatically when the ongoing trip disappears. On the web, poll a light ongoing-trip route every 20 s only while a trip is ongoing and the page is visible, one request in flight, stopping on finish or after 3 h.
 - First and last name are editable in « Modifier mes coordonnées » through the same account PATCH (`firstName`/`lastName`): send only changed fields, single attempt, French refusal plus raw line.
@@ -92,6 +101,8 @@ These are the owner's product rules. They apply to the web app and the iOS app (
 ## Active booking banner
 
 One slim line on solid red. The clock icon sits inside a 34px white-ring circle, followed by the countdown alone (no « Réservé » pill, no word « reste »; `aria-label` « Vélo réservé, N min restantes »), then « Déverrouiller » as the card pill: white pill, white lock icon in a 32px red circle (`.eyebrow-icon`), label in ink. The countdown is Faculty Glyphic with proportional digits inside a fixed min-width box. Bike, dock and station appear in the unlock confirmation instead.
+
+The ongoing trip uses the same banner (`RedBanner`, `OnRedPill`) at the top of the overview: the bike icon in the white-ring circle, the elapsed time (« 06:00 », « 1:06:00 » from one hour), then « 15 minutes de plus » as the pill with the timer icon. Its `aria-label` is « Trajet en cours depuis N min ». It shows no « Trajet en cours » text and no station name.
 
 ## Maps
 
@@ -103,11 +114,16 @@ One slim line on solid red. The clock icon sits inside a 34px white-ring circle,
 - Put overlays that cover the whole map (wheel hint, error veil) in the map’s positioned wrapper (`.overview-map` / `.explorer-map`) with a z-index above `.map-station-card` / `.station-sheet`, never inside the Leaflet element (`.station-map` has `z-index: 0`).
 - Phone: on the Overview map the whole map is an invisible tap target to the Stations tab, with no « Toucher pour explorer » pill.
 - Geolocation (« Autour de moi »): try `enableHighAccuracy: false` first (a Mac has no GPS; high accuracy alone often times out or returns code 2), retry once with high accuracy on codes 2 and 3 only, show one French message per code, and the raw line « Code · message · navigateur/système · Permission … » under it.
+- « Autour de moi » selects the nearest open station that has bikes, or free places under the « Places » filter (`nearestSupplied` in `lib/station-filter.ts`, same predicate as iOS), and fits the map to it and the next two.
+- The user position is a white dot with a red ring and a neutral ink-line halo; the accuracy circle is neutral too, never red-tinted.
+- When a filter leaves no station, a white pill over the map says « Aucune station pour ce filtre. » with the « Toutes les stations » link.
 
 ## Charts
 
 - Chart tooltips (web and iOS): the card title always stays. The tooltip is a small white bubble (1px ink-line, no shadow) directly above the selected bar or cell column, centred on it with a 1px vertical guide down to the bar, in a band reserved permanently between title and plot (nothing jumps, it never covers a bar), clamped inside the card with its full text (shifted inward at the edges, the guide stays on the bar). Tapping elsewhere hides it. Verify with the first, middle and last bar selected at 390.
 - Heatmap intensity (Horaires de départ): a red square inside each cell whose size follows the count; empty cells mist.
+- The top y-axis tick carries the unit (« 800 min »); the other ticks are bare numbers.
+- A selected donut segment changes colour: red-deep for Électrique, #d6cfcf for the grey segments.
 
 ## iOS adaptations
 
