@@ -19,6 +19,10 @@ La carte des stations affiche les disponibilités en temps réel à partir des f
 - L’onglet Points montre le solde et les mouvements, règle l’utilisation automatique des points et permet d’obtenir un code à offrir à un ami.
 - L’onglet Compte permet de modifier ses coordonnées, de télécharger les reçus d’abonnement, de régler le renouvellement automatique et d’écrire au service client.
 
+## Sans compte
+
+Le bouton « Continuer sans compte », sous le formulaire de connexion, ouvre l’application sans compte Vélo’v. On y garde la carte des stations, la recherche, les filtres, la localisation, la liste des vélos de chaque station et le lien Itinéraire. Les favoris restent possibles, mais ils sont enregistrés dans le navigateur et non sur le compte. La réservation, le déverrouillage, les trajets, les statistiques, les points et l’onglet Compte n’existent pas dans ce mode. Le bouton « Se connecter » reste toujours visible en haut de l’écran, et la fiche d’un vélo propose un lien vers la connexion à la place des actions. Ce choix est mémorisé dans un cookie qui ne contient aucun identifiant. Le détail des fonctions publiques et des appels mesurés se trouve dans [docs/guest-mode.md](docs/guest-mode.md).
+
 ## Fonctionnement
 
 L’application est écrite avec Next.js 16 et React 19, en TypeScript, et elle est hébergée sur Vercel. Le navigateur ne parle qu’aux routes de l’application, sous `app/api/`. Ce sont ces routes, exécutées côté serveur, qui interrogent l’API Cyclocity et les flux GBFS. Aucun secret personnel n’est présent dans le dépôt ni dans le JavaScript envoyé au navigateur.
