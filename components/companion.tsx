@@ -5,7 +5,7 @@ import { memo, type ReactNode, useCallback, useEffect, useMemo, useRef, useState
 import { z } from "zod";
 import { ArrowClockwiseIcon, BicycleIcon, CaretDownIcon, ChartIcon, HouseIcon, MapPinIcon, SignOutIcon, StarFourIcon, UserCircleIcon, WarningCircleIcon, XIcon } from "./icons";
 import { bookingSchema, dashboardSchema, type Booking, type Dashboard, type LoadError, type Page, type Trip, formatDate, formatName } from "@/lib/models";
-import { createDockWatch, tripCheckSchema, tripToGreet } from "@/lib/trip-end";
+import { createDockWatch, greetingOf, tripCheckSchema } from "@/lib/trip-end";
 import { createRefreshGate, createRevisionLoader, createThrottle } from "@/lib/refresh-gate";
 import { sessionGate } from "@/lib/session-gate";
 import { whenIdle } from "@/lib/idle";
@@ -168,10 +168,9 @@ export function Companion({ start }: { start: StartMode }) {
     const trip = state.data.ongoing?.find((item) => !dockedTrips.current.has(item.id));
     if (trip) watch.current?.follow(trip.id);
     if (greeted.current) return;
-    greeted.current = true;
-    if (!state.data.ongoing?.length && state.data.trips) {
-      try { const recent = tripToGreet(state.data.trips, browserStorage()); if (recent) setEnded(recent); } catch {}
-    }
+    const greeting = greetingOf(state.data, browserStorage());
+    greeted.current = greeting.done;
+    if (greeting.trip) setEnded(greeting.trip);
   }, [state]);
 
   useEffect(() => {

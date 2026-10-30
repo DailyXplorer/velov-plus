@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { type Trip, rateBodySchema } from "../lib/models.ts";
-import { type Stars, type TripCheck, UNLOCK_GRACE, WATCH_BACKOFF_CAP, WATCH_CAP, WATCH_INTERVAL, createDockWatch, dismissTrip, sendStars, starLabels, tripToGreet, wasDismissed } from "../lib/trip-end.ts";
+import { type Stars, type TripCheck, UNLOCK_GRACE, WATCH_BACKOFF_CAP, WATCH_CAP, WATCH_INTERVAL, createDockWatch, dismissTrip, greetingOf, sendStars, starLabels, tripToGreet, wasDismissed } from "../lib/trip-end.ts";
 import { HISTORY_LAG, isUncertain } from "../lib/outcome.ts";
 import { SENDING_LIMIT, createOperations, runOnce, settleHeld } from "../lib/operations.ts";
 
@@ -407,4 +407,14 @@ test("R2: a rating the browser gave up on stays held while Vélo’v may still r
     assert.equal(posts.length, 1);
   }
   assert.ok(waits.length === 2 && waits.every((ms) => ms > route), `${waits} ms against a ${route} ms route`);
+});
+
+test("the « Trajet terminé » greeting waits for a readable trip list instead of being spent on a failed read", () => {
+  const storage = memoryStorage();
+  const finished = trip("latest", "2026-10-29T11:40:00Z");
+  assert.deepEqual(greetingOf({ trips: null, ongoing: [] }, storage, now), { done: false, trip: null });
+  assert.deepEqual(greetingOf({ trips: [finished], ongoing: null }, storage, now), { done: false, trip: null });
+  assert.deepEqual(greetingOf({ trips: [finished], ongoing: [trip("ride", null, { status: "STARTED" })] }, storage, now), { done: true, trip: null });
+  assert.deepEqual(greetingOf({ trips: [finished], ongoing: [] }, storage, now), { done: true, trip: finished });
+  assert.match(readFileSync("components/companion.tsx", "utf8"), /const greeting = greetingOf\(state\.data, browserStorage\(\)\);\n    greeted\.current = greeting\.done;/);
 });

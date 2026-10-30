@@ -55,6 +55,12 @@ export function tripToGreet(trips: Trip[], storage: Store | null, now = Date.now
   return latest && canRate(latest, now) && !wasDismissed(storage, latest.id) ? latest : null;
 }
 
+export function greetingOf(data: { trips: Trip[] | null; ongoing: Trip[] | null }, storage: Store | null, now = Date.now()): { done: boolean; trip: Trip | null } {
+  if (data.trips === null || data.ongoing === null) return { done: false, trip: null };
+  if (data.ongoing.length) return { done: true, trip: null };
+  return { done: true, trip: tripToGreet(data.trips, storage, now) };
+}
+
 export const tripCheckSchema = z.object({ ongoing: z.array(tripSchema).nullable(), latest: tripSchema.nullable() });
 export type TripCheck = z.infer<typeof tripCheckSchema>;
 
