@@ -423,7 +423,8 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
 .metric-subscription { max-width: none; margin-top: 26px; font-size: 28px; line-height: 1; letter-spacing: -.02em; }
 @media (max-width: 1150px) { .metric-subscription { font-size: 24px; } }
 @media (max-width: 620px) { .metric-subscription { margin-top: 20px; font-size: 20px; } }
-.selected-station-panel > .button + .button { margin-top: 8px; }
+.selected-station-panel > .button + .button { margin-top: 12px; }
+.filter-empty { position: absolute; z-index: 5; top: 12px; left: 50%; translate: -50% 0; display: flex; align-items: center; gap: 12px; width: max-content; max-width: calc(100% - 24px); padding: 0 16px; border-radius: 999px; color: var(--ink); background: var(--white); box-shadow: var(--shadow-ring); font-size: 13px; }
 .map-station-card > .button { width: 100%; margin-top: 14px; }
 .modal.bikes-drawer { width: min(440px, 100%); max-width: none; height: 100dvh; max-height: none; margin: 0 0 0 auto; overflow-y: auto; overscroll-behavior: contain; border-radius: var(--radius) 0 0 var(--radius); animation: drawer-in .28s cubic-bezier(.2, .8, .2, 1); }
 .bikes-drawer .modal-content { min-height: 100%; padding-top: 0; }
@@ -531,7 +532,7 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
   .station-sheet-heading > .icon-button { width: 36px; height: 36px; }
   .station-sheet-facts { display: flex; align-items: center; gap: 12px; padding-right: 6px; }
   .station-sheet .station-numbers { flex: 1; margin-top: 0; }
-  .station-sheet-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; padding-right: 6px; }
+  .station-sheet-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 10px; padding-right: 6px; }
   .station-sheet-actions .button { min-height: 40px; padding: 0 12px; }
   .station-sheet-actions .button:has(.circle-arrow) { padding-right: 6px; }
 }

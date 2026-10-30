@@ -6,6 +6,7 @@ import { BicycleIcon, CaretRightIcon, DownloadSimpleIcon, EnvelopeSimpleIcon, ty
 import { ViaAction } from "./via-action";
 import { type Dashboard, type Page, type Resource, type Station, type Trip, formatCount, formatCountSans, formatDate, formatDuration, formatName, formatPrice } from "@/lib/models";
 import { describeLocationFailure, findPosition, formatDistance, haversine, type Point } from "@/lib/geo";
+import { type StationFilter, matchesFilter, nearestSupplied } from "@/lib/station-filter";
 import { Button, CardTag, CircleArrow, EmptyState, Eyebrow, FavoriteToggle, Ghost, SectionHeading, SelectField, SelectSkeleton, TextButton } from "./ui";
 import { StationBikes } from "./station-bikes";
 import { TripSheet } from "./trip-sheet";
@@ -119,7 +120,7 @@ export function Overview({ data, stations, navigate, reload, reloading }: { data
             <div className="map-station-card">
               <div className="station-card-heading"><strong>{chosen.name}</strong><button className="icon-button" aria-label="Voir les stations" onClick={() => navigate("stations")}><CaretRightIcon size={18} weight="light"/></button></div>
               <StationNumbers station={chosen}/>
-              <Button variant="secondary" onClick={() => setBikesOpen(true)}>Voir les vélos</Button>
+              <Button onClick={() => setBikesOpen(true)}>Voir les vélos</Button>
             </div>
           ) : null}
           {bikesOpen && chosen ? <StationBikes key={chosen.id} station={chosen} onClose={() => setBikesOpen(false)}/> : null}
@@ -188,15 +189,6 @@ export function PointsPage({ data, onAutoSpend, onChanged }: { onChanged: () => 
   );
 }
 
-type StationFilter = "all" | "favorites" | "available" | "electrical" | "stands";
-
-function matchesFilter(station: Station, filter: StationFilter, favorites: Set<number>) {
-  return (filter !== "favorites" || favorites.has(station.number))
-    && (filter !== "available" || station.mechanical + station.electrical > 0)
-    && (filter !== "electrical" || station.electrical > 0)
-    && (filter !== "stands" || station.stands > 0);
-}
-
 function distanceTo(station: Station, position: Point) {
   return haversine(position, station);
 }
@@ -225,13 +217,11 @@ export function StationsPage({ resource, reload, reloading, favorites: favoriteL
 
   function located(coords: GeolocationCoordinates) {
     const here: UserPosition = { lat: coords.latitude, lon: coords.longitude, accuracy: coords.accuracy };
-    const open = stations.filter((station) => station.open && matchesFilter(station, filter, favorites))
-      .sort((left, right) => distanceTo(left, here) - distanceTo(right, here));
-    const withSupply = open.filter((station) => filter === "stands" ? station.stands > 0 : station.mechanical + station.electrical > 0).slice(0, 3);
+    const supplied = nearestSupplied(stations, here, filter, favorites);
     setPosition(here);
-    setSelected(open[0]?.id ?? null);
-    setFit([here, ...open.slice(0, 1), ...withSupply]);
-    if (!open.length) setLocationError({ message: "Aucune station ouverte ne correspond à ce filtre." });
+    setSelected(supplied[0]?.id ?? null);
+    setFit([here, ...supplied]);
+    if (!supplied.length) setLocationError({ message: "Aucune station ouverte ne correspond à ce filtre." });
     setLocating(false);
   }
 
@@ -273,6 +263,9 @@ export function StationsPage({ resource, reload, reloading, favorites: favoriteL
         ) : null}
         <div className="explorer-map">
           <StationMap stations={filtered} selected={chosen?.id ?? null} onSelect={setSelected} onClear={phone ? () => setSelected(null) : undefined} userPosition={position} fit={fit}/>
+          {!query && filter !== "all" && resource.kind === "ready" && !filtered.length ? (
+            <div className="filter-empty" role="status"><span>Aucune station pour ce filtre.</span><TextButton onClick={() => setFilter("all")}>Toutes les stations</TextButton></div>
+          ) : null}
           {chosen && phone ? (
             <section className="station-sheet" aria-label={chosen.name}>
               <div className="station-sheet-heading">
@@ -285,8 +278,8 @@ export function StationsPage({ resource, reload, reloading, favorites: favoriteL
                 {chosenDistance ? <span className="station-distance">{chosenDistance}</span> : null}
               </div>
               <div className="station-sheet-actions">
-                <Button variant="secondary" onClick={() => setBikesOpen(true)}>Voir les vélos</Button>
-                <a className="button button-primary" href={directions} target="_blank" rel="noreferrer">Itinéraire<CircleArrow external/></a>
+                <Button onClick={() => setBikesOpen(true)}>Voir les vélos</Button>
+                <a className="button button-secondary" href={directions} target="_blank" rel="noreferrer">Itinéraire<CircleArrow external outline/></a>
               </div>
             </section>
           ) : chosen ? (
@@ -294,8 +287,8 @@ export function StationsPage({ resource, reload, reloading, favorites: favoriteL
               <div className="station-card-heading"><StationTitle station={chosen} favorite={favorites.has(chosen.number)} account={account} onFavorite={onFavorite}/>{!chosen.open ? <span className="closed-station">Fermée</span> : null}</div>
               {chosenDistance ? <p className="station-distance">À {chosenDistance}</p> : null}
               <StationNumbers station={chosen}/>
-              <Button variant="secondary" onClick={() => setBikesOpen(true)}>Voir les vélos</Button>
-              <a className="button button-primary" href={directions} target="_blank" rel="noreferrer">Itinéraire<CircleArrow external/></a>
+              <Button onClick={() => setBikesOpen(true)}>Voir les vélos</Button>
+              <a className="button button-secondary" href={directions} target="_blank" rel="noreferrer">Itinéraire<CircleArrow external outline/></a>
             </div>
           ) : null}
           {bikesOpen && chosen ? <StationBikes key={chosen.id} station={chosen} onClose={() => setBikesOpen(false)}/> : null}

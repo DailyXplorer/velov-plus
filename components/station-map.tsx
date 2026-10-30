@@ -148,7 +148,7 @@ export default function StationMap({ stations, selected, onSelect, onClear, user
     const instance = map.current;
     if (!instance || !userPosition) return;
     const center: L.LatLngTuple = [userPosition.lat, userPosition.lon];
-    const accuracy = L.circle(center, { radius: userPosition.accuracy, interactive: false, stroke: true, weight: 1, color: "#df2537", opacity: .25, fillColor: "#df2537", fillOpacity: .06 }).addTo(instance);
+    const accuracy = L.circle(center, { radius: userPosition.accuracy, interactive: false, stroke: true, weight: 1, color: "#1c1717", opacity: .12, fillColor: "#1c1717", fillOpacity: .04 }).addTo(instance);
     const dot = L.marker(center, { icon: L.divIcon({ className: "user-position", html: "<span></span>", iconSize: [22, 22], iconAnchor: [11, 11] }), interactive: false, keyboard: false, zIndexOffset: 1000, title: "Votre position" }).addTo(instance);
     return () => { accuracy.remove(); dot.remove(); };
   }, [userPosition]);
