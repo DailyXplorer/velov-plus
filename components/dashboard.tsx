@@ -524,7 +524,7 @@ export function AccountSkeleton() {
         </section>
         <section className="account-section skeleton">
           <h2>Abonnement</h2>
-          <p className="subscription-name">Vélo’v Plus 1 an Jeunes – paiement comptant</p>
+          <p className="subscription-name">Vélo’v Plus 1 an</p>
           <p className="subscription-validity">Jusqu’au 1 janvier 2027</p>
           <div className="setting-row renewal-setting"><div><span className="metric-label">Renouvellement automatique</span><strong className="setting-value">Désactivé</strong></div><span className="switch"/></div>
           <div className="receipts">
