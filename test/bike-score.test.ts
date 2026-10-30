@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { assessBikes, lateCheck } from "../lib/bike-score.ts";
-import type { Bike } from "../lib/models.ts";
+import { type Bike, fromNow } from "../lib/models.ts";
 
 const now = Date.parse("2026-10-28T12:00:00Z");
 const hoursAgo = (hours: number) => new Date(now - hours * 3_600_000).toISOString();
@@ -83,4 +83,15 @@ test("a next check date in the past reads as late, with the planned date", () =>
   assert.equal(lateCheck("2026-11-20T10:00:00Z", now), null);
   assert.equal(lateCheck(null, now), null);
   assert.equal(lateCheck("not a date", now), null);
+});
+
+test("relative dates keep min, h and j short but spell out months and years", () => {
+  const at = (minutes: number) => new Date(now + minutes * 60_000).toISOString();
+  assert.equal(fromNow(at(50 * 1440), now), "dans 1 mois");
+  assert.equal(fromNow(at(-800 * 1440), now), "il y a 2 ans");
+  assert.equal(fromNow(at(12), now), "dans 12\u00a0min");
+  assert.equal(fromNow(at(-120), now), "il y a 2\u00a0h");
+  assert.equal(fromNow(at(3 * 1440), now), "dans 3\u00a0j");
+  assert.equal(fromNow(at(0.5), now), "à l’instant");
+  assert.equal(fromNow(null, now), null);
 });

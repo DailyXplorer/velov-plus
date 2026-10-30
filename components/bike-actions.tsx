@@ -184,7 +184,7 @@ export function BikeActions({ place, booking = null, initial, dialog = false, on
       {step.kind === "start" ? (
         <>
           {booking ? <p className="bike-action-mine"><BookedUntil endsAt={booking.endsAt}/></p> : null}
-          <div className="bike-action-buttons">
+          <div className="bike-action-buttons bike-action-start">
             {!booking ? <Button variant="secondary" onClick={() => setStep({ kind: "confirm", action: "book" })}><TimerIcon size={17} weight="light" aria-hidden="true"/>Réserver</Button> : null}
             <Button onClick={() => setStep({ kind: "confirm", action: "unlock" })}><LockOpenIcon size={17} weight="light" aria-hidden="true"/>Déverrouiller</Button>
           </div>

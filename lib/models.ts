@@ -82,6 +82,23 @@ export function formatDate(value: string | null, options: Intl.DateTimeFormatOpt
   return new Intl.DateTimeFormat("fr-FR", { timeZone: "Europe/Paris", ...options }).format(date);
 }
 
+const shortRelative = new Intl.RelativeTimeFormat("fr-FR", { style: "short" });
+const longRelative = new Intl.RelativeTimeFormat("fr-FR", { style: "long" });
+const relativeSteps: [Intl.RelativeTimeFormatUnit, number, Intl.RelativeTimeFormat][] = [["minute", 60, shortRelative], ["hour", 24, shortRelative], ["day", 30, shortRelative], ["month", 12, longRelative], ["year", Infinity, longRelative]];
+
+export function fromNow(value: string | null, now = Date.now()) {
+  if (!value) return null;
+  const minutes = (new Date(value).getTime() - now) / 60_000;
+  if (!Number.isFinite(minutes)) return null;
+  let amount = Math.abs(minutes);
+  if (amount < 1) return "à l’instant";
+  for (const [unit, size, format] of relativeSteps) {
+    if (amount < size) return format.format(Math.sign(minutes) * Math.floor(amount), unit);
+    amount /= size;
+  }
+  return null;
+}
+
 export function capitalize(text: string) {
   return text.charAt(0).toLocaleUpperCase("fr-FR") + text.slice(1);
 }

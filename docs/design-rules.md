@@ -37,7 +37,8 @@ These are the owner's product rules. They apply to the web app and the iOS app (
 ## Layout and components
 
 - Harmonise, do not invent: the whole interface is the same everywhere. A new button or badge on a red surface reuses the summary-card pill (white pill, red circle with white icon, ink label); a circled icon on red reuses the white-ring circle of the card arrows.
-- Give paired action buttons (Annuler/Confirmer, Réserver/Déverrouiller, form actions) identical width and height, hover background included: rows are a grid with `grid-auto-columns: minmax(120px, 1fr)` (1fr on phone), buttons `width: 100%`. Never size them by their text.
+- Réserver and Déverrouiller are stacked, Réserver on top, both full width and the same size, as on iOS (`.bike-action-start`); the guest « Se connecter » uses the same row.
+- Give paired action buttons (Annuler/Confirmer, form actions) identical width and height, hover background included: rows are a grid with `grid-auto-columns: minmax(120px, 1fr)` (1fr on phone), buttons `width: 100%`. Never size them by their text.
 - Give every action button a leading Hugeicon like « Déverrouiller » (Réserver = timer, Obtenir un code = ticket, Modifier mes coordonnées = pencil, Envoyer = send, Les plus proches = location arrow, Écrire au service client = envelope). Dialog buttons (Annuler, Confirmer, Fermer, Vérifier, Retour, Continuer, Réessayer), « Voir les vélos » and « Itinéraire » stay text only.
 - On phone (≤ 620 px) every control is 44 px tall (buttons, fields, select triggers, text links, disclosure summaries) and every icon button has a 44 px hit area. Screen, sheet and dialog side margins are 24 px.
 - On phone, spacing follows the iOS scale: section gap 32, card gap 12, section title to content 16, content card padding 20, metric card padding 16.

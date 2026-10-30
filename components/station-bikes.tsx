@@ -4,7 +4,7 @@ import { type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, us
 import { z } from "zod";
 import { ArrowClockwiseIcon, ArrowLeftIcon, BatteryEmptyIcon, BatteryFullIcon, BatteryHighIcon, BatteryLowIcon, BatteryMediumIcon, BicycleIcon, CaretDownIcon, CaretRightIcon, type Icon, LightningIcon, SignInIcon, StarHalfIcon, StarIcon, ThumbsUpIcon, WarningIcon, XIcon } from "./icons";
 import { type AssessedBike, assessBikes, lateCheck } from "@/lib/bike-score";
-import { type Bike, type Resource, type Station, bikeSchema, capitalize, formatCountSans, formatDate } from "@/lib/models";
+import { type Bike, type Resource, type Station, bikeSchema, capitalize, formatCountSans, formatDate, fromNow } from "@/lib/models";
 import { Button, EmptyState, Eyebrow, Ghost, LoadFailure, Modal } from "./ui";
 import { BikeActions, BookingsContext, SignInContext } from "./bike-actions";
 import { useSending } from "./operations";
@@ -18,8 +18,6 @@ const types: Record<Bike["type"], { label: string; icon: Icon }> = {
   electrical: { label: "Électrique", icon: LightningIcon },
   other: { label: "Vélo’v", icon: BicycleIcon }
 };
-const relative = new Intl.RelativeTimeFormat("fr-FR", { style: "short" });
-const steps: [Intl.RelativeTimeFormatUnit, number][] = [["minute", 60], ["hour", 24], ["day", 30], ["month", 12], ["year", Infinity]];
 
 type Settled<T> = { ok: true; value: T } | { ok: false; error: unknown };
 
@@ -59,19 +57,6 @@ function score(bike: Bike) {
 
 function formatScore(value: number) {
   return value.toLocaleString("fr-FR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
-}
-
-function fromNow(value: string | null) {
-  if (!value) return null;
-  const minutes = (new Date(value).getTime() - Date.now()) / 60_000;
-  if (!Number.isFinite(minutes)) return null;
-  let amount = Math.abs(minutes);
-  if (amount < 1) return "à l’instant";
-  for (const [unit, size] of steps) {
-    if (amount < size) return relative.format(Math.sign(minutes) * Math.floor(amount), unit);
-    amount /= size;
-  }
-  return null;
 }
 
 function BatteryLevel({ percent }: { percent: number }) {
@@ -134,7 +119,7 @@ function StationActions({ bike, station, onDone }: { bike: Bike; station: Statio
   if (bike.status !== "AVAILABLE" || bike.standNumber == null || (bike.isReserved && !booking)) return null;
   if (!account) return signIn ? (
     <section className="bike-action" aria-label="Réserver ou déverrouiller">
-      <div className="bike-action-buttons"><Button onClick={signIn}><SignInIcon size={17} weight="light" aria-hidden="true"/>Se connecter</Button></div>
+      <div className="bike-action-buttons bike-action-start"><Button onClick={signIn}><SignInIcon size={17} weight="light" aria-hidden="true"/>Se connecter</Button></div>
     </section>
   ) : null;
   return <BikeActions place={{ stationNumber: station.number, stationName: station.name, standNumber: bike.standNumber, bikeNumber: bike.number, lat: station.lat, lon: station.lon }} booking={booking} onDone={onDone}/>;
