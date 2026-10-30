@@ -370,8 +370,8 @@ test("R1: a rating is sent once per trip, even when the sheet is reopened during
 
   const sheet = readFileSync(new URL("../components/trip-sheet.tsx", import.meta.url), "utf8");
   assert.doesNotMatch(sheet, /inFlight/);
-  assert.match(sheet, /const operation = useOperation\(`rate:\$\{trip\.id\}`\);/);
-  assert.match(sheet, /runOnce\(operations, `rate:\$\{trip\.id\}`, \(\) => sendStars\(trip\.id, bikeNumber, picked\), \{ keep: true, meta: \{ stars: picked \} \}\)/);
+  assert.match(sheet, /const operation = useOperation\(rateKey\);/);
+  assert.match(sheet, /runOnce\(operations, rateKey, \(\) => sendStars\(trip\.id, bikeNumber, picked\), \{ keep: true, meta: \{ stars: picked \} \}\)/);
   assert.match(sheet, /\{operation \? <>[^\n]*>Vérifier<\/Button><\/> : <>[\s\S]*?Envoyer<\/Button>\n\s+<\/>\}/);
   assert.equal(sheet.match(/>Envoyer<\/Button>/g)?.length, 1);
   assert.match(sheet, /<Modal titleId="trip-detail-title" onClose=\{sending \? \(\) => \{\} : onClose\}>/);

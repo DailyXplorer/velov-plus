@@ -112,7 +112,7 @@ test("R2: the four settings write through the shared operation store and reopen 
   for (const key of ["`autoSpend:\\$\\{digest\\}`", "`favorite:\\$\\{digest\\}:\\$\\{station\\.number\\}`", "`profile:\\$\\{digest\\}`"]) assert.match(actions, new RegExp(`const operationKey = digest \\? ${key} : null;`), key);
   assert.match(actions, /const next = operation \? operation\.meta\.wanted === 1 : !value;/);
   assert.match(actions, /const next = operation \? operation\.meta\.wanted === 1 : !favorite;/);
-  assert.match(actions, /const held = heldProfile\(useOperation\(operationKey\)\);/);
+  assert.match(actions, /const held = useOperation\(operationKey\);/);
   assert.match(actions, /const uncertain = operation\?\.status === "uncertain" \?/);
   assert.match(actions, /const settled = await settleHeld\(operations, operationKey, check\);/);
   assert.doesNotMatch(actions, /kind: "uncertain"|\bsettle\(/);
@@ -123,7 +123,7 @@ test("R2: the four settings write through the shared operation store and reopen 
   assert.match(renewal, /const uncertain = operation\?\.status === "uncertain";/);
   assert.match(renewal, /await settleHeld\(operations, operationKey, /);
   assert.doesNotMatch(renewal, /setUncertain|\bsettle\(/);
-  assert.match(source("components/trip-sheet.tsx"), /await settleHeld\(operations, `rate:\$\{trip\.id\}`, /);
+  assert.match(source("components/trip-sheet.tsx"), /await settleHeld\(operations, rateKey, /);
   const dashboard = source("components/dashboard.tsx");
   for (const tag of ["AutoSpendSetting", "ProfileCoordinates", "AutoRenewal"]) assert.match(dashboard, new RegExp(`<${tag} [^\\n]*account=\\{data\\.profile\\.email\\}`), tag);
   assert.equal(dashboard.match(/<FavoriteButton [^\n]*account=\{account\}/g)?.length, 1);

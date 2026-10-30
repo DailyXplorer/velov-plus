@@ -11,7 +11,7 @@ import { tripCheckSchema } from "@/lib/trip-end";
 import { blockedMessage, runOnce, settleHeld } from "@/lib/operations";
 import { sessionGate } from "@/lib/session-gate";
 import { accountJson } from "./get-json";
-import { operations, useOperation, useSending } from "./operations";
+import { operations, useAccountKey, useOperation, useSending } from "./operations";
 import { Button, Modal } from "./ui";
 
 export const BookingsContext = createContext<{ bookings: Booking[]; changed: () => void; unlocked: (tripId: string | null, bikeNumber: number) => void; expired: () => void; email: string | null } | null>(null);
@@ -22,6 +22,7 @@ type Action = "book" | "unlock";
 type Step = { kind: "start" } | { kind: "confirm"; action: Action } | { kind: "sending"; action: Action };
 
 const signIn = "Connectez-vous pour réserver ou déverrouiller un vélo.";
+const ACCOUNT_LOADING = "Votre compte n’est pas encore chargé. Réessayez dans un instant.";
 
 function useNow(ticking: boolean) {
   const [now, setNow] = useState(() => Date.now());
@@ -113,14 +114,18 @@ export function BikeActions({ place, booking = null, initial, dialog = false, on
   const [refused, setFailure] = useState<Outcome | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
-  const unlocking = useOperation(`unlock:${place.bikeNumber}`);
-  const reserving = useOperation(`book:${place.bikeNumber}`);
+  const accountKey = useAccountKey(account?.email ?? "");
+  const digest = account?.email ? accountKey : null;
+  const keyOf = (action: Action) => digest ? `${action}:${digest}:${place.bikeNumber}` : null;
+  const unlocking = useOperation(keyOf("unlock"));
+  const reserving = useOperation(keyOf("book"));
   const wantsUnlock = chosen.kind !== "start" && chosen.action === "unlock";
   const held = unlocking ? { action: "unlock" as const, operation: unlocking } : reserving && !wantsUnlock ? { action: "book" as const, operation: reserving } : null;
   const bookedNow = booking !== null && reserving?.status === "uncertain";
 
+  const reservingKey = keyOf("book");
   const reservingId = reserving?.id ?? "";
-  useEffect(() => { if (bookedNow) { void operations.clear(`book:${place.bikeNumber}`, reservingId); setFailure(null); setStep({ kind: "start" }); } }, [bookedNow, place.bikeNumber, reservingId]);
+  useEffect(() => { if (bookedNow && reservingKey) { void operations.clear(reservingKey, reservingId); setFailure(null); setStep({ kind: "start" }); } }, [bookedNow, reservingKey, reservingId]);
   const pollId = account && unlocking?.status === "uncertain" ? unlocking.id : null;
   const pollAt = unlocking?.at ?? 0;
   useEffect(() => {
@@ -135,7 +140,8 @@ export function BikeActions({ place, booking = null, initial, dialog = false, on
   async function send(action: Action) {
     setFailure(null);
     setNotice(null);
-    const key = `${action}:${place.bikeNumber}`;
+    const key = keyOf(action);
+    if (!key) { setNotice(ACCOUNT_LOADING); return; }
     const stamp = sessionGate.stamp();
     const outcome = await runOnce(operations, key, () => sendBikeAction(action, { ...place, account: account?.email ?? null }), { keep: true, meta: { stationNumber: place.stationNumber, standNumber: place.standNumber, bikeNumber: place.bikeNumber } });
     if (!stamp.live()) return;
@@ -154,7 +160,8 @@ export function BikeActions({ place, booking = null, initial, dialog = false, on
   }
 
   async function verify(action: Action, asked = true): Promise<boolean> {
-    const key = `${action}:${place.bikeNumber}`;
+    const key = keyOf(action);
+    if (!key) return true;
     let tripId: string | null = null;
     const stamp = sessionGate.stamp();
     setChecking(true);

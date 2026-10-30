@@ -113,11 +113,11 @@ test("the unlock instruction is given before confirming, since the sheet closes 
 test("F1: unlock and booking go through the shared operation store, and the drawers cannot close while sending", () => {
   const bike = source("components/bike-actions.tsx");
   assert.match(bike, /await runOnce\(operations, key, \(\) => sendBikeAction\(action, \{ \.\.\.place, account: account\?\.email \?\? null \}\), \{ keep: true, meta: \{ stationNumber: place\.stationNumber, standNumber: place\.standNumber, bikeNumber: place\.bikeNumber \} \}\)/);
-  assert.match(bike, /useOperation\(`unlock:\$\{place\.bikeNumber\}`\)/);
-  assert.match(bike, /useOperation\(`book:\$\{place\.bikeNumber\}`\)/);
+  assert.match(bike, /useOperation\(keyOf\("unlock"\)\)/);
+  assert.match(bike, /useOperation\(keyOf\("book"\)\)/);
   assert.doesNotMatch(bike, /inFlight/);
   assert.match(bike, /reserving && !wantsUnlock \?/);
-  assert.match(bike, /useEffect\(\(\) => \{ if \(bookedNow\) \{ void operations\.clear\(`book:\$\{place\.bikeNumber\}`, reservingId\); setFailure\(null\); setStep\(\{ kind: "start" \}\); \} \}/);
+  assert.match(bike, /useEffect\(\(\) => \{ if \(bookedNow && reservingKey\) \{ void operations\.clear\(reservingKey, reservingId\); setFailure\(null\); setStep\(\{ kind: "start" \}\); \} \}/);
   assert.match(bike, /<Modal titleId="booking-unlock-title" onClose=\{sending \? \(\) => \{\} : onClose\}>/);
   const drawer = source("components/station-bikes.tsx");
   assert.match(drawer, /function back\(\) \{\n\s+if \(sending\) return;/);
@@ -157,7 +157,7 @@ test("F3: profile, favourites, auto-spend, renewal and rating check the real sta
   assert.match(renewal, /\{uncertain && failure \? <><Button[^\n]*?>Fermer<\/Button><Button[^\n]*?>Vérifier<\/Button><\/>/);
   const rating = source("components/trip-sheet.tsx");
   assert.match(rating, /if \(!isUncertain\(outcome\)\) return setRefused\(outcome\);\n\s+await verify\(\);/);
-  assert.match(rating, /\{operation \? <>\{!sendingHere \? <TextButton onClick=\{onLater\}>Plus tard<\/TextButton> : null\}<Button variant="secondary"[^\n]*?>Vérifier<\/Button><\/> : <>/);
+  assert.match(rating, /\{operation \? <>\{!sendingHere \? <TextButton onClick=\{onLater\}>Fermer<\/TextButton> : null\}<Button variant="secondary"[^\n]*?>Vérifier<\/Button><\/> : <>/);
 });
 
 test("F4: contact and extra time keep their state per account outside the dialog", () => {
@@ -175,7 +175,7 @@ test("F4: contact and extra time keep their state per account outside the dialog
 test("a booking confirmed by the bookings reread leaves the uncertain message for the booked sheet", () => {
   const bike = source("components/bike-actions.tsx");
   assert.match(bike, /const bookedNow = booking !== null && reserving\?\.status === "uncertain";/);
-  assert.match(bike, /if \(bookedNow\) \{ void operations\.clear\([^)]*\); setFailure\(null\); setStep\(\{ kind: "start" \}\);/);
+  assert.match(bike, /if \(bookedNow && reservingKey\) \{ void operations\.clear\([^)]*\); setFailure\(null\); setStep\(\{ kind: "start" \}\);/);
   assert.match(bike, /\{booking \? <p className="bike-action-mine"><BookedUntil endsAt=\{booking\.endsAt\}\/><\/p> : null\}/);
 });
 
@@ -183,4 +183,14 @@ test("the README says time alone never frees an uncertain unlock, booking or inv
   const readme = source("README.md");
   assert.match(readme, /Le temps qui passe ne prouve rien : un déverrouillage incertain reste bloqué jusqu’à ce que la relecture des trajets montre un trajet avec ce vélo/);
   assert.doesNotMatch(readme, /deux minutes après un résultat incertain/);
+});
+
+test("book, unlock and rate entries are kept per account, and a held rating offers only Fermer or Vérifier", () => {
+  const bike = source("components/bike-actions.tsx");
+  assert.match(bike, /const keyOf = \(action: Action\) => digest \? `\$\{action\}:\$\{digest\}:\$\{place\.bikeNumber\}` : null;/);
+  assert.doesNotMatch(bike, /`(unlock|book|\$\{action\}):\$\{place\.bikeNumber\}`/);
+  const sheet = source("components/trip-sheet.tsx");
+  assert.match(sheet, /return digest \? `rate:\$\{digest\}:\$\{tripId\}` : null;/);
+  assert.doesNotMatch(sheet, /`rate:\$\{trip\.id\}`/);
+  assert.match(sheet, /\{operation \? <>\{!sendingHere \? <TextButton onClick=\{onLater\}>Fermer<\/TextButton> : null\}/);
 });

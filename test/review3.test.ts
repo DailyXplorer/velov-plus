@@ -235,6 +235,12 @@ test("every account read carries the session signal, so a logout aborts it befor
   assert.match(source("components/invite-friend.tsx"), /await accountJson\(`\/api\/account\/rewards/);
 });
 
+test("the logout dialog cannot be closed while logging out, so a later error stays visible", () => {
+  const companion = source("components/companion.tsx");
+  assert.match(companion, /<Modal titleId="logout-title" onClose=\{\(\) => \{ if \(!loggingOut\) setLogoutOpen\(false\); \}\}>/);
+  assert.match(companion, /aria-label="Fermer" disabled=\{loggingOut\} onClick=\{\(\) => setLogoutOpen\(false\)\}/);
+});
+
 test("browser back is held while an action sends, and leaving a page closes its open dialog", () => {
   const companion = source("components/companion.tsx");
   assert.match(companion, /const sending = useSending\(\);\n  useEffect\(\(\) => \{\n    if \(!sending\) return;\n    const hold = \(\) => window\.history\.pushState\(window\.history\.state, "", window\.location\.href\);\n    hold\(\);\n    window\.addEventListener\("popstate", hold\);\n    return \(\) => window\.removeEventListener\("popstate", hold\);\n  \}, \[sending\]\);/);

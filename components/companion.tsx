@@ -325,10 +325,10 @@ export function Companion({ start }: { start: StartMode }) {
           })}
         </nav>
         {logoutOpen ? (
-          <Modal titleId="logout-title" onClose={() => setLogoutOpen(false)}>
+          <Modal titleId="logout-title" onClose={() => { if (!loggingOut) setLogoutOpen(false); }}>
             <div className="modal-heading">
               <h2 id="logout-title">Se déconnecter ?</h2>
-              <button className="icon-button" aria-label="Fermer" onClick={() => setLogoutOpen(false)}><XIcon size={20} weight="light"/></button>
+              <button className="icon-button" aria-label="Fermer" disabled={loggingOut} onClick={() => setLogoutOpen(false)}><XIcon size={20} weight="light"/></button>
             </div>
             {logoutError ? <p className="form-error" role="alert">{logoutError}</p> : null}
             <div className="modal-actions">

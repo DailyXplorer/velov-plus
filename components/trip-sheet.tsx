@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import { BicycleIcon, CaretDownIcon, CaretRightIcon, CheckIcon, CopyIcon, LightningIcon, SendIcon, StarIcon, XIcon } from "./icons";
 import { type Outcome, type Trip, canRate, formatCountSans, formatDate, formatDuration, formatPrice } from "@/lib/models";
 import { type Stars, dismissTrip, sendStars, starLabels } from "@/lib/trip-end";
@@ -8,7 +8,8 @@ import { UNCERTAIN, isUncertain } from "@/lib/outcome";
 import { ratingCheck } from "@/lib/checks";
 import { blockedMessage, runOnce, settleHeld } from "@/lib/operations";
 import { readDashboard } from "./get-json";
-import { operations, useOperation, useSending } from "./operations";
+import { operations, useAccountKey, useOperation, useSending } from "./operations";
+import { BookingsContext } from "./bike-actions";
 import { formatDistance } from "@/lib/geo";
 import { Button, Eyebrow, Modal, TextButton } from "./ui";
 import { BikeDrawer } from "./station-bikes";
@@ -37,8 +38,16 @@ function Stop({ label, station, stand }: { label: string; station: string | null
 
 const starNumbers: Stars[] = [1, 2, 3, 4, 5];
 
+function useRateKey(tripId: string) {
+  const email = useContext(BookingsContext)?.email ?? null;
+  const accountKey = useAccountKey(email ?? "");
+  const digest = email ? accountKey : null;
+  return digest ? `rate:${digest}:${tripId}` : null;
+}
+
 function RateBike({ trip, bikeNumber, onLater, onRated }: { trip: Trip; bikeNumber: number; onLater: () => void; onRated: () => void }) {
-  const operation = useOperation(`rate:${trip.id}`);
+  const rateKey = useRateKey(trip.id);
+  const operation = useOperation(rateKey);
   const sendingHere = useSending();
   const [chosen, setStars] = useState<Stars | null>(null);
   const [refused, setRefused] = useState<Outcome | null>(null);
@@ -53,8 +62,9 @@ function RateBike({ trip, bikeNumber, onLater, onRated }: { trip: Trip; bikeNumb
   async function submit(picked: Stars) {
     setRefused(null);
     setNotice(null);
-    const outcome = await runOnce(operations, `rate:${trip.id}`, () => sendStars(trip.id, bikeNumber, picked), { keep: true, meta: { stars: picked } });
-    if (typeof outcome === "string") { const message = blockedMessage(outcome, operations.get(`rate:${trip.id}`) !== null); if (message) setNotice(message); return; }
+    if (!rateKey) return;
+    const outcome = await runOnce(operations, rateKey, () => sendStars(trip.id, bikeNumber, picked), { keep: true, meta: { stars: picked } });
+    if (typeof outcome === "string") { const message = blockedMessage(outcome, operations.get(rateKey) !== null); if (message) setNotice(message); return; }
     if (outcome.ok) return rated();
     if (!isUncertain(outcome)) return setRefused(outcome);
     await verify();
@@ -67,8 +77,9 @@ function RateBike({ trip, bikeNumber, onLater, onRated }: { trip: Trip; bikeNumb
   }
 
   async function verify() {
+    if (!rateKey) return;
     setChecking(true);
-    const settled = await settleHeld(operations, `rate:${trip.id}`, async () => ratingCheck(await readDashboard(), trip.id));
+    const settled = await settleHeld(operations, rateKey, async () => ratingCheck(await readDashboard(), trip.id));
     setChecking(false);
     if (settled?.kind === "done") rated();
     else if (settled?.kind === "refused") setRefused(settled.outcome);
@@ -91,9 +102,9 @@ function RateBike({ trip, bikeNumber, onLater, onRated }: { trip: Trip; bikeNumb
       ) : null}
       {notice ? <p className="form-error" role="alert">{notice}</p> : null}
       <div className="trip-rate-actions">
-        {operation ? <>{!sendingHere ? <TextButton onClick={onLater}>Plus tard</TextButton> : null}<Button variant="secondary" pending={sending || checking} onClick={() => void verify()}>Vérifier</Button></> : <>
+        {operation ? <>{!sendingHere ? <TextButton onClick={onLater}>Fermer</TextButton> : null}<Button variant="secondary" pending={sending || checking} onClick={() => void verify()}>Vérifier</Button></> : <>
           {!sendingHere ? <TextButton onClick={onLater}>Plus tard</TextButton> : null}
-          <Button disabled={stars == null} onClick={() => { if (stars != null) void submit(stars); }}><SendIcon size={17} weight="light" aria-hidden="true"/>Envoyer</Button>
+          <Button disabled={stars == null || !rateKey} onClick={() => { if (stars != null) void submit(stars); }}><SendIcon size={17} weight="light" aria-hidden="true"/>Envoyer</Button>
         </>}
       </div>
     </section>
@@ -120,7 +131,8 @@ export function TripSheet({ trip, onClose }: { trip: Trip; onClose: () => void }
   const rated = trip.isRated === true || ratedHere.has(trip.id) || ratedNow === trip.id;
   const sameStation = trip.startStationNumber != null && trip.startStationNumber === trip.endStationNumber;
   const subject = `Trajet litigieux${trip.token ? ` ${trip.token}` : ""}`;
-  useEffect(() => { const held = operations.get(`rate:${trip.id}`); if (trip.isRated === true && held) void operations.clear(`rate:${trip.id}`, held.id); }, [trip.id, trip.isRated]);
+  const rateKey = useRateKey(trip.id);
+  useEffect(() => { const held = rateKey ? operations.get(rateKey) : null; if (rateKey && trip.isRated === true && held) void operations.clear(rateKey, held.id); }, [rateKey, trip.isRated]);
   return (
     <>
       <Modal titleId="trip-detail-title" onClose={sending ? () => {} : onClose}>
