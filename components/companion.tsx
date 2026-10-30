@@ -221,9 +221,9 @@ export function Companion({ start }: { start: StartMode }) {
       watch.current?.stop();
       setLogoutOpen(false);
       setBookings([]);
+      dropStats();
       setEnded(null);
       setUnlocking(null);
-      dropStats();
       setState({ kind: "signedOut", message: answer.success && answer.data.remoteLogout === false ? remoteLogoutUnconfirmed : null });
       window.location.hash = "";
     } catch {

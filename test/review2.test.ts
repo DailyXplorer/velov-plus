@@ -129,8 +129,8 @@ test("F3: an uncertain booking is settled by the bookings list only", () => {
   assert.equal(bookingCheck([booking(null)], 20449), "unknown");
   assert.equal(bookingCheck(null, 20449), "unknown");
   const bike = source("components/bike-actions.tsx");
-  assert.match(bike, /bookingCheck\(await getJson\("\/api\/bookings", z\.array\(bookingSchema\), ""\), bikeNumber\)/);
-  assert.match(bike, /unlockCheck\(await getJson\("\/api\/trips\/current", tripCheckSchema, ""\), bikeNumber, held\.at\)/);
+  assert.match(bike, /bookingCheck\(await accountJson\("\/api\/bookings", z\.array\(bookingSchema\), ""\), bikeNumber\)/);
+  assert.match(bike, /unlockCheck\(await accountJson\("\/api\/trips\/current", tripCheckSchema, ""\), bikeNumber, held\.at\)/);
 });
 
 type Reply = { status: number; text?: string; headers?: Record<string, string> };
@@ -226,7 +226,7 @@ test("F7: the stats screen cache expires like the API cache and is forgotten on 
   assert.equal(cache.get("me"), null);
   const companion = source("components/companion.tsx");
   assert.match(companion, /dockedTrips\.current\.add\(tripId\);\n\s+forgetStats\(\);/);
-  assert.match(companion, /function connected\(\) \{\n\s+session\.current\.end\(\);\n\s+forgetStats\(\);/);
+  assert.match(companion, /function connected\(\) \{\n\s+session\.current\.end\(\);[\s\S]*?\n\s+forgetStats\(\);/);
   assert.match(companion, /setBookings\(\[\]\);\n\s+dropStats\(\);/);
   assert.match(companion, /changed: \(\) => \{ forgetStats\(\); void loadBookings\(\); \}/);
   assert.match(companion, /onChanged=\{\(\) => \{ forgetStats\(\); void loadDashboard\(\); \}\}/);
@@ -344,7 +344,7 @@ test("F1/F3: booking and unlock are tracked in the shared store or not sent at a
     }
   }
   const bike = source("components/bike-actions.tsx");
-  assert.match(bike, /runOnce\(operations, key, \(\) => sendBikeAction\(action, place\), \{ keep: true, meta: \{ stationNumber: place\.stationNumber, standNumber: place\.standNumber, bikeNumber: place\.bikeNumber \} \}\)/);
+  assert.match(bike, /runOnce\(operations, key, \(\) => sendBikeAction\(action, \{ \.\.\.place, account: account\?\.email \?\? null \}\), \{ keep: true, meta: \{ stationNumber: place\.stationNumber, standNumber: place\.standNumber, bikeNumber: place\.bikeNumber \} \}\)/);
 });
 
 test("F3: a failed trip history read is unknown, never proof that the unlock did nothing", async () => {
