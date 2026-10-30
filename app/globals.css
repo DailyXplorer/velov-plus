@@ -204,7 +204,7 @@ h1, h2, h3, .metric-value, .metric-subscription, .points-balance, .points-total,
 .earn-section, .points-history { margin-top: 40px; }
 .earn-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
 .earn-rule { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 22px 24px; border-radius: var(--radius); background: var(--mist); font-size: 14px; }
-.earn-rule > span { max-width: 180px; color: var(--ink-soft); }
+.earn-rule > span { color: var(--ink-soft); }
 .earn-rule strong { color: var(--ink); font-size: 26px; line-height: 1; }
 .movement { display: flex; align-items: center; justify-content: space-between; gap: 20px; min-height: 76px; padding: 16px 0; border-bottom: 1px solid var(--line); }
 .movement-description strong { display: block; font-size: 14px; font-weight: 500; }
@@ -290,8 +290,7 @@ h1, h2, h3, .metric-value, .metric-subscription, .points-balance, .points-total,
 .detail-type { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 16px; color: var(--ink-soft); font-size: 13px; }
 .detail-type .eyebrow { margin-bottom: 0; }
 .detail-type .text-button { gap: 6px; min-height: 36px; }
-.trip-alert { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 2px 12px; margin-top: 16px; padding: 12px 16px 0; border-radius: var(--radius); box-shadow: inset 0 0 0 1px var(--red); font-size: 13px; }
-.trip-alert .text-link { min-height: 44px; }
+.trip-alert { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; margin-top: 16px; padding: 16px; border-radius: var(--radius); box-shadow: var(--shadow-ring); font-size: 13px; }
 .trip-rate { margin-top: 14px; padding: 14px 16px 16px; border-radius: var(--radius); background: var(--mist); }
 .trip-rate-title { color: var(--ink); font-size: 13px; }
 .trip-rate-actions { display: flex; flex-direction: column-reverse; gap: 2px; margin-top: 14px; }
@@ -417,6 +416,12 @@ h1, h2, h3, .metric-value, .metric-subscription, .points-balance, .points-total,
 .circle-arrow.is-outline { color: var(--red); background: transparent; box-shadow: inset 0 0 0 1px var(--red); }
 .summary-card .circle-arrow.is-outline { color: var(--white); box-shadow: inset 0 0 0 1px var(--white); }
 .stations-explorer { position: relative; display: block; height: 620px; }
+@media (min-width: 621px) {
+  .app-main:has(.page-slot:not([hidden]) > .stations-page) { display: flex; flex-direction: column; height: 100dvh; min-height: 0; }
+  .app-main:has(.page-slot:not([hidden]) > .stations-page) > .main-content { display: flex; flex: 1; flex-direction: column; min-height: 0; padding-bottom: 36px; }
+  .stations-page { display: flex; flex: 1; flex-direction: column; min-height: 0; }
+  .stations-page .stations-explorer { flex: 1; height: auto; min-height: 360px; }
+}
 .stations-explorer .explorer-map { height: 100%; }
 .map-skeleton { position: absolute; inset: 0; border-radius: inherit; }
 .selected-station-panel > .button.skeleton { display: flex; }
@@ -496,8 +501,8 @@ h1, h2, h3, .metric-value, .metric-subscription, .points-balance, .points-total,
 .bike-action-far { display: flex; align-items: flex-start; gap: 8px; margin-top: 10px; padding: 10px 12px; border-radius: 12px; color: var(--error); background: var(--white); box-shadow: inset 0 0 0 1px var(--red); font-size: 13px; }
 .bike-action-far svg { margin-top: 2px; }
 .bike-action-mine strong { display: block; font-family: var(--font-title); font-size: 20px; font-weight: 400; line-height: 1.3; letter-spacing: -.03em; }
-.bike-action-countdown { display: inline-flex; align-items: center; gap: 6px; margin-top: 4px; color: var(--red-deep); font-size: 13px; }
-.uncertain-note { margin-top: 10px; color: var(--red-deep); font-size: 13px; font-weight: 600; line-height: 1.5; }
+.bike-action-countdown { display: inline-flex; align-items: center; gap: 6px; margin-top: 4px; color: var(--ink); font-size: 15px; }
+.uncertain-note { margin-top: 10px; color: var(--error); font-size: 13px; line-height: 1.6; }
 .bike-action-mine { margin-bottom: 12px; }
 .bike-action .form-error { margin-top: 10px; }
 .bike-action-signin { margin-top: 18px; color: var(--ink-soft); font-size: 13px; }
@@ -518,6 +523,10 @@ h1, h2, h3, .metric-value, .metric-subscription, .points-balance, .points-total,
 @media (max-width: 620px) {
   .station-pin-wrap { display: grid; place-items: center; }
   .overview-map .leaflet-control-zoom { display: none; }
+  .modal { width: calc(100% - 48px); }
+  .stations-explorer:has(.stations-list) .leaflet-control-zoom { display: none; }
+  .toast { width: 100%; }
+  body:has(.toast-region .toast) .app-header { visibility: hidden; }
   .map-explore { position: absolute; inset: 0; z-index: 3; display: flex; align-items: center; justify-content: center; padding: 12px; border: 0; background: transparent; }
   .map-explore > span { display: inline-flex; align-items: center; min-height: 40px; padding: 0 18px; border-radius: 999px; color: var(--red-deep); background: var(--white); box-shadow: var(--shadow-ring); font-size: 14px; font-weight: 500; }
   .app-main:has(.page-slot:not([hidden]) > .stations-page) { display: flex; flex-direction: column; height: 100dvh; min-height: 0; }
@@ -603,10 +612,10 @@ h1, h2, h3, .metric-value, .metric-subscription, .points-balance, .points-total,
 .map-wheel-hint { position: absolute; inset: 0; z-index: 6; border-radius: inherit; display: grid; place-items: center; color: var(--white); background: rgba(28, 23, 23, .45); font-family: var(--font); font-size: 18px; opacity: 0; pointer-events: none; transition: opacity .25s ease; }
 .map-wheel-hint.is-visible { opacity: 1; }
 @media (prefers-reduced-motion: reduce) { .map-wheel-hint { transition: none; } }
-.modal-actions, .bike-action-buttons, .profile-form-actions { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(120px, 1fr); justify-content: end; }
-.modal-actions > .button, .bike-action-buttons > .button, .profile-form-actions > .button { width: 100%; min-height: 42px; padding-inline: 20px; }
+.bike-action-buttons, .profile-form-actions { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(120px, 1fr); justify-content: end; }
+.bike-action-buttons > .button, .profile-form-actions > .button { width: 100%; min-height: 42px; padding-inline: 20px; }
 @media (max-width: 620px) {
-  .modal-actions, .bike-action-buttons { grid-auto-columns: minmax(0, 1fr); justify-content: stretch; }
+  .bike-action-buttons { grid-auto-columns: minmax(0, 1fr); justify-content: stretch; }
   .profile-form-actions { grid-auto-flow: row; }
 }
 .bike-action-buttons.bike-action-start { grid-auto-flow: row; grid-template-columns: 1fr; }
@@ -695,7 +704,6 @@ h1, h2, h3, .metric-value, .metric-subscription, .points-balance, .points-total,
 .trip-rate-title,
 .trip-rated,
 .bike-meta, .bike-reserved, .bike-avoid, .bike-more summary, .bike-details dd > small,
-.bike-action-countdown,
 .bike-action-signin,
 .map-explore > span,
 .stat-records dt { text-transform: uppercase; letter-spacing: .02em; }
@@ -726,7 +734,7 @@ h3.metric-label, h3.trip-rate-title { font-family: var(--font); font-weight: 500
 .bike-action-dialog .bike-action-place { font-size: 15px; }
 .bike-action-dialog .bike-action-buttons { margin-top: 30px; }
 .modal-actions { display: flex; flex-wrap: wrap; }
-.modal-actions > .button { flex: 1 0 max(120px, calc(50% - 5px)); padding-inline: 12px; }
+.modal-actions > .button { flex: 1 0 max(120px, calc(50% - 5px)); min-height: 42px; padding-inline: 12px; }
 @media (max-width: 620px) {
   .app-header, .main-content { padding-inline: 24px; }
   .button, .modal-actions > .button, .bike-action-buttons > .button, .profile-form-actions > .button, .station-sheet-actions .button, .button.header-signin { min-height: 44px; }
@@ -754,5 +762,7 @@ h3.metric-label, h3.trip-rate-title { font-family: var(--font); font-weight: 500
   .soon-row.invite-row { flex-direction: column; align-items: stretch; gap: 16px; }
   .toast-region { left: 24px; width: auto; }
   .toast { margin-inline: auto; }
-  .filter-empty { left: 12px; translate: none; flex-direction: column; align-items: flex-start; gap: 0; max-width: calc(100% - 72px); padding: 12px 16px 0; border-radius: var(--radius); }
+  .filter-empty { left: 8px; translate: none; flex-wrap: wrap; column-gap: 12px; row-gap: 0; max-width: calc(100% - 68px); padding: 0 16px; border-radius: 22px; }
+  .filter-empty > span { padding: 12px 0 0; }
+  .filter-empty > span:only-child { padding-bottom: 12px; }
 }

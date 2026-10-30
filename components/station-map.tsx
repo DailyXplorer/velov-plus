@@ -154,8 +154,17 @@ export default function StationMap({ stations, selected, onSelect, onClear, user
   }, [userPosition]);
 
   useEffect(function panOnNewSelectionOnly() {
+    const instance = map.current;
     const station = current.current.find((station) => station.id === selected);
-    if (station && map.current) map.current.panTo([station.lat, station.lon], { animate: !reducedMotion(), duration: 0.5 });
+    if (!station || !instance) return;
+    const size = instance.getSize();
+    const middle = L.point(size.x / 2, size.y / 2);
+    const box = element.current?.getBoundingClientRect();
+    const card = element.current?.parentElement?.querySelector(".map-station-card, .selected-station-panel, .station-sheet")?.getBoundingClientRect();
+    const spot = !box || !card ? middle : card.width > size.x * .6 ? L.point(size.x / 2, Math.max(0, card.top - box.top) / 2) : L.point((card.right - box.left + size.x) / 2, size.y / 2);
+    const zoom = instance.getZoom();
+    const center = instance.unproject(instance.project([station.lat, station.lon], zoom).subtract(spot.subtract(middle)), zoom);
+    instance.panTo(center, { animate: !reducedMotion(), duration: 0.5 });
   }, [selected]);
 
   useEffect(function refitAfterPanSoRefitWins() {

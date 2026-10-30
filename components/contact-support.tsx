@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { EnvelopeSimpleIcon, SendIcon, XIcon } from "./icons";
 import { type Outcome, type Trip, formatDate, outcomeSchema } from "@/lib/models";
 import { UNCERTAIN, isUncertain, networkFailure, routeFailure } from "@/lib/outcome";
@@ -12,6 +12,14 @@ import { Button, Modal, SelectField } from "./ui";
 
 const labels = ["Un trajet", "Mon abonnement", "Mes paiements", "Un parking"];
 const subjects = MAIL_COMPLAINT_TYPES.map((value, index) => ({ value, label: labels[index] }));
+const tripRequests = new EventTarget();
+let requestedTrip: string | null = null;
+
+export function writeAboutTrip(tripId: string) {
+  requestedTrip = tripId;
+  tripRequests.dispatchEvent(new Event("trip"));
+  window.location.hash = "account";
+}
 
 export function ContactSupport({ trips, account }: { trips: Trip[] | null; account: string }) {
   const titleId = useId();
@@ -27,6 +35,19 @@ export function ContactSupport({ trips, account }: { trips: Trip[] | null; accou
   const [status, setStatus] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [refusal, setFailure] = useState<Outcome | null>(null);
+  const form = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const take = () => {
+      if (!requestedTrip) return;
+      setTripId(requestedTrip);
+      setOpen(true);
+      requestedTrip = null;
+      requestAnimationFrame(() => form.current?.scrollIntoView({ block: "center" }));
+    };
+    take();
+    tripRequests.addEventListener("trip", take);
+    return () => tripRequests.removeEventListener("trip", take);
+  }, []);
   const recent = (trips ?? []).filter((trip) => trip.token).slice(0, 15);
   const trip = recent.find((item) => item.id === tripId);
   const body = { complaintType: subject, message, ...(trip?.token ? { tripToken: trip.token } : {}) };
@@ -73,7 +94,7 @@ export function ContactSupport({ trips, account }: { trips: Trip[] | null; accou
   }
 
   return <>
-    {!open ? <Button variant="secondary" onClick={() => operation ? setStatus(true) : setOpen(true)}><EnvelopeSimpleIcon size={18} weight="light" aria-hidden="true"/>Écrire au service client</Button> : <div className="contact-form">
+    {!open ? <Button variant="secondary" onClick={() => operation ? setStatus(true) : setOpen(true)}><EnvelopeSimpleIcon size={18} weight="light" aria-hidden="true"/>Écrire au service client</Button> : <div className="contact-form" ref={form}>
       <SelectField label="Objet" value={subject} onChange={setSubject} options={subjects}/>
       {recent.length ? <SelectField label="Trajet (facultatif)" value={tripId} onChange={setTripId} options={[{ value: "none", label: "Aucun" }, ...recent.map((item) => ({ value: item.id, label: `${formatDate(item.startedAt)} · ${item.startStation ?? "Trajet"}` }))]}/> : null}
       <label className="field"><span className="metric-label">Message</span><textarea rows={5} maxLength={1500} value={message} onChange={(event) => setMessage(event.target.value)}/></label>

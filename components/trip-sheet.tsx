@@ -1,7 +1,8 @@
 "use client";
 
 import { useContext, useEffect, useState } from "react";
-import { BicycleIcon, CaretDownIcon, CaretRightIcon, CheckIcon, CopyIcon, LightningIcon, SendIcon, StarIcon, XIcon } from "./icons";
+import { BicycleIcon, CaretDownIcon, CaretRightIcon, CheckIcon, CopyIcon, EnvelopeSimpleIcon, LightningIcon, SendIcon, StarIcon, XIcon } from "./icons";
+import { writeAboutTrip } from "./contact-support";
 import { type Outcome, type Trip, canRate, formatCountSans, formatDate, formatDuration, formatPrice } from "@/lib/models";
 import { type Stars, dismissTrip, sendStars, starLabels } from "@/lib/trip-end";
 import { browserStorage } from "@/lib/guest";
@@ -131,7 +132,6 @@ export function TripSheet({ trip, onClose }: { trip: Trip; onClose: () => void }
   const points = pointsLine(trip);
   const rated = trip.isRated === true || ratedHere.has(trip.id) || ratedNow === trip.id;
   const sameStation = trip.startStationNumber != null && trip.startStationNumber === trip.endStationNumber;
-  const subject = `Trajet litigieux${trip.token ? ` ${trip.token}` : ""}`;
   const rateKey = useRateKey(trip.id);
   useEffect(() => { const held = rateKey ? operations.get(rateKey) : null; if (rateKey && trip.isRated === true && held) void operations.clear(rateKey, held.id); }, [rateKey, trip.isRated]);
   return (
@@ -155,7 +155,7 @@ export function TripSheet({ trip, onClose }: { trip: Trip; onClose: () => void }
         {trip.litigious ? (
           <div className="trip-alert" role="note">
             <p>Vélo’v a signalé ce trajet comme litigieux.</p>
-            <a className="text-link" href={`mailto:contact.velov@jcdecaux.com?subject=${encodeURIComponent(subject)}`}>Contacter le service client</a>
+            <Button variant="secondary" onClick={() => writeAboutTrip(trip.id)}><EnvelopeSimpleIcon size={18} weight="light" aria-hidden="true"/>Écrire au service client</Button>
           </div>
         ) : null}
         {!rated && trip.bikeNumber != null && canRate(trip) ? <RateBike trip={trip} bikeNumber={trip.bikeNumber} onLater={() => { dismissTrip(browserStorage(), trip.id); onClose(); }} onRated={() => setRatedNow(trip.id)}/> : null}

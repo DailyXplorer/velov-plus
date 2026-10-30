@@ -3,7 +3,7 @@
 import { type ReactNode, createContext, useContext, useEffect, useState } from "react";
 import { z } from "zod";
 import { ClockIcon, type Icon, LockOpenIcon, TimerIcon, WarningIcon, XIcon } from "./icons";
-import { BOOKING_MINUTES, BOOKING_POINTS, RELEASE_DISTANCE, type Booking, type Outcome, bookingSchema, formatDate } from "@/lib/models";
+import { BOOKING_MINUTES, BOOKING_POINTS, RELEASE_DISTANCE, type Booking, type Outcome, bookingSchema } from "@/lib/models";
 import { formatDistance, haversine } from "@/lib/geo";
 import { UNCERTAIN, UNCERTAIN_UNLOCK, UNVERIFIED, isUncertain } from "@/lib/outcome";
 import { bookingCheck, pollUnlock, sendBikeAction, unlockCheck } from "@/lib/bike-action";
@@ -82,7 +82,7 @@ function useKnownDistance(place: Place) {
   return distance;
 }
 
-function Confirm({ action, place, onCancel, onClose, onConfirm, onVerify, sending, checking, uncertain, children }: { action: Action; place: Place; onCancel: () => void; onClose: () => void; onConfirm: () => void; onVerify: () => void; sending: boolean; checking: boolean; uncertain: boolean; children: ReactNode }) {
+function Confirm({ action, place, onCancel, onClose, onConfirm, onVerify, sending, checking, uncertain, answered, children }: { action: Action; place: Place; onCancel: () => void; onClose: () => void; onConfirm: () => void; onVerify: () => void; sending: boolean; checking: boolean; uncertain: boolean; answered: boolean; children: ReactNode }) {
   const distance = useKnownDistance(place);
   const far = distance != null && distance > RELEASE_DISTANCE;
   return (
@@ -90,7 +90,7 @@ function Confirm({ action, place, onCancel, onClose, onConfirm, onVerify, sendin
       <p className="bike-action-question">{action === "book" ? "Réserver ce vélo ?" : `Déverrouiller le vélo ${place.bikeNumber} ?`}</p>
       {action === "book" ? <p className="bike-action-note">{BOOKING_POINTS} points pour garder ce vélo {BOOKING_MINUTES} minutes.</p>
         : <><p className="bike-action-place">{place.stationName} · Borne {place.standNumber}</p><p className="bike-action-note bike-action-warning">Vous aurez ensuite 60 secondes pour appuyer sur le bouton de la borne et retirer le vélo.</p></>}
-      {action === "unlock" && far ? <p className="bike-action-far" role="alert"><WarningIcon size={16} weight="bold" aria-hidden="true"/>Vous semblez être à plus de {RELEASE_DISTANCE} m de la station. Si quelqu’un d’autre prend le vélo, le trajet vous sera facturé.</p> : null}
+      {action === "unlock" && far && !answered ? <p className="bike-action-far" role="alert"><WarningIcon size={16} weight="bold" aria-hidden="true"/>Vous semblez être à plus de {RELEASE_DISTANCE} m de la station. Si quelqu’un d’autre prend le vélo, le trajet vous sera facturé.</p> : null}
       {children}
       <div className="bike-action-buttons">
         {uncertain ? <><Button variant="ghost" onClick={onClose}>Fermer</Button><Button variant="secondary" pending={checking} onClick={onVerify}>Vérifier</Button></> : <>
@@ -105,7 +105,7 @@ function Confirm({ action, place, onCancel, onClose, onConfirm, onVerify, sendin
 function BookedUntil({ endsAt }: { endsAt: string | null }) {
   const left = useSecondsLeft(endsAt);
   if (!endsAt || left == null) return <strong>Vélo réservé pour {BOOKING_MINUTES} minutes</strong>;
-  return <><strong>Vélo réservé jusqu’à <span className="clock">{formatDate(endsAt, { hour: "2-digit", minute: "2-digit" })}</span></strong><span className="bike-action-countdown"><ClockIcon size={15} weight="bold" aria-hidden="true"/>{left > 0 ? <>Il reste <span className="clock">{clock(left)}</span></> : "Réservation expirée"}</span></>;
+  return <><strong>Vélo réservé</strong><span className="bike-action-countdown"><ClockIcon size={15} weight="bold" aria-hidden="true"/>{left > 0 ? <>Il reste <span className="clock">{clock(left)}</span></> : "Réservation expirée"}</span></>;
 }
 
 export function BikeActions({ place, booking = null, initial, dialog = false, onDone }: { place: Place; booking?: Booking | null; initial?: Action; dialog?: boolean; onDone: () => void }) {
@@ -198,7 +198,7 @@ export function BikeActions({ place, booking = null, initial, dialog = false, on
         </>
       ) : (
         <>
-          <Confirm action={step.action} place={place} sending={step.kind === "sending"} checking={checking} onVerify={() => void verify(step.action)} uncertain={failure !== null && isUncertain(failure)} onCancel={() => { setFailure(null); setNotice(null); setStep({ kind: "start" }); }} onClose={onDone} onConfirm={() => void send(step.action)}>
+          <Confirm action={step.action} place={place} sending={step.kind === "sending"} checking={checking} onVerify={() => void verify(step.action)} uncertain={failure !== null && isUncertain(failure)} answered={failure !== null} onCancel={() => { setFailure(null); setNotice(null); setStep({ kind: "start" }); }} onClose={onDone} onConfirm={() => void send(step.action)}>
             {notice ? <p className="form-error" role="alert">{notice}</p> : null}
             {failure ? <><p className="form-error" role="alert">{failure.message ?? (step.action === "book" ? "Réservation impossible." : "Déverrouillage impossible.")}</p>{isUncertain(failure) ? <p className="uncertain-note">{step.action === "unlock" ? UNCERTAIN_UNLOCK : UNCERTAIN}</p> : null}</> : null}
           </Confirm>

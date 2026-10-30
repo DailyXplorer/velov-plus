@@ -125,7 +125,7 @@ function StationActions({ bike, station, onDone }: { bike: Bike; station: Statio
   return <BikeActions place={{ stationNumber: station.number, stationName: station.name, standNumber: bike.standNumber, bikeNumber: bike.number, lat: station.lat, lon: station.lon }} booking={booking} onDone={onDone}/>;
 }
 
-function BikeSheet({ item, actions }: { item: AssessedBike; actions?: ReactNode }) {
+function BikeSheet({ item, actions, atStation = true }: { item: AssessedBike; actions?: ReactNode; atStation?: boolean }) {
   const { bike } = item;
   const type = types[bike.type];
   const rating = score(bike);
@@ -143,7 +143,7 @@ function BikeSheet({ item, actions }: { item: AssessedBike; actions?: ReactNode 
         {bike.type === "electrical" ? <div><dt>Batterie</dt><dd>{bike.batteryPercent != null ? <BatteryLevel percent={bike.batteryPercent}/> : "Non renseigné"}</dd></div> : null}
         <DateFact label="Dernier trajet" value={bike.lastTripAt} withAgo/>
         {late ? <div><dt>Prochain contrôle</dt><dd>En retard<small>{late}</small></dd></div> : <DateFact label="Prochain contrôle" value={bike.nextCheckAt} withAgo/>}
-        <div><dt>Borne</dt><dd>{bike.standNumber ?? "Non renseigné"}</dd></div>
+        {atStation ? <div><dt>Borne</dt><dd>{bike.standNumber ?? "Non renseigné"}</dd></div> : null}
       </dl>
       <details className="bike-more">
         <summary>Détails<CaretDownIcon size={14} weight="bold" aria-hidden="true"/></summary>
@@ -180,7 +180,7 @@ function BikesSkeleton({ station }: { station: Station }) {
   );
 }
 
-function BikeSheetSkeleton() {
+function BikeSheetSkeleton({ atStation = true }: { atStation?: boolean }) {
   const twoLines = <><Ghost>Il y a 2 h</Ghost><small><Ghost>12 oct. 2026, 08:42</Ghost></small></>;
   return (
     <div className="bike-sheet" aria-busy="true" aria-label="Chargement du vélo">
@@ -189,7 +189,7 @@ function BikeSheetSkeleton() {
         <div><dt>Note</dt><dd><span className="bike-rating skeleton-text" aria-hidden="true"><Stars value={4.5}/><span>4,5<span className="bike-out-of">/5</span></span></span><small><Ghost>12 avis · Dernier avis il y a 3 j</Ghost></small></dd></div>
         <div><dt>Dernier trajet</dt><dd>{twoLines}</dd></div>
         <div><dt>Prochain contrôle</dt><dd>{twoLines}</dd></div>
-        <div><dt>Borne</dt><dd><Ghost>12</Ghost></dd></div>
+        {atStation ? <div><dt>Borne</dt><dd><Ghost>12</Ghost></dd></div> : null}
       </dl>
       <details className="bike-more" inert><summary>Détails<CaretDownIcon size={14} weight="bold" aria-hidden="true"/></summary></details>
     </div>
@@ -292,10 +292,10 @@ export function BikeDrawer({ number, onClose }: { number: number; onClose: () =>
         <h2 id="bike-drawer-title" className="bikes-title"><span className="sr-only">Vélo </span><span className="bike-sheet-number">{number}</span>{item && !own.has(number) ? <VerdictMark verdict={item.verdict}/> : null}</h2>
       </div>
       {bike.kind === "loading" ? (
-        <BikeSheetSkeleton/>
+        <BikeSheetSkeleton atStation={false}/>
       ) : bike.kind === "error" ? (
         <LoadFailure failure={bike} layout="inline" pending={refreshing} onRetry={() => void load()}/>
-      ) : item ? <BikeSheet item={item}/> : null}
+      ) : item ? <BikeSheet item={item} atStation={false}/> : null}
     </Modal>
   );
 }

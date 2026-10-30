@@ -82,7 +82,7 @@ These are the owner's product rules. They apply to the web app and the iOS app (
 - The owner’s own reservation is never a reason to avoid a bike: the bike sheet shows the booking instead of an « À éviter · Réservé » verdict (bike-score must know the booked bike number).
 - Detail sheets: useful facts on top, secondary ones in a collapsed native `<details>` « Détails » (trip sheet: bike type, clickable bike number and « Déjà noté »). Optional lines (discount, points) render only when non-empty.
 - A bike's « Prochain contrôle » in the past reads « En retard » with « Prévu le <date> » under it (`lateCheck` in `lib/bike-score.ts`), never « Il y a 18 j ».
-- Show a litigious trip at once: its banner and the rate card stay visible, never inside « Détails ».
+- Show a litigious trip at once: its banner and the rate card stay visible, never inside « Détails » The banner has the ink-line ring and the « Écrire au service client » button (envelope icon), which opens the in-app form with this trip chosen; no mailto link.
 - The API has no trip distance: show the haversine between stations as « ≈ 600 m », with no « à vol d’oiseau » caption.
 - Account: no account name in the sidebar (icon only); the avatar shows an icon while loading, never a placeholder letter.
 - Show the Account tab’s logout button only on mobile (the sidebar has it on desktop), filled red with white text and icon, same on iOS.
