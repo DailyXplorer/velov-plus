@@ -46,9 +46,9 @@ test("a failed note is sent once and comes back with its message, status and cod
   assert.equal(calls.length, 1);
   const offline = (async () => { throw new TypeError("offline"); }) as typeof fetch;
   const lost = await sendStars("trip-1", 20449, 5, offline);
-  assert.deepEqual([lost.ok, lost.httpStatus, lost.message, isUncertain(lost)], [false, 0, "Vélo’v ne répond pas. La note a peut-être été enregistrée.", true]);
+  assert.deepEqual([lost.ok, lost.httpStatus, lost.message, isUncertain(lost)], [false, 0, "Vélo’v ne répond pas. La note a peut-\u2060être été enregistrée.", true]);
   const silent = await sendStars("trip-1", 20449, 5, (async () => new Response("<html>", { status: 503 })) as typeof fetch);
-  assert.deepEqual([silent.message, isUncertain(silent)], ["Vélo’v ne répond pas. La note a peut-être été enregistrée.", true]);
+  assert.deepEqual([silent.message, isUncertain(silent)], ["Vélo’v ne répond pas. La note a peut-\u2060être été enregistrée.", true]);
   assert.doesNotMatch(String(silent.message), /Réessayez|pas pu être envoyée/);
 });
 
@@ -88,10 +88,12 @@ function harness() {
   let nextId = 0;
   const pending: { resolve: (value: TripCheck) => void; reject: (error: Error) => void }[] = [];
   const docked: { tripId: string; latest: Trip | null }[] = [];
+  const started: string[] = [];
   let checks = 0;
   const watch = createDockWatch({
     check: () => { checks += 1; return new Promise<TripCheck>((resolve, reject) => pending.push({ resolve, reject })); },
     docked: (tripId, latest) => docked.push({ tripId, latest }),
+    started: (tripId) => started.push(tripId),
     visible: () => visible,
     now: () => clock,
     setTimer: (run, ms) => { const id = nextId++; timers.push({ at: clock + ms, run, id }); return id as unknown as ReturnType<typeof setTimeout>; },
@@ -99,7 +101,7 @@ function harness() {
   });
   const flush = () => new Promise((resolve) => setImmediate(resolve));
   return {
-    watch, docked, timers,
+    watch, docked, started, timers,
     get checks() { return checks; },
     get inFlight() { return pending.length; },
     async advance(ms: number) {
@@ -213,6 +215,44 @@ test("after an unlock, the watch waits for the trip to show up, then for it to e
   await h.advance(WATCH_INTERVAL);
   await h.answer(none());
   assert.deepEqual(h.docked.map((item) => item.tripId), ["fresh"]);
+});
+
+test("an unlocked watch reports the trip start exactly once, so Accueil reloads for the ride", async () => {
+  const h = harness();
+  h.watch.follow(null);
+  await h.advance(WATCH_INTERVAL);
+  await h.answer(none());
+  assert.deepEqual(h.started, []);
+  await h.advance(WATCH_INTERVAL);
+  await h.answer(riding("fresh"));
+  await h.advance(WATCH_INTERVAL);
+  await h.answer(riding("fresh"));
+  assert.deepEqual(h.started, ["fresh"]);
+  const followed = harness();
+  followed.watch.follow("known");
+  await followed.advance(WATCH_INTERVAL);
+  await followed.answer(riding("known"));
+  assert.deepEqual(followed.started, [], "a ride already on screen is not reported again");
+});
+
+test("a ride that starts and docks while the page is hidden still ends with « Trajet terminé »", async () => {
+  const h = harness();
+  await h.setVisible(false);
+  h.watch.follow(null, 20449);
+  await h.advance(10 * 60_000);
+  assert.equal(h.checks, 0);
+  await h.setVisible(true);
+  const ridden = trip("ridden", "2026-10-29T12:08:00Z", { startedAt: "2026-10-29T12:01:00Z", bikeNumber: 20449 });
+  await h.answer(none(ridden));
+  assert.deepEqual(h.docked, [{ tripId: "ridden", latest: ridden }]);
+  assert.equal(h.watch.active, false);
+  const other = harness();
+  other.watch.follow(null, 20449);
+  while (other.watch.active) {
+    await other.advance(WATCH_INTERVAL);
+    if (other.inFlight) await other.answer(none(trip("old", "2026-10-29T11:00:00Z", { startedAt: "2026-10-29T10:30:00Z", bikeNumber: 20449 })));
+  }
+  assert.deepEqual(other.docked, [], "an older trip of the same bike is not this unlock");
 });
 
 test("an unlock that never turns into a trip stops the watch after the grace period", async () => {

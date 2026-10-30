@@ -13,7 +13,7 @@ import { getJson } from "./get-json";
 import { operations, useOperation, useSending } from "./operations";
 import { Button, Modal } from "./ui";
 
-export const BookingsContext = createContext<{ bookings: Booking[]; changed: () => void; unlocked: (tripId: string | null) => void; expired: () => void } | null>(null);
+export const BookingsContext = createContext<{ bookings: Booking[]; changed: () => void; unlocked: (tripId: string | null, bikeNumber: number) => void; expired: () => void } | null>(null);
 export const SignInContext = createContext<(() => void) | null>(null);
 
 export type Place = { stationNumber: number; stationName: string; standNumber: number; bikeNumber: number; lat: number | null; lon: number | null };
@@ -140,14 +140,14 @@ export function BikeActions({ place, booking = null, initial, dialog = false, on
     if (outcome.httpStatus === 401) { account?.expired(); return; }
     if (outcome.ok) {
       account?.changed();
-      if (action === "unlock") account?.unlocked("ongoing" in outcome ? outcome.ongoing?.[0]?.id ?? null : null);
+      if (action === "unlock") account?.unlocked("ongoing" in outcome ? outcome.ongoing?.[0]?.id ?? null : null, place.bikeNumber);
       onDone();
       return;
     }
     setFailure({ ...outcome, message: outcome.message ?? (action === "book" ? "Réservation impossible." : "Déverrouillage impossible.") });
     setStep({ kind: "confirm", action });
     if (action === "book" && isUncertain(outcome)) account?.changed();
-    if (action === "unlock" && isUncertain(outcome)) account?.unlocked(null);
+    if (action === "unlock" && isUncertain(outcome)) account?.unlocked(null, place.bikeNumber);
   }
 
   async function verify(action: Action, asked = true): Promise<boolean> {
@@ -165,7 +165,7 @@ export function BikeActions({ place, booking = null, initial, dialog = false, on
     setChecking(false);
     if (settled?.kind === "done") {
       account?.changed();
-      if (action === "unlock") account?.unlocked(tripId);
+      if (action === "unlock") account?.unlocked(tripId, place.bikeNumber);
       onDone();
     } else if (settled?.kind === "refused") {
       setFailure(settled.outcome);

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { type Outcome, type RateBody, type Trip, canRate, outcomeSchema, tripSchema } from "./models.ts";
 import { networkFailure, routeFailure } from "./outcome.ts";
+import { START_SLACK } from "./bike-action.ts";
 
 export type Stars = 1 | 2 | 3 | 4 | 5;
 export type Vote = Omit<RateBody, "bikeNumber">;
@@ -66,14 +67,15 @@ type Timer = ReturnType<typeof setTimeout>;
 export type DockWatchDeps = {
   check: () => Promise<TripCheck>;
   docked: (tripId: string, latest: Trip | null) => void;
+  started?: (tripId: string) => void;
   visible: () => boolean;
   now?: () => number;
   setTimer?: (run: () => void, ms: number) => Timer;
   clearTimer?: (timer: Timer) => void;
 };
-type Watch = { kind: "idle" } | { kind: "unlocked"; since: number; startedAt: number } | { kind: "riding"; tripId: string; startedAt: number };
+type Watch = { kind: "idle" } | { kind: "unlocked"; since: number; startedAt: number; bikeNumber: number | null } | { kind: "riding"; tripId: string; startedAt: number };
 
-export function createDockWatch({ check, docked, visible, now = Date.now, setTimer = setTimeout, clearTimer = clearTimeout }: DockWatchDeps) {
+export function createDockWatch({ check, docked, started, visible, now = Date.now, setTimer = setTimeout, clearTimer = clearTimeout }: DockWatchDeps) {
   let watch: Watch = { kind: "idle" };
   let timer: Timer | null = null;
   let inFlight = false;
@@ -114,20 +116,28 @@ export function createDockWatch({ check, docked, visible, now = Date.now, setTim
     }
     const ongoing = answer?.ongoing;
     interval = ongoing ? WATCH_INTERVAL : Math.min(interval * 2, WATCH_BACKOFF_CAP);
-    if (ongoing?.length) watch = { kind: "riding", tripId: ongoing[0].id, startedAt: watch.startedAt };
-    else if (ongoing && watch.kind === "riding") {
+    if (ongoing?.length) {
+      const fresh = watch.kind === "unlocked";
+      watch = { kind: "riding", tripId: ongoing[0].id, startedAt: watch.startedAt };
+      if (fresh) started?.(ongoing[0].id);
+    } else if (ongoing && watch.kind === "riding") {
       const { tripId } = watch;
       stop();
       return docked(tripId, answer?.latest ?? null);
-    } else if (ongoing && watch.kind === "unlocked" && now() - watch.since >= UNLOCK_GRACE) return stop();
+    } else if (ongoing && watch.kind === "unlocked") {
+      const latest = answer?.latest ?? null;
+      const ridden = latest && watch.bikeNumber !== null && latest.bikeNumber === watch.bikeNumber && latest.startedAt && Date.parse(latest.startedAt) >= watch.since - START_SLACK;
+      if (ridden) { stop(); return docked(latest.id, latest); }
+      if (now() - watch.since >= UNLOCK_GRACE) return stop();
+    }
     schedule();
   }
 
   return {
-    follow(tripId: string | null) {
+    follow(tripId: string | null, bikeNumber: number | null = null) {
       const startedAt = watch.kind === "idle" ? now() : watch.startedAt;
       if (tripId) watch = { kind: "riding", tripId, startedAt };
-      else if (watch.kind === "idle") watch = { kind: "unlocked", since: now(), startedAt };
+      else if (watch.kind === "idle") watch = { kind: "unlocked", since: now(), startedAt, bikeNumber };
       if (timer === null && !inFlight) schedule();
     },
     visibilityChanged() {

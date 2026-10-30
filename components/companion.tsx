@@ -103,7 +103,7 @@ export function Companion({ start }: { start: StartMode }) {
     setUnlocking(null);
     setState({ kind: "signedOut", message: "Votre session a expiré. Reconnectez-vous." });
   }, []);
-  const account = useMemo(() => ({ bookings, changed: () => { forgetStats(); void loadBookings(); }, unlocked: (tripId: string | null) => watch.current?.follow(tripId), expired: expire }), [bookings, loadBookings, expire]);
+  const account = useMemo(() => ({ bookings, changed: () => { forgetStats(); void loadBookings(); }, unlocked: (tripId: string | null, bikeNumber: number) => watch.current?.follow(tripId, bikeNumber), expired: expire }), [bookings, loadBookings, expire]);
 
   const loadDashboard = useCallback(async (): Promise<Dashboard | null> => {
     if (dashboardInFlight.current) return null;
@@ -146,6 +146,7 @@ export function Companion({ start }: { start: StartMode }) {
           if (trip) setEnded(trip);
         });
       },
+      started: () => { void loadDashboard(); },
       visible: () => document.visibilityState === "visible"
     });
     watch.current = current;
