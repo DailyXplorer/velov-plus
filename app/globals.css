@@ -122,10 +122,6 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
 .metric-label { display: block; color: var(--ink-soft); font-size: 13px; }
 .metric-value { margin-top: 26px; font-size: 56px; line-height: 1; letter-spacing: -.04em; }
 .metric-detail { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; margin-top: auto; padding-top: 18px; color: var(--on-dark); font-size: 13px; }
-.ongoing-banner { display: flex; align-items: center; gap: 14px; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--line); }
-.ongoing-banner .eyebrow { margin-bottom: 0; }
-.ongoing-banner > .ongoing-station { color: var(--ink-soft); font-size: 13px; }
-.ongoing-banner > .ongoing-extra { margin-left: auto; }
 .map-section, .recent-trips { margin-top: 40px; }
 .overview-map { position: relative; height: 320px; overflow: hidden; border-radius: var(--radius); background: var(--mist); box-shadow: var(--shadow-ring); }
 .station-map { position: relative; width: 100%; height: 100%; min-height: 200px; z-index: 0; background: var(--mist); font-family: var(--font); }
@@ -392,8 +388,6 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
   .modal-content { padding: 20px 22px 24px; }
   .trip-detail-facts { gap: 10px; }
   .trip-detail-facts strong { font-size: 20px; }
-  .ongoing-banner { flex-wrap: wrap; }
-  .ongoing-banner > .ongoing-extra { margin-left: 0; }
 }
 @media (prefers-reduced-motion: reduce) {
   .select-popover { animation: none; }
@@ -573,13 +567,11 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
 .soon-note { display: block; margin-top: 4px; color: var(--ink-soft); font-size: 12px; }
 .invite-row { padding: 22px 22px 22px 26px; border-radius: var(--radius); background: var(--mist); }
 .setting-row + .invite-row { margin-top: 12px; }
-.ongoing-extra { display: inline-flex; align-items: center; gap: 10px; }
-.ongoing-extra .soon-note { margin-top: 0; }
+.ongoing-extra { display: contents; }
 @media (max-width: 620px) {
   .invite-row { padding: 18px 16px 18px 20px; }
   .field-pair { grid-template-columns: 100px minmax(0, 1fr); }
   .field-pair.name-pair { grid-template-columns: minmax(0, 1fr); gap: 14px; }
-  .ongoing-extra { width: 100%; }
   .profile-form-actions { flex-direction: column-reverse; }
   .profile-form-actions > .button { width: 100%; }
 }
@@ -751,4 +743,6 @@ h3.metric-label, h3.trip-rate-title { font-family: var(--font); font-weight: 500
   .summary-card, .points-summary > div, .earn-rule { padding: 16px; }
   .stat-panel, .account-section, .setting-row, .invite-row { padding: 20px; }
   .stat-panel > h2 { margin-bottom: 16px; }
+  .booking-banner .button-on-red, .booking-banner .button-on-red:hover { padding-right: 14px; letter-spacing: .02em; }
+  .data-notice summary { font-size: 12px; }
 }

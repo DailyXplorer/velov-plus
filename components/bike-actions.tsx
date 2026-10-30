@@ -2,7 +2,7 @@
 
 import { type ReactNode, createContext, useContext, useEffect, useState } from "react";
 import { z } from "zod";
-import { ClockIcon, LockOpenIcon, TimerIcon, WarningIcon, XIcon } from "./icons";
+import { ClockIcon, type Icon, LockOpenIcon, TimerIcon, WarningIcon, XIcon } from "./icons";
 import { BOOKING_MINUTES, BOOKING_POINTS, RELEASE_DISTANCE, type Booking, type Outcome, bookingSchema, capitalize, formatDate } from "@/lib/models";
 import { formatDistance, haversine } from "@/lib/geo";
 import { UNCERTAIN, UNCERTAIN_UNLOCK, UNVERIFIED, isUncertain } from "@/lib/outcome";
@@ -22,20 +22,47 @@ type Step = { kind: "start" } | { kind: "confirm"; action: Action } | { kind: "s
 
 const signIn = "Connectez-vous pour réserver ou déverrouiller un vélo.";
 
-export function useSecondsLeft(until: string | null) {
+function useNow(ticking: boolean) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
-    if (!until) return;
+    if (!ticking) return;
     const timer = setInterval(() => setNow(Date.now()), 1_000);
     return () => clearInterval(timer);
-  }, [until]);
-  if (!until) return null;
-  const end = new Date(until).getTime();
+  }, [ticking]);
+  return now;
+}
+
+export function useSecondsLeft(until: string | null) {
+  const now = useNow(until !== null);
+  const end = until ? new Date(until).getTime() : NaN;
   return Number.isFinite(end) ? Math.max(0, Math.round((end - now) / 1_000)) : null;
 }
 
-function clock(seconds: number) {
-  return `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
+export function useSecondsSince(since: string | null) {
+  const now = useNow(since !== null);
+  const start = since ? new Date(since).getTime() : NaN;
+  return Number.isFinite(start) ? Math.max(0, Math.floor((now - start) / 1_000)) : null;
+}
+
+const pad = (value: number) => String(value).padStart(2, "0");
+
+export function clock(seconds: number) {
+  const hours = Math.floor(seconds / 3_600);
+  const minutes = `${pad(Math.floor(seconds / 60) % 60)}:${pad(seconds % 60)}`;
+  return hours ? `${hours}:${minutes}` : minutes;
+}
+
+export function RedBanner({ icon: BannerIcon, seconds, label, children }: { icon: Icon; seconds: number | null; label: string; children?: ReactNode }) {
+  return (
+    <div className="booking-banner" role="status" aria-label={label}>
+      <span className="booking-left"><span className="booking-clock"><BannerIcon size={17} weight="light" aria-hidden="true"/></span>{seconds != null ? <span className="booking-time">{clock(seconds)}</span> : null}</span>
+      {children}
+    </div>
+  );
+}
+
+export function OnRedPill({ icon: PillIcon, children, onClick }: { icon: Icon; children: ReactNode; onClick: () => void }) {
+  return <Button className="button-on-red" onClick={onClick}><span className="eyebrow-icon"><PillIcon size={15} weight="light" aria-hidden="true"/></span>{children}</Button>;
 }
 
 function useKnownDistance(place: Place) {
@@ -176,10 +203,9 @@ export function BookingBanner({ booking, onUnlock }: { booking: Booking; onUnloc
   const place = placeOf(booking);
   if (left === 0) return null;
   return (
-    <div className="booking-banner" role="status" aria-label={left != null ? `Vélo réservé, ${Math.ceil(left / 60)} min restantes` : "Vélo réservé"}>
-      <span className="booking-left"><span className="booking-clock"><ClockIcon size={17} weight="light" aria-hidden="true"/></span>{left != null ? <span className="booking-time">{clock(left)}</span> : null}</span>
-      {place ? <Button className="button-on-red" onClick={onUnlock}><span className="eyebrow-icon"><LockOpenIcon size={15} weight="light" aria-hidden="true"/></span>Déverrouiller</Button> : null}
-    </div>
+    <RedBanner icon={ClockIcon} seconds={left} label={left != null ? `Vélo réservé, ${Math.ceil(left / 60)} min restantes` : "Vélo réservé"}>
+      {place ? <OnRedPill icon={LockOpenIcon} onClick={onUnlock}>Déverrouiller</OnRedPill> : null}
+    </RedBanner>
   );
 }
 

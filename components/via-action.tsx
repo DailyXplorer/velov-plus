@@ -9,6 +9,7 @@ import { describeLocationFailure, findPosition, formatDistance, haversine, type 
 import { blockedMessage, runOnce } from "@/lib/operations";
 import { operations, useAccountKey, useOperation, useSending } from "./operations";
 import { Button, Modal, SelectField } from "./ui";
+import { OnRedPill } from "./bike-actions";
 
 export function ViaAction({ stations, account, tripId }: { stations: Station[]; account: string; tripId: string }) {
   const titleId = useId();
@@ -58,7 +59,7 @@ export function ViaAction({ stations, account, tripId }: { stations: Station[]; 
     setOpen(false); setReviewing(false); setSelected(""); setQuery("");
   }
   return <span className="ongoing-extra">
-    <Button variant="secondary" onClick={() => setOpen(true)}><TimerIcon size={17} weight="light" aria-hidden="true"/>15 minutes de plus</Button>
+    <OnRedPill icon={TimerIcon} onClick={() => setOpen(true)}>15 minutes de plus</OnRedPill>
     {open ? <Modal titleId={titleId} onClose={close}>
       <div onKeyDownCapture={(event) => { if (pending && sendingHere && event.key === "Escape") event.preventDefault(); }}>
         <div className="modal-heading"><h2 id={titleId}>15 minutes de plus</h2><button className="icon-button" aria-label="Fermer" disabled={pending && sendingHere} onClick={close}><XIcon size={20} weight="light"/></button></div>

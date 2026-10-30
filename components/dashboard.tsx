@@ -4,6 +4,7 @@ import { useMemo, useState, useSyncExternalStore } from "react";
 import dynamic from "next/dynamic";
 import { BicycleIcon, CaretRightIcon, DownloadSimpleIcon, EnvelopeSimpleIcon, type Icon, LetterCirclePIcon, LightningIcon, MagnifyingGlassIcon, NavigationArrowIcon, PencilIcon, SignOutIcon, StarFourIcon, StarIcon, TicketIcon, TrendUpIcon, XIcon } from "./icons";
 import { ViaAction } from "./via-action";
+import { RedBanner, useSecondsSince } from "./bike-actions";
 import { type Dashboard, type Page, type Resource, type Station, type Trip, formatCount, formatCountSans, formatDate, formatDuration, formatName, formatPrice } from "@/lib/models";
 import { describeLocationFailure, findPosition, formatDistance, haversine, type Point } from "@/lib/geo";
 import { type StationFilter, matchesFilter, nearestSupplied } from "@/lib/station-filter";
@@ -77,6 +78,15 @@ function StationNumbers({ station, compact = false }: { station: Station; compac
   );
 }
 
+function OngoingBanner({ trip, stations, account }: { trip: Trip; stations: Station[]; account: string }) {
+  const elapsed = useSecondsSince(trip.startedAt);
+  return (
+    <RedBanner icon={BicycleIcon} seconds={elapsed} label={elapsed != null ? `Trajet en cours depuis ${Math.floor(elapsed / 60)} min` : "Trajet en cours"}>
+      <ViaAction stations={stations} account={account} tripId={trip.id}/>
+    </RedBanner>
+  );
+}
+
 export function Overview({ data, stations, navigate, reload, reloading }: { data: Dashboard; stations: Resource<StationData>; navigate: Navigation } & Reload) {
   const [selectedStation, setSelectedStation] = useState<string | null>(null);
   const [bikesOpen, setBikesOpen] = useState(false);
@@ -87,12 +97,7 @@ export function Overview({ data, stations, navigate, reload, reloading }: { data
   const subscription = data.subscription === "unavailable" ? null : data.subscription;
   return (
     <div className="page-content">
-      {data.ongoing?.length ? (
-        <div className="ongoing-banner">
-          <Eyebrow icon={BicycleIcon}>Trajet en cours</Eyebrow><span className="ongoing-station">{data.ongoing[0].startStation ?? "Trajet Vélo’v"}</span>
-          <ViaAction stations={nearby} account={data.profile.email} tripId={data.ongoing[0].id}/>
-        </div>
-      ) : null}
+      {data.ongoing?.length ? <OngoingBanner trip={data.ongoing[0]} stations={nearby} account={data.profile.email}/> : null}
       <div className="summary-grid">
         <button className="summary-card" onClick={() => navigate("points")}>
           <CardTag icon={StarFourIcon}>Points</CardTag>
