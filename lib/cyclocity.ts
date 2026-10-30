@@ -5,6 +5,7 @@ import { type AutoSpendResult, type Outcome, type ProfileBody, type RateBody, ty
 import { haversine } from "./geo.ts";
 import { VelovError } from "./auth-protocol.ts";
 import { sendWrite } from "./write-transport.ts";
+import { isUncertain } from "./outcome.ts";
 
 export const API = "https://api.cyclocity.fr";
 export const BASE = `${API}/contracts/lyon`;
@@ -68,13 +69,13 @@ export async function postRating({ accountId, tripId, body, token, identity }: {
     redirect: "manual", cache: "no-store", signal: AbortSignal.timeout(15_000)
     });
   } catch (error) {
-    return { ...refusal("network", "Vélo’v ne répond pas. La note a peut-être été enregistrée."), detail: error instanceof Error ? error.name : null };
+    return { ...refusal("network", MAYBE_SENT.rating), detail: error instanceof Error ? error.name : null };
   }
   if (response.status === 401) throw new VelovError("expired", "Votre session a expiré. Reconnectez-vous.");
   const reply = await answer(response);
   if (response.ok) return { ok: true, httpStatus: response.status, transactionState: null, code: null, message: null, detail: null };
   const refused = response.status >= 400 && response.status < 500 && reply.code !== null;
-  return { ok: false, httpStatus: response.status, transactionState: null, code: reply.code, message: refused ? "Vélo’v a refusé cette note." : "Vélo’v n’a pas confirmé la note. Elle a peut-être été enregistrée.", detail: reply.detail };
+  return { ok: false, httpStatus: response.status, transactionState: null, code: reply.code, message: refused ? "Vélo’v a refusé cette note." : "Vélo’v n’a pas confirmé la note. Elle a peut-\u2060être été enregistrée.", detail: reply.detail };
 }
 
 const releaseCodes: Record<string, string> = {
@@ -95,6 +96,15 @@ const releaseStates: Record<string, string> = {
 const bookingCodes: Record<string, string> = {
   "booking.exception.bike.already.reserved": "Ce vélo est déjà réservé par un autre usager.",
   "bookings.exception.not.authorized": "Vous avez déjà une réservation en cours, ou moins de 10 points."
+};
+export const MAYBE_SENT = {
+  unlock: "Vélo’v ne répond pas. Le vélo est peut-\u2060être déverrouillé.",
+  book: "Vélo’v ne répond pas. Le vélo est peut-\u2060être réservé.",
+  change: "Vélo’v ne répond pas. La modification a peut-\u2060être été prise en compte.",
+  via: "Vélo’v ne répond pas. Les 15 minutes ont peut-\u2060être été ajoutées.",
+  contact: "Vélo’v ne répond pas. Votre message a peut-\u2060être déjà été envoyé.",
+  invite: "Vélo’v ne répond pas. Vos points ont peut-\u2060être été débités.",
+  rating: "Vélo’v ne répond pas. La note a peut-\u2060être été enregistrée."
 };
 const releaseFailed = "Le déverrouillage n’a pas abouti.";
 const bookingFailed = "La réservation de votre vélo n’a pas fonctionné.";
@@ -125,13 +135,15 @@ async function answer(response: Response) {
 export function releaseOutcome(httpStatus: number, reply: { code: string | null; detail: string | null; transactionState: string | null }): Outcome {
   const { code, detail, transactionState } = reply;
   const ok = httpStatus === 200 && transactionState === "OK";
-  const message = ok ? null : code && releaseCodes[code] ? releaseCodes[code] : transactionState && releaseStates[transactionState] ? releaseStates[transactionState] : httpStatus === 403 ? sessionRefused : releaseFailed;
+  const uncertain = isUncertain({ ok, httpStatus, transactionState, code, message: null, detail });
+  const message = ok ? null : code && releaseCodes[code] ? releaseCodes[code] : transactionState && releaseStates[transactionState] ? releaseStates[transactionState] : uncertain ? MAYBE_SENT.unlock : httpStatus === 403 ? sessionRefused : releaseFailed;
   return { ok, httpStatus, transactionState, code, message, detail };
 }
 
 export function bookingOutcome(httpStatus: number, reply: { code: string | null; detail: string | null }): Outcome {
   const ok = httpStatus >= 200 && httpStatus < 300;
-  const message = ok ? null : reply.code && bookingCodes[reply.code] ? bookingCodes[reply.code] : httpStatus === 403 ? sessionRefused : bookingFailed;
+  const uncertain = isUncertain({ ok, httpStatus, transactionState: null, code: reply.code, message: null, detail: reply.detail });
+  const message = ok ? null : reply.code && bookingCodes[reply.code] ? bookingCodes[reply.code] : uncertain ? MAYBE_SENT.book : httpStatus === 403 ? sessionRefused : bookingFailed;
   return { ok, httpStatus, transactionState: null, code: reply.code, message, detail: reply.detail };
 }
 
@@ -145,7 +157,7 @@ export async function postRelease({ accountId, subscriptionId, body, token, iden
       redirect: "manual", cache: "no-store", signal: AbortSignal.timeout(ACTION_TIMEOUT_MS)
     });
   } catch (error) {
-    return { ...refusal("network", "Vélo’v ne répond pas. Le vélo est peut-être déverrouillé."), detail: error instanceof Error ? error.name : null };
+    return { ...refusal("network", MAYBE_SENT.unlock), detail: error instanceof Error ? error.name : null };
   }
   if (response.status === 401) throw new VelovError("expired", "Votre session a expiré. Reconnectez-vous.");
   return releaseOutcome(response.status, await answer(response));
@@ -163,14 +175,14 @@ export async function postBooking({ accountId, body, token, identity }: { accoun
       redirect: "manual", cache: "no-store", signal: AbortSignal.timeout(ACTION_TIMEOUT_MS)
     });
   } catch (error) {
-    return { outcome: { ...refusal("network", "Vélo’v ne répond pas. Le vélo est peut-être réservé : actualisez la page avant de réessayer."), detail: error instanceof Error ? error.name : null }, booking: null };
+    return { outcome: { ...refusal("network", MAYBE_SENT.book), detail: error instanceof Error ? error.name : null }, booking: null };
   }
   if (response.status === 401) throw new VelovError("expired", "Votre session a expiré. Reconnectez-vous.");
   const reply = await answer(response);
   const outcome = bookingOutcome(response.status, reply);
   if (!outcome.ok) return { outcome, booking: null };
   const booking = rawBooking.safeParse(reply.value);
-  if (!booking.success || booking.data.bikeId !== body.bikeId || booking.data.stationNumber !== body.stationNumber) return { outcome: { ...outcome, ok: false, code: "local.booking.unreadable", message: "Vélo’v n’a pas confirmé la réservation. Vérifiez-la avant de réessayer." }, booking: null };
+  if (!booking.success || booking.data.bikeId !== body.bikeId || booking.data.stationNumber !== body.stationNumber) return { outcome: { ...outcome, ok: false, code: "local.booking.unreadable", message: "Vélo’v n’a pas confirmé la réservation. Le vélo est peut-\u2060être réservé." }, booking: null };
   return { outcome, booking: booking.data };
 }
 
@@ -180,16 +192,17 @@ const accountCodes: Record<string, string> = {
   "accounts.exception.notacceptable.account.phone.invalid": "Ce numéro de téléphone n’est pas valide."
 };
 
-export async function accountCall(url: string, init: { method: "POST" | "PATCH" | "DELETE"; headers: Record<string, string>; body?: BodyInit }, auth: Auth, failed: string, send: typeof fetch, preserveUnauthorized = false) {
+export async function accountCall(url: string, init: { method: "POST" | "PATCH" | "DELETE"; headers: Record<string, string>; body?: BodyInit }, auth: Auth, failed: string, send: typeof fetch, preserveUnauthorized = false, maybe: string = MAYBE_SENT.change) {
   let response: Response;
   try {
     response = await send(url, { ...init, headers: { Authorization: `Taknv1 ${auth.token}`, Identity: auth.identity, ...init.headers, "User-Agent": BROWSER_AGENT }, redirect: "manual", cache: "no-store", signal: AbortSignal.timeout(15_000) });
   } catch (error) {
-    return { outcome: { ...refusal("network", "Vélo’v ne répond pas. La modification a peut-être été prise en compte : actualisez la page avant de réessayer."), detail: error instanceof Error ? error.name : null }, value: null };
+    return { outcome: { ...refusal("network", maybe), detail: error instanceof Error ? error.name : null }, value: null };
   }
   if (response.status === 401 && !preserveUnauthorized) throw new VelovError("expired", "Votre session a expiré. Reconnectez-vous.");
   const reply = await answer(response);
-  const outcome: Outcome = { ok: response.ok, httpStatus: response.status, transactionState: null, code: reply.code, message: response.ok ? null : reply.code && accountCodes[reply.code] ? accountCodes[reply.code] : response.status === 403 ? sessionRefused : failed, detail: reply.detail };
+  const answered: Outcome = { ok: response.ok, httpStatus: response.status, transactionState: null, code: reply.code, message: null, detail: reply.detail };
+  const outcome: Outcome = { ...answered, message: response.ok ? null : reply.code && accountCodes[reply.code] ? accountCodes[reply.code] : isUncertain(answered) ? maybe : response.status === 403 ? sessionRefused : failed };
   return { outcome, value: response.ok ? reply.value : null };
 }
 
@@ -209,7 +222,7 @@ export async function putStationBookmark({ stationNumber, on, ...auth }: Auth & 
 const report = z.object({ filename: lenient(z.string()), translations: z.object({ content: z.string().min(1) }) });
 
 export async function postPeriodReport({ subscriptionId, periodId, ...auth }: Auth & { subscriptionId: string; periodId: string }, send: typeof fetch = sendWrite): Promise<{ outcome: Outcome; pdf: { filename: string; bytes: Buffer } | null }> {
-  const { outcome, value } = await accountCall(`${accountUrl(auth.accountId)}/subscriptions/${encodeURIComponent(subscriptionId)}/periods/${encodeURIComponent(periodId)}/reports`, { method: "POST", headers: { Accept: "application/json" } }, auth, "Ce reçu n’est pas disponible.", send);
+  const { outcome, value } = await accountCall(`${accountUrl(auth.accountId)}/subscriptions/${encodeURIComponent(subscriptionId)}/periods/${encodeURIComponent(periodId)}/reports`, { method: "POST", headers: { Accept: "application/json" } }, auth, "Ce reçu n’est pas disponible.", send, false, "Ce reçu n’est pas disponible.");
   if (!outcome.ok) return { outcome, pdf: null };
   const parsed = report.safeParse(value);
   const bytes = parsed.success ? Buffer.from(parsed.data.translations.content, "base64") : null;
@@ -221,7 +234,7 @@ export async function patchProfile({ body, ...auth }: Auth & { body: ProfileBody
   const ordered = { firstName: body.firstName, lastName: body.lastName, country: body.country, zipCode: body.zipCode, city: body.city, phoneNumber: body.phoneNumber, address: body.address };
   const { outcome } = await accountCall(accountUrl(auth.accountId), { method: "PATCH", headers: { "Content-Type": "application/vnd.account.v4+json" }, body: JSON.stringify(ordered) }, auth, "Vélo’v n’a pas enregistré ces coordonnées.", send);
   const renamed = body.firstName !== undefined || body.lastName !== undefined;
-  return renamed && outcome.httpStatus >= 400 && outcome.httpStatus < 500 ? { ...outcome, message: "Vélo’v n’a pas accepté ce changement de nom." } : outcome;
+  return renamed && !isUncertain(outcome) && outcome.httpStatus >= 400 && outcome.httpStatus < 500 ? { ...outcome, message: "Vélo’v n’a pas accepté ce changement de nom." } : outcome;
 }
 
 
@@ -235,10 +248,10 @@ export async function patchAutoRenewal({ subscriptionId, autoRenewal, ...auth }:
 export async function postVia({ subscriptionId, stationId, ...auth }: Auth & { subscriptionId: string; stationId: string | number }, send: typeof fetch = sendWrite): Promise<Outcome> {
   const { outcome, value } = await accountCall(`${accountUrl(auth.accountId)}/subscriptions/${encodeURIComponent(subscriptionId)}/via`, {
     method: "POST", headers: { "Content-Type": VIA_MEDIA_TYPE }, body: JSON.stringify({ [VIA_STATION_FIELD]: stationId })
-  }, auth, "Les 15 minutes supplémentaires n’ont pas été accordées.", send, true);
+  }, auth, "Les 15 minutes supplémentaires n’ont pas été accordées.", send, true, MAYBE_SENT.via);
   if (!outcome.ok) return outcome;
   const parsed = z.union([z.string(), z.object({ [VIA_STATE_FIELD]: z.string() }).transform((reply) => reply[VIA_STATE_FIELD])]).safeParse(value);
   const transactionState = parsed.success ? parsed.data : null;
   const ok = transactionState === VIA_SUCCESS_STATE;
-  return { ...outcome, ok, transactionState, message: ok ? null : "Vélo’v n’a pas confirmé les minutes supplémentaires. Vérifiez votre trajet avant de réessayer." };
+  return { ...outcome, ok, transactionState, message: ok ? null : "Vélo’v n’a pas confirmé les minutes supplémentaires. Les 15 minutes ont peut-\u2060être été ajoutées." };
 }

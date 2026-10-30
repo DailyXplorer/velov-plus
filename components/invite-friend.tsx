@@ -51,7 +51,7 @@ export function InviteFriend({ cost, balance, account, onChanged }: { onChanged:
         const response = await fetch("/api/account/promocode", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ expectedCost: cost }), signal: AbortSignal.timeout(40_000) });
         const data: unknown = await response.json().catch(() => null);
         const parsed = promoResultSchema.safeParse(data);
-        const answer: PromoResult = parsed.success ? parsed.data : { ...routeFailure(response.status, data, "Réponse inattendue. Vos points ont peut-être été débités."), promoCode: null };
+        const answer: PromoResult = parsed.success ? parsed.data : { ...routeFailure(response.status, data, "Réponse inattendue. Vos points ont peut-\u2060être été débités."), promoCode: null };
         if (answer.promoCode) {
           const saved = { code: answer.promoCode, createdAt: new Date().toISOString() };
           setCodes((current) => current.some((item) => item.code === saved.code) ? current : [...current, saved]);
@@ -60,7 +60,7 @@ export function InviteFriend({ cost, balance, account, onChanged }: { onChanged:
         }
         return answer;
       } catch (error) {
-        return { ...networkFailure("Vélo’v ne répond pas. Vos points ont peut-être été débités.", error, startedAt), promoCode: null };
+        return { ...networkFailure("Vélo’v ne répond pas. Vos points ont peut-\u2060être été débités.", error, startedAt), promoCode: null };
       }
     }, { keep: true, meta: { cost, balance: balance ?? -1 } });
     if (typeof result === "string") { const message = blockedMessage(result, operations.get(operationKey) !== null); if (message) setWarning(message); return; }

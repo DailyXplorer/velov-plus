@@ -24,7 +24,7 @@ async function sendWrite(url: string, method: "POST" | "PATCH" | "DELETE", body?
   try {
     response = await fetch(url, { method, headers: body === undefined ? undefined : { "Content-Type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body), signal: AbortSignal.timeout(40_000) });
   } catch (error) {
-    return { outcome: networkFailure("Le serveur ne répond pas. Actualisez la page avant de réessayer.", error, startedAt), data: null };
+    return { outcome: networkFailure("Le serveur ne répond pas. La modification a peut-\u2060être été prise en compte.", error, startedAt), data: null };
   }
   const data: unknown = await response.json().catch(() => null);
   if (!response.ok) {
@@ -32,7 +32,7 @@ async function sendWrite(url: string, method: "POST" | "PATCH" | "DELETE", body?
     return { outcome: failure(response.status, error.success ? error.data.code ?? null : null, error.success ? error.data.error : "Le service ne répond pas."), data };
   }
   const outcome = outcomeSchema.safeParse(data);
-  return { outcome: outcome.success ? outcome.data : failure(response.status, "local.unreadable", "Réponse inattendue. Actualisez la page avant de réessayer."), data };
+  return { outcome: outcome.success ? outcome.data : failure(response.status, "local.unreadable", "Réponse inattendue. La modification a peut-\u2060être été prise en compte."), data };
 }
 
 type Step = { kind: "confirm" } | { kind: "failed"; outcome: Outcome } | { kind: "notice"; message: string };

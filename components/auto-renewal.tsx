@@ -44,7 +44,7 @@ export function AutoRenewal({ subscriptionId, account, value, allowed, onSaved }
         const data: unknown = await response.json().catch(() => null);
         const parsed = autoRenewalResultSchema.safeParse(data);
         const error = errorSchema.safeParse(data);
-        return response.ok && parsed.success ? parsed.data : failed(response.status, error.success ? error.data.code ?? "unavailable" : "local.unreadable", error.success ? error.data.error : "Réponse inattendue. Actualisez la page avant de réessayer.");
+        return response.ok && parsed.success ? parsed.data : failed(response.status, error.success ? error.data.code ?? "unavailable" : "local.unreadable", error.success ? error.data.error : "Réponse inattendue. La modification a peut-\u2060être été prise en compte.");
       } catch (error) {
         return { ...networkFailure("Vélo’v ne répond pas. Actualisez la page pour voir si le réglage a changé.", error, startedAt), autoRenewal: null, autoRenewalAllowed: false, verified: false };
       }

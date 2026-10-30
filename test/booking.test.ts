@@ -42,7 +42,7 @@ test("a release succeeds on transactionState OK only, not on HTTP 200", async ()
   for (const [state, message] of [
     ["NOK", "Le vélo n’a pas pu être déverrouillé."], ["ABORT", "Le déverrouillage a été annulé."],
     ["TIME_OUT", "La borne n’a pas répondu à temps."], ["NOT_CONNECTED", "Aucun vélo n’est accroché à cette borne."],
-    ["SOMETHING_NEW", "Le déverrouillage n’a pas abouti."], [undefined, "Le déverrouillage n’a pas abouti."]
+    ["SOMETHING_NEW", "Vélo’v ne répond pas. Le vélo est peut-\u2060être déverrouillé."], [undefined, "Vélo’v ne répond pas. Le vélo est peut-\u2060être déverrouillé."]
   ] as const) {
     const outcome = await postRelease(release, recorder({ status: 200, body: state ? { transactionState: state } : {} }).send);
     assert.equal(outcome.ok, false, String(state));
@@ -64,12 +64,12 @@ test("release refusals map to the app's French messages and keep the raw code an
   ]) assert.equal((await postRelease(release, recorder({ status: 400, body: { code } }).send)).message, message);
 });
 
-test("a refusal without a JSON body falls back to the Bloot-Error-Code header, or to the session message on a 403", async () => {
+test("a refusal without a JSON body falls back to the Bloot-Error-Code header, and a bare 403 stays uncertain", async () => {
   const header = await postRelease(release, recorder({ status: 400, text: "", headers: { "Bloot-Error-Code": "kiwi.exception.customer.insuffisant.right" } }).send);
   assert.deepEqual([header.code, header.message], ["kiwi.exception.customer.insuffisant.right", "Abonnement hors validité."]);
   const tomcat = await postRelease(release, recorder({ status: 403, text: "<html><body>HTTP Status 403</body></html>" }).send);
   assert.equal(tomcat.code, null);
-  assert.match(tomcat.message ?? "", /session/);
+  assert.equal(tomcat.message, "Vélo’v ne répond pas. Le vélo est peut-\u2060être déverrouillé.");
   assert.match(tomcat.detail ?? "", /403/);
 });
 
@@ -84,7 +84,7 @@ test("a release is never retried: gateway errors, a lost answer and an expired s
   const outcome = await postRelease(release, lost.send);
   assert.equal(lost.calls.length, 1);
   assert.deepEqual([outcome.ok, outcome.httpStatus, outcome.code, outcome.detail], [false, 0, "network", "TimeoutError"]);
-  assert.match(outcome.message ?? "", /peut-être déverrouillé/);
+  assert.equal(outcome.message, "Vélo’v ne répond pas. Le vélo est peut-\u2060être déverrouillé.");
   const expired = recorder({ status: 401 });
   await assert.rejects(postRelease(release, expired.send), (error) => error instanceof VelovError && error.code === "expired");
   assert.equal(expired.calls.length, 1);

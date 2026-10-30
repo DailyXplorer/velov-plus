@@ -13,7 +13,7 @@ export const ACTION_TIMEOUT = 65_000;
 export const BUSY = "Une autre action est en cours. Attendez sa réponse avant de recommencer.";
 export const UNSAVED = "Ce navigateur ne peut pas suivre cette action. Rien n’a été envoyé.";
 export const UNSHARED = "Ce navigateur ne peut pas empêcher un double envoi depuis un autre onglet. Rien n’a été envoyé.";
-const LOST = "La page a été fermée avant la réponse. L’action a peut-être abouti.";
+const LOST = "La page a été fermée avant la réponse. L’action a peut-\u2060être abouti.";
 const COSTLY = /^(invite|book|unlock):/;
 
 const operationSchema = z.object({

@@ -4,8 +4,8 @@ import type { TripCheck } from "./trip-end.ts";
 
 export const BIKE_ACTION_TIMEOUT = 60_000;
 const MAYBE: Record<BikeAction, string> = {
-  unlock: "Le vélo est peut-être déverrouillé.",
-  book: "Le vélo est peut-être réservé : actualisez la page avant de réessayer."
+  unlock: "Le vélo est peut-\u2060être déverrouillé.",
+  book: "Le vélo est peut-\u2060être réservé."
 };
 
 export type BikeAction = "book" | "unlock";

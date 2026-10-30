@@ -49,9 +49,9 @@ export function ViaAction({ stations, account, tripId }: { stations: Station[]; 
         const response = await fetch("/api/account/via", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ stationNumber: station.number }), signal: AbortSignal.timeout(40_000) });
         const body: unknown = await response.json().catch(() => null);
         const parsed = outcomeSchema.safeParse(body);
-        return parsed.success ? parsed.data : routeFailure(response.status, body, "Réponse inattendue. Les 15 minutes ont peut-être été ajoutées.");
+        return parsed.success ? parsed.data : routeFailure(response.status, body, "Réponse inattendue. Les 15 minutes ont peut-\u2060être été ajoutées.");
       } catch (error) {
-        return networkFailure("Vélo’v ne répond pas. Les 15 minutes ont peut-être été ajoutées.", error, startedAt);
+        return networkFailure("Vélo’v ne répond pas. Les 15 minutes ont peut-\u2060être été ajoutées.", error, startedAt);
       }
     }, { keep: true, meta: { number: station.number, name: station.name } });
     if (typeof outcome === "string") { const message = blockedMessage(outcome, operations.get(operationKey) !== null); if (message) setNotice(message); return; }

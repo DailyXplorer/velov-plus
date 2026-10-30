@@ -76,6 +76,27 @@ test("our route failing after the confirmation is uncertain: its 503, a platform
   assert.deepEqual(routeFailure(504, null, "Réponse inattendue."), { ok: false, httpStatus: 504, transactionState: null, code: "local.unreadable", message: "Réponse inattendue.", detail: null });
 });
 
+test("an uncertain message states only its cause, with a joined « peut-être »; the instruction is left to the uncertain note", async () => {
+  assert.equal((await release(gateway(502))).message, "Vélo’v ne répond pas. Le vélo est peut-⁠être déverrouillé.");
+  assert.equal(await book(gateway(502)).then((outcome) => outcome.message), "Vélo’v ne répond pas. Le vélo est peut-⁠être réservé.");
+  assert.equal((await via(gateway(502))).message, "Vélo’v ne répond pas. Les 15 minutes ont peut-⁠être été ajoutées.");
+  assert.equal((await mail(timeout)).message, "Vélo’v ne répond pas. Votre message a peut-⁠être déjà été envoyé.");
+  const replies: Reply[] = [gateway(500), gateway(502), timeout, { status: 403, text: "<html>Forbidden</html>" }, { status: 200, body: {} }, { status: 200, body: { transactionState: "SOMETHING_NEW" } }];
+  for (const reply of replies) {
+    for (const call of [release, book, promo, via, mail]) {
+      const outcome = await call(reply);
+      if (!isUncertain(outcome)) continue;
+      assert.doesNotMatch(outcome.message ?? "", /réessayer|actualisez|n’a pas abouti|session/i, `${call.name} ${reply instanceof Error ? reply.name : reply.status}`);
+      assert.doesNotMatch(outcome.message ?? "", /peut-être/, "peut-être keeps its word joiner");
+    }
+  }
+  for (const file of ["lib/cyclocity.ts", "lib/bike-action.ts", "lib/promo.ts", "lib/trip-end.ts", "lib/operations.ts", "components/account-actions.tsx", "components/auto-renewal.tsx", "components/contact-support.tsx", "components/invite-friend.tsx", "components/via-action.tsx"]) {
+    const source = readFileSync(file, "utf8");
+    assert.doesNotMatch(source, /peut-être/, file);
+    assert.doesNotMatch(source, /[Aa]ctualisez la page avant de réessayer/, file);
+  }
+});
+
 test("a read that fails before the write is a clear « nothing sent », only an expired session still signs out", async () => {
   for (const failure of [new VelovError("unavailable", "Certaines informations Vélo’v ne sont pas disponibles pour le moment."), new TypeError("fetch failed")]) {
     const thrown = await beforeSend(async () => { throw failure; }).catch((error: unknown) => error);

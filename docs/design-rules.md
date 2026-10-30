@@ -91,6 +91,7 @@ These are the owner's product rules. They apply to the web app and the iOS app (
 
 - Capitalise every segment that starts a line or follows a separator (« · », « — »): « Vélo 27619 · Borne 4 », « 91 avis · Le dernier il y a 4 h ». Lowercase only after « : » or mid-sentence. The UPPERCASE of buttons and labels stays.
 - Write natural, short, idiomatic French, as SNCF Connect would: one idea per sentence, vouvoiement, no translated-English clause chains (« X, puis Y. Elle ne… »), « minutes » in sentences and « min » only in compact data. Drop caveats that do not prevent a costly mistake (« ne s’annule pas »).
+- Write « peut-être » with a word joiner (U+2060) after the hyphen in every message, so it never breaks into « peut- / être ».
 - Put a non-breaking space before ? ! : ; on the web as on iOS, and between a number and its unit (« 18 min », « 2 h », « 84 % », « 200 m » in a sentence). Distances from `formatDistance` keep a plain space, as on iOS.
 - Show « Inactif » under a subscription without an end date only when it is inactive; never show « Actif ».
 - Make section and card titles noun phrases, never sentences or bare enumerations (« Horaires de départ », « Répartition par type de vélo », « Temps à vélo par mois »). Put no subtitle or caption beside a title (« En minutes »): units belong on the axis.

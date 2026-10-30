@@ -51,9 +51,9 @@ export function ContactSupport({ trips, account }: { trips: Trip[] | null; accou
         const response = await fetch("/api/account/contact", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(draft), signal: AbortSignal.timeout(40_000) });
         const data: unknown = await response.json().catch(() => null);
         const parsed = outcomeSchema.safeParse(data);
-        return parsed.success ? parsed.data : routeFailure(response.status, data, "Réponse inattendue. Votre message a peut-être déjà été envoyé.");
+        return parsed.success ? parsed.data : routeFailure(response.status, data, "Réponse inattendue. Votre message a peut-\u2060être déjà été envoyé.");
       } catch (error) {
-        return networkFailure("Pas de réponse. Votre message a peut-être déjà été envoyé.", error, startedAt);
+        return networkFailure("Pas de réponse. Votre message a peut-\u2060être déjà été envoyé.", error, startedAt);
       }
     }, { keep: true });
     if (typeof outcome === "string") { const message = blockedMessage(outcome, operations.get(operationKey) !== null); if (message) setError(message); return; }
