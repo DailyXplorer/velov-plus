@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { MapPinIcon } from "./icons";
 import { Button } from "./ui";
 
-export function Login({ onConnected }: { onConnected: () => void }) {
+export function Login({ onConnected, onGuest }: { onConnected: () => void; onGuest: () => void }) {
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [pending, setPending] = useState(false);
@@ -58,6 +59,7 @@ export function Login({ onConnected }: { onConnected: () => void }) {
           </Button>
           {error ? <p className="form-error" role="alert">{error}</p> : null}
         </form>
+        <Button variant="ghost" className="login-guest" disabled={pending} onClick={onGuest}><MapPinIcon size={18} weight="light" aria-hidden="true"/>Continuer sans compte</Button>
       </section>
     </main>
   );

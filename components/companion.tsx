@@ -9,9 +9,11 @@ import { createDockWatch, tripCheckSchema, tripToGreet } from "@/lib/trip-end";
 import { createRefreshGate, createThrottle } from "@/lib/refresh-gate";
 import { createSessionGate } from "@/lib/session-gate";
 import { whenIdle } from "@/lib/idle";
+import { type StartMode, guestCookie } from "@/lib/guest";
 import { AccountPage, AccountSkeleton, Overview as OverviewPage, OverviewSkeleton, PointsPage, PointsSkeleton, StationsPage as StationsMapPage, StationsSkeleton, TripsPage, TripsSkeleton } from "./dashboard";
 import { Button, Modal } from "./ui";
 import { Login } from "./login";
+import { GuestApp } from "./guest";
 import { StatsPage, StatsSkeleton, dropStats, forgetStats } from "./stats";
 import { BookingBanner, BookingsContext, UnlockModal } from "./bike-actions";
 import { ApiError, getJson } from "./get-json";
@@ -32,7 +34,7 @@ const mapPages: ReadonlySet<Page> = new Set(["overview", "stations"]);
 const skeletons: Record<Page, () => ReactNode> = { overview: OverviewSkeleton, trips: TripsSkeleton, stats: StatsSkeleton, points: PointsSkeleton, stations: StationsSkeleton, account: AccountSkeleton };
 const logoutSchema = z.object({ remoteLogout: z.boolean().optional() });
 const remoteLogoutUnconfirmed = "Déconnexion effectuée. Vélo’v ne l’a pas encore confirmée.";
-type State = { kind: "guest"; message: string | null } | { kind: "loading" } | { kind: "ready"; data: Dashboard } | { kind: "error"; message: string };
+type State = { kind: "signedOut"; message: string | null } | { kind: "guest" } | { kind: "loading" } | { kind: "ready"; data: Dashboard } | { kind: "error"; message: string };
 
 function pageFromHash(): Page {
   return navigation.find((item) => item.id === window.location.hash.slice(1))?.id ?? "overview";
@@ -41,13 +43,16 @@ function navigate(next: Page) {
   window.location.hash = next;
   window.scrollTo({ top: 0, behavior: "auto" });
 }
+function rememberGuest(on: boolean) {
+  document.cookie = guestCookie(on, window.location.protocol === "https:");
+}
 function subscribeHash(changed: () => void) {
   window.addEventListener("hashchange", changed);
   return () => window.removeEventListener("hashchange", changed);
 }
 
-export function Companion({ initialSession }: { initialSession: boolean }) {
-  const [state, setState] = useState<State>(initialSession ? { kind: "loading" } : { kind: "guest", message: null });
+export function Companion({ start }: { start: StartMode }) {
+  const [state, setState] = useState<State>(start === "session" ? { kind: "loading" } : start === "guest" ? { kind: "guest" } : { kind: "signedOut", message: null });
   const page = useSyncExternalStore(subscribeHash, pageFromHash, () => null);
   const { resource: stations, pending: stationsPending, inFlight: stationsInFlight, reload: reloadStations } = useStations();
   const [refreshing, setRefreshing] = useState(false);
@@ -99,7 +104,7 @@ export function Companion({ initialSession }: { initialSession: boolean }) {
       return data;
     } catch (error) {
       if (!stamp.live()) return null;
-      if (error instanceof ApiError && error.status === 401) setState({ kind: "guest", message: "Votre session a expiré. Reconnectez-vous." });
+      if (error instanceof ApiError && error.status === 401) setState({ kind: "signedOut", message: "Votre session a expiré. Reconnectez-vous." });
       else setState({ kind: "error", message: error instanceof ApiError ? error.message : "Votre compte est momentanément indisponible." });
       return null;
     } finally {
@@ -113,7 +118,7 @@ export function Companion({ initialSession }: { initialSession: boolean }) {
       check: () => {
         const stamp = session.current.stamp();
         return getJson("/api/trips/current", tripCheckSchema, "", stamp.signal).catch((error: unknown) => {
-          if (stamp.live() && error instanceof ApiError && error.status === 401) setState({ kind: "guest", message: "Session expirée. Reconnectez-vous." });
+          if (stamp.live() && error instanceof ApiError && error.status === 401) setState({ kind: "signedOut", message: "Session expirée. Reconnectez-vous." });
           throw error;
         });
       },
@@ -134,7 +139,7 @@ export function Companion({ initialSession }: { initialSession: boolean }) {
   }, [loadDashboard]);
 
   useEffect(() => {
-    if (state.kind === "guest") { watch.current?.stop(); return; }
+    if (state.kind === "signedOut") { watch.current?.stop(); return; }
     if (state.kind !== "ready") return;
     const trip = state.data.ongoing?.find((item) => !dockedTrips.current.has(item.id));
     if (trip) watch.current?.follow(trip.id);
@@ -148,9 +153,19 @@ export function Companion({ initialSession }: { initialSession: boolean }) {
   useEffect(() => {
     const changed = () => window.scrollTo({ top: 0, behavior: "auto" });
     window.addEventListener("hashchange", changed);
-    if (initialSession) { void loadDashboard(); reloadStations(); void loadBookings(); }
+    if (start === "session") { void loadDashboard(); reloadStations(); void loadBookings(); }
     return () => window.removeEventListener("hashchange", changed);
-  }, [initialSession, loadDashboard, reloadStations, loadBookings]);
+  }, [start, loadDashboard, reloadStations, loadBookings]);
+
+  function continueAsGuest() {
+    rememberGuest(true);
+    setState({ kind: "guest" });
+  }
+
+  function signIn() {
+    rememberGuest(false);
+    setState({ kind: "signedOut", message: null });
+  }
 
   function connected() {
     session.current.end();
@@ -160,6 +175,7 @@ export function Companion({ initialSession }: { initialSession: boolean }) {
     void loadDashboard();
     reloadStations();
     void loadBookings();
+    rememberGuest(false);
   }
 
   function refreshAll() {
@@ -184,7 +200,7 @@ export function Companion({ initialSession }: { initialSession: boolean }) {
       setLogoutOpen(false);
       setBookings([]);
       dropStats();
-      setState({ kind: "guest", message: answer.success && answer.data.remoteLogout === false ? remoteLogoutUnconfirmed : null });
+      setState({ kind: "signedOut", message: answer.success && answer.data.remoteLogout === false ? remoteLogoutUnconfirmed : null });
       window.location.hash = "";
     } catch {
       session.current.end();
@@ -195,10 +211,11 @@ export function Companion({ initialSession }: { initialSession: boolean }) {
     }
   }
 
-  if (state.kind === "guest") return (
+  if (state.kind === "guest") return <GuestApp onSignIn={signIn}/>;
+  if (state.kind === "signedOut") return (
     <>
       {state.message ? <p className="session-notice" role="status">{state.message}</p> : null}
-      <Login onConnected={connected}/>
+      <Login onConnected={connected} onGuest={continueAsGuest}/>
     </>
   );
 

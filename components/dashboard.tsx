@@ -6,7 +6,7 @@ import { BicycleIcon, CaretRightIcon, DownloadSimpleIcon, EnvelopeSimpleIcon, ty
 import { ViaAction } from "./via-action";
 import { type Dashboard, type Page, type Resource, type Station, type Trip, formatCount, formatCountSans, formatDate, formatDuration, formatName, formatPrice } from "@/lib/models";
 import { describeLocationFailure, findPosition, formatDistance, haversine, type Point } from "@/lib/geo";
-import { Button, CardTag, CircleArrow, EmptyState, Eyebrow, Ghost, SectionHeading, SelectField, SelectSkeleton, TextButton } from "./ui";
+import { Button, CardTag, CircleArrow, EmptyState, Eyebrow, FavoriteToggle, Ghost, SectionHeading, SelectField, SelectSkeleton, TextButton } from "./ui";
 import { StationBikes } from "./station-bikes";
 import { TripSheet } from "./trip-sheet";
 import type { UserPosition } from "./station-map";
@@ -19,7 +19,7 @@ const StationMap = dynamic(() => import("./station-map"), {
 type StationData = { stations: Station[]; updatedAt: string };
 type Navigation = (page: Page) => void;
 type Reload = { reload: () => void; reloading: boolean };
-type Favorites = { favorites: number[]; account: string; onFavorite: (number: number, favorite: boolean) => void };
+type Favorites = { favorites: number[]; account: string | null; onFavorite: (number: number, favorite: boolean) => void };
 const NO_STATIONS: Station[] = [];
 const MISSING = "Indisponible pour le moment";
 const bikeFilters = [{ value: "all", label: "Tous les vélos" }, { value: "mechanical", label: "Vélos mécaniques" }, { value: "electrical", label: "Vélos électriques" }];
@@ -305,8 +305,11 @@ export function StationsPage({ resource, reload, reloading, favorites: favoriteL
   );
 }
 
-function StationTitle({ station, favorite, account, onFavorite }: { station: Station; favorite: boolean; account: string; onFavorite: Favorites["onFavorite"] }) {
-  return <div className="station-title"><h2>{station.name}</h2><FavoriteButton station={station} favorite={favorite} account={account} onChanged={onFavorite}/></div>;
+function StationTitle({ station, favorite, account, onFavorite }: { station: Station; favorite: boolean } & Pick<Favorites, "account" | "onFavorite">) {
+  return (
+    <div className="station-title"><h2>{station.name}</h2>{account ? <FavoriteButton station={station} favorite={favorite} account={account} onChanged={onFavorite}/>
+      : <FavoriteToggle favorite={favorite} onClick={() => onFavorite(station.number, !favorite)}/>}</div>
+  );
 }
 
 function shortPlan(title?: string) {

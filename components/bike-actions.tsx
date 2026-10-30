@@ -14,6 +14,7 @@ import { operations, useOperation, useSending } from "./operations";
 import { Button, Modal } from "./ui";
 
 export const BookingsContext = createContext<{ bookings: Booking[]; changed: () => void; unlocked: (tripId: string | null) => void } | null>(null);
+export const SignInContext = createContext<(() => void) | null>(null);
 
 export type Place = { stationNumber: number; stationName: string; standNumber: number; bikeNumber: number; lat: number | null; lon: number | null };
 type Action = "book" | "unlock";
