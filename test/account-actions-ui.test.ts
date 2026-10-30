@@ -4,6 +4,16 @@ import { test } from "node:test";
 
 const source = (path: string) => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
 
+test("scrolling menus take no scrollbar width, so the row highlight keeps the same inset on both sides", () => {
+  const css = source("app/globals.css");
+  for (const menu of [".select-popover", ".stations-explorer .stations-list"]) {
+    const escaped = menu.replace(/[.*]/g, "\\$&");
+    assert.match(css, new RegExp(`${escaped}[^{]*\\{[^}]*scrollbar-width: none;`));
+    assert.match(css, new RegExp(`${escaped}::-webkit-scrollbar[^{]*\\{ display: none; \\}`));
+    assert.doesNotMatch(css, new RegExp(`(^|\\n)${escaped} \\{[^}]*scrollbar-gutter`));
+  }
+});
+
 test("account actions no longer display experimental labels, without removing their confirmations", () => {
   for (const file of ["auto-renewal", "via-action", "contact-support", "invite-friend"]) {
     const component = source(`components/${file}.tsx`);

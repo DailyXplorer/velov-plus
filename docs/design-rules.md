@@ -43,7 +43,7 @@ These are the owner's product rules. They apply to the web app and the iOS app (
 - On phone, spacing follows the iOS scale: section gap 32, card gap 12, section title to content 16, content card padding 20, metric card padding 16.
 - Station cards (map card, station sheet, selected station panel): « Voir les vélos » is the primary button, « Itinéraire » the secondary one, with no icon and a centred label; side by side they have equal width and a 12 px gap.
 - No external-link arrow anywhere: « Itinéraire » and « Gérer sur Vélo’v » are text only.
-- Every menu, select popover and search results list highlights a row (hover, keyboard, selected) with the same inset on the left and on the right: the card’s 6 px padding on both sides, never a reserved scrollbar gutter on one side.
+- Every menu, select popover and search results list highlights a row (hover, keyboard, selected) with the same inset on the left and on the right: the card’s 6 px padding on both sides, never a reserved scrollbar gutter on one side. A menu that scrolls hides its own scrollbar (`scrollbar-width: none` and `::-webkit-scrollbar { display: none }`), because a classic scrollbar takes width inside the card on one side only.
 - Login: « Continuer sans compte » sits 12 px under « Se connecter », the form’s normal gap. The login error appears in the flow between the two buttons (`role="alert"`) and reserves no space when there is none.
 - A disclosure (`<details>`, such as « Certaines informations sont indisponibles ») keeps its caret even when it has a leading icon; the caret turns when it opens.
 - Make select triggers and text fields look like the buttons beside them: pill shape, same height, white with the 1px ink-line ring (no grey fill, no shadow), chevron in a small mist circle.
