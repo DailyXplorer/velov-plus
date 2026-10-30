@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, test } from "node:test";
 import { pollUnlock, sendBikeAction } from "../lib/bike-action.ts";
-import { ACTION_TIMEOUT } from "../lib/operations.ts";
+import { ACCOUNT_HEADER, ACTION_TIMEOUT, accountDigest } from "../lib/operations.ts";
 import { isUncertain } from "../lib/outcome.ts";
 
 const realFetch = globalThis.fetch;
@@ -29,6 +29,15 @@ test("unlock and booking POSTs give up on their own before runOnce stops waiting
     assert.ok(waits[0] <= limit, action);
     assert.ok(isUncertain(outcome), action);
   }
+});
+
+test("a bike action names the account the page shows, so the server can refuse it after an account switch elsewhere", async () => {
+  const seen: Headers[] = [];
+  const send = (async (_url: string, init?: RequestInit) => { seen.push(new Headers(init?.headers)); return Response.json({ ok: true, httpStatus: 200, transactionState: "OK", code: null, message: null, detail: null, ongoing: null }); }) as unknown as typeof fetch;
+  await sendBikeAction("unlock", { ...place, account: "Person@Example.com " }, send);
+  assert.equal(seen[0].get(ACCOUNT_HEADER), await accountDigest("person@example.com"));
+  await sendBikeAction("book", { ...place, account: null }, send);
+  assert.equal(seen[1].get(ACCOUNT_HEADER), null);
 });
 
 async function flush() { for (let index = 0; index < 5; index++) await Promise.resolve(); }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server.js";
 import { refresh, SessionRevoked, verifyAccess, VelovError, type Tokens } from "./auth-protocol.ts";
+import { ACCOUNT_HEADER, accountDigest } from "./operations.ts";
 
 export const COOKIE = { access: "vv_access", refresh: "vv_refresh", identity: "vv_identity", device: "vv_device" };
 export type Session = { email: string; accessToken: string; renewed: Tokens | null; device: string | null };
@@ -52,6 +53,12 @@ export function jsonResponse(data: unknown, session: Session | null = null, stat
   const response = NextResponse.json(data, { status, headers: { "Cache-Control": "private, no-store" } });
   if (session?.renewed) setSessionCookies(response, session.renewed, session.device);
   return response;
+}
+
+export const ACCOUNT_CHANGED = "Le compte a changé dans un autre onglet. Rechargez la page.";
+
+export async function sameAccount(request: Request, session: Session) {
+  return request.headers.get(ACCOUNT_HEADER) === await accountDigest(session.email);
 }
 
 export const NOTHING_SENT = "Vélo’v ne répond pas. Rien n’a été envoyé.";

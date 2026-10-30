@@ -1,6 +1,7 @@
 import { type Booking, type Outcome, bookResultSchema, unlockResultSchema } from "./models.ts";
 import { type Check, HISTORY_LAG, networkFailure, routeFailure } from "./outcome.ts";
 import type { TripCheck } from "./trip-end.ts";
+import { ACCOUNT_HEADER, accountDigest } from "./operations.ts";
 
 export const BIKE_ACTION_TIMEOUT = 60_000;
 const MAYBE: Record<BikeAction, string> = {
@@ -9,13 +10,15 @@ const MAYBE: Record<BikeAction, string> = {
 };
 
 export type BikeAction = "book" | "unlock";
-type Target = { stationNumber: number; standNumber: number; bikeNumber: number };
+type Target = { stationNumber: number; standNumber: number; bikeNumber: number; account?: string | null };
 
 export async function sendBikeAction(action: BikeAction, target: Target, send: typeof fetch = fetch, now: () => number = Date.now): Promise<Outcome & { ongoing?: { id: string }[] | null }> {
   const body = action === "book" ? { stationNumber: target.stationNumber, bikeNumber: target.bikeNumber } : { stationNumber: target.stationNumber, standNumber: target.standNumber, bikeNumber: target.bikeNumber };
   const startedAt = now();
   try {
-    const response = await send(action === "book" ? "/api/bookings" : "/api/unlock", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), signal: AbortSignal.timeout(BIKE_ACTION_TIMEOUT) });
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (target.account) headers[ACCOUNT_HEADER] = await accountDigest(target.account);
+    const response = await send(action === "book" ? "/api/bookings" : "/api/unlock", { method: "POST", headers, body: JSON.stringify(body), signal: AbortSignal.timeout(BIKE_ACTION_TIMEOUT) });
     const raw: unknown = await response.json().catch(() => null);
     const parsed = action === "book" ? bookResultSchema.safeParse(raw) : unlockResultSchema.safeParse(raw);
     return response.ok && parsed.success ? parsed.data : routeFailure(response.status, raw, `Réponse inattendue. ${MAYBE[action]}`);

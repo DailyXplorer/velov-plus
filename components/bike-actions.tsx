@@ -14,7 +14,7 @@ import { accountJson } from "./get-json";
 import { operations, useOperation, useSending } from "./operations";
 import { Button, Modal } from "./ui";
 
-export const BookingsContext = createContext<{ bookings: Booking[]; changed: () => void; unlocked: (tripId: string | null, bikeNumber: number) => void; expired: () => void } | null>(null);
+export const BookingsContext = createContext<{ bookings: Booking[]; changed: () => void; unlocked: (tripId: string | null, bikeNumber: number) => void; expired: () => void; email: string | null } | null>(null);
 export const SignInContext = createContext<(() => void) | null>(null);
 
 export type Place = { stationNumber: number; stationName: string; standNumber: number; bikeNumber: number; lat: number | null; lon: number | null };
@@ -137,7 +137,7 @@ export function BikeActions({ place, booking = null, initial, dialog = false, on
     setNotice(null);
     const key = `${action}:${place.bikeNumber}`;
     const stamp = sessionGate.stamp();
-    const outcome = await runOnce(operations, key, () => sendBikeAction(action, place), { keep: true, meta: { stationNumber: place.stationNumber, standNumber: place.standNumber, bikeNumber: place.bikeNumber } });
+    const outcome = await runOnce(operations, key, () => sendBikeAction(action, { ...place, account: account?.email ?? null }), { keep: true, meta: { stationNumber: place.stationNumber, standNumber: place.standNumber, bikeNumber: place.bikeNumber } });
     if (!stamp.live()) return;
     if (typeof outcome === "string") { setNotice(blockedMessage(outcome, operations.get(key) !== null)); return; }
     if (outcome.httpStatus === 401) { account?.expired(); return; }

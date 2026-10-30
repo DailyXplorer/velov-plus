@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { afterEach, beforeEach, test } from "node:test";
 import { CLIENT_ID, OIDC, SessionRevoked, VelovError, endSession, readJsonBody, refresh } from "../lib/auth-protocol.ts";
-import { type Session, errorResponse, forgetSession, setSessionCookies } from "../lib/session.ts";
+import { ACCOUNT_CHANGED, type Session, errorResponse, forgetSession, sameAccount, setSessionCookies } from "../lib/session.ts";
+import { ACCOUNT_HEADER, accountDigest } from "../lib/operations.ts";
 import { NextResponse } from "next/server.js";
 import { readFileSync } from "node:fs";
 
@@ -100,6 +101,20 @@ test("a request body is read up to 4 KB of JSON, nothing more", async () => {
   const chunks = [new TextEncoder().encode('{"padding":"'), new TextEncoder().encode("x".repeat(5000)), new TextEncoder().encode('"}')];
   const stream = new ReadableStream({ pull(controller) { const chunk = chunks.shift(); if (chunk) controller.enqueue(chunk); else controller.close(); } });
   assert.equal(await readJsonBody(new Request("https://app.example/api", { method: "POST", headers: { "content-type": "application/json" }, body: stream, duplex: "half" } as RequestInit)), undefined);
+});
+
+test("a bike action for another account than the session is refused before any call to Vélo’v", async () => {
+  const session: Session = { email: "person@example.com", accessToken: "a", renewed: null, device: null };
+  const request = (account?: string) => new Request("https://app.example/api/unlock", { method: "POST", headers: account ? { [ACCOUNT_HEADER]: account } : {} });
+  assert.equal(await sameAccount(request(await accountDigest("person@example.com")), session), true);
+  assert.equal(await sameAccount(request(await accountDigest("other@example.com")), session), false);
+  assert.equal(await sameAccount(request(), session), false);
+  for (const [route, write] of [["app/api/unlock/route.ts", "unlockBike("], ["app/api/bookings/route.ts", "bookBike("]]) {
+    const source = readFileSync(route, "utf8");
+    const check = source.indexOf("if (!await sameAccount(request, session)) return jsonResponse({ error: ACCOUNT_CHANGED, code: \"local.account.changed\" }, session, 409);");
+    assert.ok(check > 0 && check < source.indexOf(write), route);
+  }
+  assert.equal(ACCOUNT_CHANGED, "Le compte a changé dans un autre onglet. Rechargez la page.");
 });
 
 test("forgetting a session locally empties the three session cookies without calling Vélo’v", () => {

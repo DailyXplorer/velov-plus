@@ -30,6 +30,8 @@ export function blockedMessage(blocked: Blocked, held: boolean): string | null {
   return held ? null : BUSY;
 }
 
+export const ACCOUNT_HEADER = "x-velov-account";
+
 export async function accountDigest(account: string): Promise<string> {
   const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(account.trim().toLowerCase()));
   return Array.from(new Uint8Array(hash), (byte) => byte.toString(16).padStart(2, "0")).join("");
