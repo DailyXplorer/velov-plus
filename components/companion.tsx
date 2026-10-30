@@ -7,7 +7,7 @@ import { ArrowClockwiseIcon, BicycleIcon, CaretDownIcon, ChartIcon, HouseIcon, M
 import { bookingSchema, dashboardSchema, type Booking, type Dashboard, type LoadError, type Page, type Trip, formatDate, formatName } from "@/lib/models";
 import { createDockWatch, tripCheckSchema, tripToGreet } from "@/lib/trip-end";
 import { createRefreshGate, createThrottle } from "@/lib/refresh-gate";
-import { createSessionGate } from "@/lib/session-gate";
+import { sessionGate } from "@/lib/session-gate";
 import { whenIdle } from "@/lib/idle";
 import { type StartMode, guestCookie } from "@/lib/guest";
 import { AccountPage, AccountSkeleton, Overview as OverviewPage, OverviewSkeleton, PointsPage, PointsSkeleton, StationsPage as StationsMapPage, StationsSkeleton, TripsPage, TripsSkeleton } from "./dashboard";
@@ -71,7 +71,7 @@ export function Companion({ start }: { start: StartMode }) {
   const dockedTrips = useRef(new Set<string>());
   const greeted = useRef(false);
   const refreshGate = useRef(createRefreshGate());
-  const session = useRef(createSessionGate());
+  const session = useRef(sessionGate);
   const [kept, setKept] = useState(new Set<Page>());
   if (page && mapPages.has(page) && !kept.has(page)) setKept(new Set(kept).add(page));
   const ready = state.kind === "ready";
@@ -139,11 +139,12 @@ export function Companion({ start }: { start: StartMode }) {
         });
       },
       docked: (tripId, latest) => {
+        const stamp = session.current.stamp();
         dockedTrips.current.add(tripId);
         forgetStats();
         void loadDashboard().then((data) => {
           const trip = data?.trips?.find((item) => item.id === tripId) ?? (latest?.id === tripId ? latest : null);
-          if (trip) setEnded(trip);
+          if (trip && stamp.live()) setEnded(trip);
         });
       },
       started: () => { void loadDashboard(); },
@@ -187,6 +188,8 @@ export function Companion({ start }: { start: StartMode }) {
 
   function connected() {
     session.current.end();
+    setEnded(null);
+    setUnlocking(null);
     forgetStats();
     setState({ kind: "loading" });
     dashboardInFlight.current = false;
@@ -217,6 +220,8 @@ export function Companion({ start }: { start: StartMode }) {
       watch.current?.stop();
       setLogoutOpen(false);
       setBookings([]);
+      setEnded(null);
+      setUnlocking(null);
       dropStats();
       setState({ kind: "signedOut", message: answer.success && answer.data.remoteLogout === false ? remoteLogoutUnconfirmed : null });
       window.location.hash = "";

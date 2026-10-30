@@ -23,3 +23,5 @@ export function createSessionGate() {
     }
   };
 }
+
+export const sessionGate = createSessionGate();

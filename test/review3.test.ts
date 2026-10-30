@@ -201,9 +201,27 @@ test("network: a failed request keeps the browser error name and the elapsed tim
   }
 });
 
-test("parity: review counts are grouped, an uncertain unlock is re-read at once, durations and logout match iOS", () => {
+test("a late « Trajet terminé », a pending unlock or a write callback never reaches the next account", () => {
+  const companion = source("components/companion.tsx");
+  const docked = /docked: \(tripId, latest\) => \{[\s\S]*?\n      \},/.exec(companion)?.[0] ?? "";
+  assert.match(docked, /const stamp = session\.current\.stamp\(\);/);
+  assert.match(docked, /if \(trip && stamp\.live\(\)\) setEnded\(trip\);/);
+  for (const name of ["connected", "logout"]) {
+    const body = new RegExp(`function ${name}\\(\\) \\{[\\s\\S]*?\\n  \\}`).exec(companion)?.[0] ?? "";
+    assert.match(body, /setEnded\(null\);/, name);
+    assert.match(body, /setUnlocking\(null\);/, name);
+  }
+  const dialog = source("components/account-actions.tsx");
+  assert.match(dialog, /if \(outcome\.ok\) \{ if \(stamp\.live\(\)\) \{ onDone\(\); onClose\(\); \} \}/);
+  assert.match(dialog, /if \(settled\?\.kind === "done" && stamp\.live\(\)\) \{ onDone\(\); onClose\(\); \}/);
+  const actions = source("components/bike-actions.tsx");
+  assert.equal(actions.match(/if \(!stamp\.live\(\)\) return/g)?.length, 2, "send and verify both drop a result from another session");
+  assert.match(source("lib/session-gate.ts"), /export const sessionGate = createSessionGate\(\);/);
+});
+
+test("parity: review counts are grouped, an uncertain unlock is re-read automatically, durations and logout match iOS", () => {
   assert.match(source("components/station-bikes.tsx"), /\{formatCountSans\(bike\.rating\.count\)\} avis/);
-  assert.match(source("components/bike-actions.tsx"), /if \(action === "unlock" && isUncertain\(outcome\)\) await verify\(action, false\);/);
+  assert.match(source("components/bike-actions.tsx"), /return pollUnlock\(\(\) => verify\("unlock", false\), pollAt\);/);
   assert.equal(formatDuration(90), "1 h 30 min");
   assert.match(source("components/companion.tsx"), /<Button variant="ghost" disabled=\{loggingOut\} onClick=\{\(\) => setLogoutOpen\(false\)\}>Annuler<\/Button>/);
 });

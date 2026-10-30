@@ -9,6 +9,7 @@ import { UNCERTAIN, UNCERTAIN_UNLOCK, UNVERIFIED, isUncertain } from "@/lib/outc
 import { bookingCheck, pollUnlock, sendBikeAction, unlockCheck } from "@/lib/bike-action";
 import { tripCheckSchema } from "@/lib/trip-end";
 import { blockedMessage, runOnce, settleHeld } from "@/lib/operations";
+import { sessionGate } from "@/lib/session-gate";
 import { getJson } from "./get-json";
 import { operations, useOperation, useSending } from "./operations";
 import { Button, Modal } from "./ui";
@@ -135,7 +136,9 @@ export function BikeActions({ place, booking = null, initial, dialog = false, on
     setFailure(null);
     setNotice(null);
     const key = `${action}:${place.bikeNumber}`;
+    const stamp = sessionGate.stamp();
     const outcome = await runOnce(operations, key, () => sendBikeAction(action, place), { keep: true, meta: { stationNumber: place.stationNumber, standNumber: place.standNumber, bikeNumber: place.bikeNumber } });
+    if (!stamp.live()) return;
     if (typeof outcome === "string") { setNotice(blockedMessage(outcome, operations.get(key) !== null)); return; }
     if (outcome.httpStatus === 401) { account?.expired(); return; }
     if (outcome.ok) {
@@ -153,6 +156,7 @@ export function BikeActions({ place, booking = null, initial, dialog = false, on
   async function verify(action: Action, asked = true): Promise<boolean> {
     const key = `${action}:${place.bikeNumber}`;
     let tripId: string | null = null;
+    const stamp = sessionGate.stamp();
     setChecking(true);
     setNotice(null);
     const settled = await settleHeld(operations, key, async (held) => {
@@ -163,6 +167,7 @@ export function BikeActions({ place, booking = null, initial, dialog = false, on
       return found.check;
     });
     setChecking(false);
+    if (!stamp.live()) return settled?.kind !== "uncertain";
     if (settled?.kind === "done") {
       account?.changed();
       if (action === "unlock") account?.unlocked(tripId, place.bikeNumber);

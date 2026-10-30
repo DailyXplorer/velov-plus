@@ -9,6 +9,7 @@ import { type Check, UNCERTAIN, UNVERIFIED, isUncertain, networkFailure, technic
 import { journal } from "@/lib/journal";
 import { toaster } from "@/lib/toast";
 import { type Operation, blockedMessage, runOnce, settleHeld } from "@/lib/operations";
+import { sessionGate } from "@/lib/session-gate";
 import { autoSpendCheck, favoriteCheck, profileCheck } from "@/lib/checks";
 import { readDashboard } from "./get-json";
 import { operations, useAccountKey, useOperation, useSending } from "./operations";
@@ -50,19 +51,21 @@ function ConfirmDialog({ title, children, operationKey, meta, run, check, onDone
 
   async function verify() {
     if (!operationKey || checking) return;
+    const stamp = sessionGate.stamp();
     setChecking(true);
     const settled = await settleHeld(operations, operationKey, check);
     setChecking(false);
-    if (settled?.kind === "done") { onDone(); onClose(); }
+    if (settled?.kind === "done" && stamp.live()) { onDone(); onClose(); }
     else if (settled?.kind === "refused") setStep({ kind: "failed", outcome: settled.outcome });
   }
 
   async function confirm() {
     if (!operationKey) return;
     setStep({ kind: "confirm" });
+    const stamp = sessionGate.stamp();
     const outcome = await runOnce(operations, operationKey, run, { keep: true, meta });
     if (typeof outcome === "string") { const message = blockedMessage(outcome, operations.get(operationKey) !== null); if (message) setStep({ kind: "notice", message }); return; }
-    if (outcome.ok) { onDone(); onClose(); }
+    if (outcome.ok) { if (stamp.live()) { onDone(); onClose(); } }
     else if (isUncertain(outcome)) await verify();
     else setStep({ kind: "failed", outcome });
   }
