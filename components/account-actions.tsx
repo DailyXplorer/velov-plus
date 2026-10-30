@@ -2,7 +2,7 @@
 
 import { type ReactNode, useId, useRef, useState } from "react";
 import { z } from "zod";
-import { DownloadSimpleIcon, StarIcon, XIcon } from "./icons";
+import { DownloadSimpleIcon, XIcon } from "./icons";
 import { ADDRESS_MAX, NAME_MAX, type Dashboard, type Outcome, type ProfileBody, type Receipt, type Station, type Trip, autoSpendResultSchema, capitalize, formatDate, formatPhone, outcomeSchema, profileBodySchema } from "@/lib/models";
 import { type Draft, changesOf, countries, countryName, draftOf } from "@/lib/profile-draft";
 import { type Check, UNCERTAIN, UNVERIFIED, isUncertain, networkFailure } from "@/lib/outcome";
@@ -10,7 +10,7 @@ import { type Operation, blockedMessage, runOnce, settleHeld } from "@/lib/opera
 import { autoSpendCheck, favoriteCheck, profileCheck } from "@/lib/checks";
 import { readDashboard } from "./get-json";
 import { operations, useAccountKey, useOperation, useSending } from "./operations";
-import { Button, Modal, SelectField } from "./ui";
+import { Button, FavoriteToggle, Modal, SelectField } from "./ui";
 
 const errorSchema = z.object({ error: z.string(), code: z.string().optional() });
 const failure = (httpStatus: number, code: string | null, message: string): Outcome => ({ ok: false, httpStatus, transactionState: null, code, message, detail: null });
@@ -132,9 +132,7 @@ export function FavoriteButton({ station, favorite, account, onChanged }: { stat
   const next = operation ? operation.meta.wanted === 1 : !favorite;
   return (
     <>
-      <button className={`icon-button favorite-button${favorite ? " is-favorite" : ""}`} aria-pressed={favorite} aria-label={favorite ? "Retirer des favoris" : "Ajouter aux favoris"} onClick={() => setAsking(true)}>
-        <StarIcon size={19} weight={favorite ? "fill" : "light"}/>
-      </button>
+      <FavoriteToggle favorite={favorite} onClick={() => setAsking(true)}/>
       {asking ? (
         <ConfirmDialog title={next ? "Ajouter aux favoris ?" : "Retirer des favoris ?"} onClose={() => setAsking(false)}
           operationKey={operationKey} meta={{ wanted: next ? 1 : 0 }}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState, type ButtonHTMLAttributes, type KeyboardEvent, type ReactNode } from "react";
-import { ArrowRightIcon, ArrowUpRightIcon, type Icon, SpinnerGapIcon } from "./icons";
+import { ArrowRightIcon, ArrowUpRightIcon, type Icon, SpinnerGapIcon, StarIcon } from "./icons";
 
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: "primary" | "secondary" | "ghost";
@@ -19,6 +19,14 @@ export function Button({ variant = "primary", pending = false, className = "", c
 
 export function TextButton({ children, onClick }: { children: ReactNode; onClick: () => void }) {
   return <button className="text-button" onClick={onClick}>{children}</button>;
+}
+
+export function FavoriteToggle({ favorite, onClick }: { favorite: boolean; onClick: () => void }) {
+  return (
+    <button className={`icon-button favorite-button${favorite ? " is-favorite" : ""}`} aria-pressed={favorite} aria-label={favorite ? "Retirer des favoris" : "Ajouter aux favoris"} onClick={onClick}>
+      <StarIcon size={19} weight={favorite ? "fill" : "light"}/>
+    </button>
+  );
 }
 
 export function CircleArrow({ external = false, outline = false }: { external?: boolean; outline?: boolean }) {
