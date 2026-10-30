@@ -4,19 +4,19 @@ import "@/lib/zod-jitless";
 import { memo, type ReactNode, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { z } from "zod";
 import { ArrowClockwiseIcon, BicycleIcon, ChartIcon, HouseIcon, MapPinIcon, SignOutIcon, StarFourIcon, UserCircleIcon, WarningCircleIcon, XIcon } from "./icons";
-import { bookingSchema, dashboardSchema, type Booking, type Dashboard, type Page, type Trip, formatDate, formatName } from "@/lib/models";
+import { bookingSchema, dashboardSchema, type Booking, type Dashboard, type LoadError, type Page, type Trip, formatDate, formatName } from "@/lib/models";
 import { createDockWatch, tripCheckSchema, tripToGreet } from "@/lib/trip-end";
 import { createRefreshGate, createThrottle } from "@/lib/refresh-gate";
 import { createSessionGate } from "@/lib/session-gate";
 import { whenIdle } from "@/lib/idle";
 import { type StartMode, guestCookie } from "@/lib/guest";
 import { AccountPage, AccountSkeleton, Overview as OverviewPage, OverviewSkeleton, PointsPage, PointsSkeleton, StationsPage as StationsMapPage, StationsSkeleton, TripsPage, TripsSkeleton } from "./dashboard";
-import { Button, Modal } from "./ui";
+import { Button, LoadFailure, Modal } from "./ui";
 import { Login } from "./login";
 import { GuestApp } from "./guest";
 import { StatsPage, StatsSkeleton, dropStats, forgetStats } from "./stats";
 import { BookingBanner, BookingsContext, UnlockModal } from "./bike-actions";
-import { ApiError, getJson } from "./get-json";
+import { ApiError, getJson, loadError } from "./get-json";
 import { TripEndedSheet } from "./trip-sheet";
 import { useStations } from "./use-stations";
 
@@ -34,7 +34,7 @@ const mapPages: ReadonlySet<Page> = new Set(["overview", "stations"]);
 const skeletons: Record<Page, () => ReactNode> = { overview: OverviewSkeleton, trips: TripsSkeleton, stats: StatsSkeleton, points: PointsSkeleton, stations: StationsSkeleton, account: AccountSkeleton };
 const logoutSchema = z.object({ remoteLogout: z.boolean().optional() });
 const remoteLogoutUnconfirmed = "Déconnexion effectuée. Vélo’v ne l’a pas encore confirmée.";
-type State = { kind: "signedOut"; message: string | null } | { kind: "guest" } | { kind: "loading" } | { kind: "ready"; data: Dashboard } | { kind: "error"; message: string };
+type State = { kind: "signedOut"; message: string | null } | { kind: "guest" } | { kind: "loading" } | { kind: "ready"; data: Dashboard } | ({ kind: "error" } & LoadError);
 
 function pageFromHash(): Page {
   return navigation.find((item) => item.id === window.location.hash.slice(1))?.id ?? "overview";
@@ -105,7 +105,7 @@ export function Companion({ start }: { start: StartMode }) {
     } catch (error) {
       if (!stamp.live()) return null;
       if (error instanceof ApiError && error.status === 401) setState({ kind: "signedOut", message: "Votre session a expiré. Reconnectez-vous." });
-      else setState({ kind: "error", message: error instanceof ApiError ? error.message : "Votre compte est momentanément indisponible." });
+      else setState({ kind: "error", ...loadError(error, "Votre compte est momentanément indisponible.") });
       return null;
     } finally {
       dashboardInFlight.current = false;
@@ -264,10 +264,7 @@ export function Companion({ start }: { start: StartMode }) {
           <main id="main-content" className="main-content">
             {bookings.map((booking) => <BookingBanner key={booking.id} booking={booking} onUnlock={() => setUnlocking(booking)}/>)}
             {state.kind === "loading" ? <PageSkeleton/> : state.kind === "error" ? (
-              <div className="dashboard-error">
-                <p role="alert">{state.message}</p>
-                <Button variant="secondary" pending={refreshing} onClick={() => void loadDashboard()}>Réessayer</Button>
-              </div>
+              <LoadFailure failure={state} layout="page" pending={refreshing} onRetry={() => void loadDashboard()}/>
             ) : (
               <>
                 {state.data.warnings.length ? (

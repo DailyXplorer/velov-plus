@@ -7,7 +7,7 @@ import { ViaAction } from "./via-action";
 import { type Dashboard, type Page, type Resource, type Station, type Trip, formatCount, formatCountSans, formatDate, formatDuration, formatName, formatPrice } from "@/lib/models";
 import { describeLocationFailure, findPosition, formatDistance, haversine, type Point } from "@/lib/geo";
 import { type StationFilter, matchesFilter, nearestSupplied } from "@/lib/station-filter";
-import { Button, CardTag, CircleArrow, EmptyState, Eyebrow, FavoriteToggle, Ghost, SectionHeading, SelectField, SelectSkeleton, TextButton } from "./ui";
+import { Button, CardTag, CircleArrow, EmptyState, Eyebrow, FavoriteToggle, Ghost, LoadFailure, SectionHeading, SelectField, SelectSkeleton, TextButton } from "./ui";
 import { StationBikes } from "./station-bikes";
 import { TripSheet } from "./trip-sheet";
 import type { UserPosition } from "./station-map";
@@ -114,7 +114,7 @@ export function Overview({ data, stations, navigate, reload, reloading }: { data
         <SectionHeading title="Stations"><TextButton onClick={() => navigate("stations")}>Tout voir</TextButton></SectionHeading>
         <div className="overview-map">
           <StationMap stations={nearby} selected={chosen?.id ?? null} onSelect={setSelectedStation}/>
-          {stations.kind === "error" ? <div className="map-error" role="status">{stations.message}<Button variant="secondary" pending={reloading} onClick={reload}>Réessayer</Button></div> : null}
+          {stations.kind === "error" ? <LoadFailure failure={stations} layout="floating" pending={reloading} onRetry={reload}/> : null}
           {phone ? <button className="map-explore" aria-label="Explorer les stations" onClick={() => navigate("stations")}/> : null}
           {chosen ? (
             <div className="map-station-card">
@@ -248,7 +248,7 @@ export function StationsPage({ resource, reload, reloading, favorites: favoriteL
         <Button variant="secondary" pending={locating} onClick={locate} aria-label="Stations autour de moi" title="Autour de moi"><NavigationArrowIcon size={18} weight="light"/><span className="location-label">Autour de moi</span></Button>
       </div>
       {locationError ? <div className="inline-notice" role="status"><p>{locationError.message}</p>{locationError.raw ? <p className="bike-action-raw">{locationError.raw}</p> : null}</div> : null}
-      {resource.kind === "error" ? <div className="notice-error" role="status">{resource.message}<Button variant="secondary" pending={reloading} onClick={reload}>Réessayer</Button></div> : null}
+      {resource.kind === "error" ? <LoadFailure failure={resource} layout="inline" pending={reloading} onRetry={reload}/> : null}
       <div className="stations-explorer">
         {query && resource.kind === "ready" ? (
           <div className="stations-list" role="list" aria-label="Résultats de recherche">

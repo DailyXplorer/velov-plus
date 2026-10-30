@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, useState, type ButtonHTMLAttributes, type KeyboardEvent, type ReactNode } from "react";
 import { ArrowRightIcon, ArrowUpRightIcon, type Icon, SpinnerGapIcon, StarIcon } from "./icons";
+import type { LoadError } from "@/lib/models";
 
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: "primary" | "secondary" | "ghost";
@@ -156,6 +157,17 @@ export function SelectSkeleton({ options, className = "" }: { options: { label: 
 
 export function Ghost({ children }: { children: ReactNode }) {
   return <span className="skeleton-text" aria-hidden="true">{children}</span>;
+}
+
+const failureLayouts = { page: "dashboard-error", inline: "notice-error", floating: "notice-error map-error" };
+
+export function LoadFailure({ failure, layout, pending = false, onRetry }: { failure: LoadError; layout: keyof typeof failureLayouts; pending?: boolean; onRetry: () => void }) {
+  return (
+    <div className={failureLayouts[layout]} role="alert">
+      <div className="failure-text"><p>{failure.message}</p>{failure.raw ? <p className="bike-action-raw">{failure.raw}</p> : null}</div>
+      <Button variant="secondary" pending={pending} onClick={onRetry}>Réessayer</Button>
+    </div>
+  );
 }
 
 export function EmptyState({ children }: { children: ReactNode }) {

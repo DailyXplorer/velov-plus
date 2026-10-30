@@ -2,10 +2,10 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type PointerEvent, type ReactNode } from "react";
 import { BicycleIcon, ClockIcon, CoinsIcon, type Icon, LeafIcon, RouteIcon, StarFourIcon } from "./icons";
-import { Button, CardTag, EmptyState, Ghost, SelectField, SelectSkeleton } from "./ui";
+import { CardTag, EmptyState, Ghost, LoadFailure, SelectField, SelectSkeleton } from "./ui";
 import { BikeDrawer } from "./station-bikes";
-import { ApiError, getJson } from "./get-json";
-import { capitalize, formatCountSans, formatDate, formatPrice } from "@/lib/models";
+import { getJson, loadError } from "./get-json";
+import { type LoadError, capitalize, formatCountSans, formatDate, formatPrice } from "@/lib/models";
 import { type Period, type PeriodStats, type Stats, createStatsCache, statsSchema } from "@/lib/stats";
 
 const unavailable = "Vos statistiques sont momentanément indisponibles.";
@@ -33,7 +33,7 @@ export const forgetStats = () => cache.invalidate();
 export const dropStats = () => cache.clear();
 
 export function StatsPage({ account }: { account: string }) {
-  const [state, setState] = useState<{ kind: "loading" } | { kind: "ready"; stats: Stats } | { kind: "error"; message: string }>(() => {
+  const [state, setState] = useState<{ kind: "loading" } | { kind: "ready"; stats: Stats } | ({ kind: "error" } & LoadError)>(() => {
     const stats = cache.get(account);
     return stats ? { kind: "ready", stats } : { kind: "loading" };
   });
@@ -48,13 +48,13 @@ export function StatsPage({ account }: { account: string }) {
       setState({ kind: "ready", stats });
     } catch (error) {
       if (at !== cache.revision()) return;
-      setState({ kind: "error", message: error instanceof ApiError ? error.message : unavailable });
+      setState({ kind: "error", ...loadError(error, unavailable) });
     }
   }, [account]);
   useEffect(() => { if (!cache.get(account)) void load(); }, [account, load, revision]);
 
   if (state.kind === "loading") return <StatsSkeleton/>;
-  if (state.kind === "error") return <div className="dashboard-error"><p role="alert">{state.message}</p><Button variant="secondary" onClick={() => void load()}>Réessayer</Button></div>;
+  if (state.kind === "error") return <LoadFailure failure={state} layout="page" onRetry={() => void load()}/>;
   return <StatsView stats={state.stats}/>;
 }
 

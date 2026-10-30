@@ -52,7 +52,8 @@ export type Receipt = z.infer<typeof receiptSchema>;
 export type Station = z.infer<typeof stationSchema>;
 export type Bike = z.infer<typeof bikeSchema>;
 export type Page = "overview" | "trips" | "stats" | "points" | "stations" | "account";
-export type Resource<T> = { kind: "loading" } | { kind: "ready"; data: T } | { kind: "error"; message: string };
+export type LoadError = { message: string; raw: string | null };
+export type Resource<T> = { kind: "loading" } | { kind: "ready"; data: T } | ({ kind: "error" } & LoadError);
 
 export const rateBodySchema = z.discriminatedUnion("recommended", [
   z.object({ bikeNumber: z.number().int().positive(), recommended: z.literal(true), rating: z.null() }).strict(),

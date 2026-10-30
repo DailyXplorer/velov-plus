@@ -5,10 +5,10 @@ import { z } from "zod";
 import { ArrowClockwiseIcon, ArrowLeftIcon, BatteryEmptyIcon, BatteryFullIcon, BatteryHighIcon, BatteryLowIcon, BatteryMediumIcon, BicycleIcon, CaretDownIcon, CaretRightIcon, type Icon, LightningIcon, SignInIcon, StarHalfIcon, StarIcon, ThumbsUpIcon, WarningIcon, XIcon } from "./icons";
 import { type AssessedBike, assessBikes, isCheckOverdue } from "@/lib/bike-score";
 import { type Bike, type Resource, type Station, bikeSchema, capitalize, formatCountSans, formatDate } from "@/lib/models";
-import { Button, EmptyState, Eyebrow, Ghost, Modal } from "./ui";
+import { EmptyState, Eyebrow, Ghost, LoadFailure, Modal } from "./ui";
 import { BikeActions, BookingsContext, SignInContext } from "./bike-actions";
 import { useSending } from "./operations";
-import { getJson } from "./get-json";
+import { getJson, loadError } from "./get-json";
 
 const unavailable = "Les vélos de cette station sont momentanément indisponibles.";
 const missing = "Ce vélo est momentanément indisponible.";
@@ -216,7 +216,7 @@ export function StationBikes({ station, onClose }: { station: Station; onClose: 
   const { run: load, refreshing } = useLatestLoad(
     useCallback((signal: AbortSignal) => getJson(`/api/stations/${station.number}/bikes`, z.array(bikeSchema), unavailable, signal), [station.number]),
     useCallback((result: Settled<Bike[]>) => setBikes(result.ok ? { kind: "ready", data: result.value }
-      : { kind: "error", message: result.error instanceof Error && result.error.message ? result.error.message : unavailable }), [])
+      : { kind: "error", ...loadError(result.error, unavailable) }), [])
   );
 
   useEffect(() => { void load(); }, [load]);
@@ -259,7 +259,7 @@ export function StationBikes({ station, onClose }: { station: Station; onClose: 
           {bikes.kind === "loading" ? (
             <BikesSkeleton station={station}/>
           ) : bikes.kind === "error" ? (
-            <div className="notice-error" role="alert">{bikes.message}<Button variant="secondary" onClick={() => void load()} pending={refreshing}>Réessayer</Button></div>
+            <LoadFailure failure={bikes} layout="inline" pending={refreshing} onRetry={() => void load()}/>
           ) : assessed?.length ? (
             <ul className="bikes-list" ref={list} aria-label={`Vélos à ${station.name}`}>
               {assessed.map((item) => <BikeRow key={item.bike.number} item={item} mine={own.has(item.bike.number)} onOpen={() => setSelected(item.bike.number)}/>)}
@@ -278,7 +278,7 @@ export function BikeDrawer({ number, onClose }: { number: number; onClose: () =>
   const { run: load, refreshing } = useLatestLoad(
     useCallback((signal: AbortSignal) => getJson(`/api/bikes/${number}`, bikeSchema, missing, signal), [number]),
     useCallback((result: Settled<Bike>) => {
-      setBike(result.ok ? { kind: "ready", data: result.value } : { kind: "error", message: result.error instanceof Error && result.error.message ? result.error.message : missing });
+      setBike(result.ok ? { kind: "ready", data: result.value } : { kind: "error", ...loadError(result.error, missing) });
     }, [])
   );
   const item = useMemo(() => {
@@ -298,7 +298,7 @@ export function BikeDrawer({ number, onClose }: { number: number; onClose: () =>
       {bike.kind === "loading" ? (
         <BikeSheetSkeleton/>
       ) : bike.kind === "error" ? (
-        <div className="notice-error" role="alert">{bike.message}<Button variant="secondary" onClick={() => void load()} pending={refreshing}>Réessayer</Button></div>
+        <LoadFailure failure={bike} layout="inline" pending={refreshing} onRetry={() => void load()}/>
       ) : item ? <BikeSheet item={item}/> : null}
     </Modal>
   );

@@ -152,7 +152,7 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
 .station-numbers strong { font-size: 15px; font-weight: 500; }
 .station-numbers small { grid-column: 1 / -1; color: var(--ink-soft); font-size: 13px; }
 .map-placeholder { width: 100%; height: 100%; min-height: 200px; background: var(--mist); }
-.map-error { position: absolute; z-index: 3; top: 16px; left: 16px; right: 16px; display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 12px; background: var(--white); color: var(--ink-soft); font-size: 13px; box-shadow: var(--shadow-ring); }
+.notice-error.map-error { position: absolute; z-index: 3; top: 16px; left: 16px; right: 16px; margin: 0; padding: 16px; border-radius: var(--radius); background: var(--white); box-shadow: var(--shadow-ring); }
 .table-head, .trip-row { display: grid; grid-template-columns: minmax(0, 1fr) 94px 68px 74px 16px; align-items: center; gap: 20px; }
 .table-head { padding: 0 0 14px; border-bottom: 1px solid var(--line); color: var(--ink-soft); font-size: 13px; }
 .trip-row { width: 100%; min-height: 81px; padding: 16px 0; border: 0; border-bottom: 1px solid var(--line); background: var(--white); color: var(--ink); text-align: left; transition: background-color .2s ease; }
@@ -259,7 +259,9 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
 .data-notice { margin-bottom: 24px; color: var(--ink-soft); font-size: 13px; }
 .data-notice summary { display: flex; align-items: center; gap: 8px; width: fit-content; padding: 8px 0; font-size: 13px; cursor: pointer; }
 .data-notice ul { padding-left: 23px; }
-.dashboard-error { display: flex; flex-direction: column; align-items: center; gap: 24px; padding: 100px 20px; color: var(--ink-soft); text-align: center; }
+.dashboard-error { display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 100px 20px; color: var(--ink-soft); text-align: center; }
+.failure-text { min-width: 0; }
+.failure-text > .bike-action-raw { margin-top: 4px; }
 .mobile-navigation { display: none; }
 
 .modal { width: min(440px, calc(100% - 40px)); max-height: calc(100svh - 48px); padding: 0; border: 0; border-radius: var(--radius); color: var(--ink); background: var(--white); box-shadow: 0 0 0 1px var(--ink-line); }

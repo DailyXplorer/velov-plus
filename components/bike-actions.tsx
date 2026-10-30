@@ -54,7 +54,7 @@ function useKnownDistance(place: Place) {
 }
 
 function Raw({ outcome, extra }: { outcome: Outcome; extra?: string }) {
-  const parts = [`TransactionState ${outcome.transactionState ?? "—"}`, `Code ${outcome.code ?? "—"}`, `HTTP ${outcome.httpStatus || "aucune réponse"}`, outcome.detail && capitalize(outcome.detail), extra].filter(Boolean);
+  const parts = [outcome.transactionState && `TransactionState ${outcome.transactionState}`, `Code ${outcome.code ?? "—"}`, `HTTP ${outcome.httpStatus || "aucune réponse"}`, outcome.detail && capitalize(outcome.detail), extra].filter(Boolean);
   return <p className="bike-action-raw">{parts.join(" · ")}</p>;
 }
 
@@ -119,10 +119,10 @@ export function BikeActions({ place, booking = null, initial, dialog = false, on
     setFailure({ ...outcome, message: outcome.message ?? (action === "book" ? "Réservation impossible." : "Déverrouillage impossible.") });
     setStep({ kind: "confirm", action });
     if (action === "book" && isUncertain(outcome)) account?.changed();
-    if (action === "unlock" && isUncertain(outcome)) await verify(action);
+    if (action === "unlock" && isUncertain(outcome)) await verify(action, false);
   }
 
-  async function verify(action: Action) {
+  async function verify(action: Action, asked = true) {
     const key = `${action}:${place.bikeNumber}`;
     let tripId: string | null = null;
     setChecking(true);
@@ -142,7 +142,7 @@ export function BikeActions({ place, booking = null, initial, dialog = false, on
     } else if (settled?.kind === "refused") {
       setFailure(settled.outcome);
       setStep({ kind: "confirm", action });
-    } else if (settled) setNotice(UNVERIFIED);
+    } else if (settled && asked) setNotice(UNVERIFIED);
   }
 
   return (
