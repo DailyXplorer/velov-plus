@@ -151,7 +151,7 @@ test("F3: profile, favourites, auto-spend, renewal and rating check the real sta
   const actions = source("components/account-actions.tsx");
   assert.match(actions, /else if \(isUncertain\(outcome\)\) await verify\(\);/);
   assert.match(actions, /\{uncertain \? <><Button variant="ghost" disabled=\{busy\} onClick=\{onClose\}>Fermer<\/Button><Button variant="secondary" pending=\{checking\} onClick=\{\(\) => void verify\(\)\}>Vérifier<\/Button><\/> : <>/);
-  for (const check of ["autoSpendCheck", "favoriteCheck", "profileCheck"]) assert.match(actions, new RegExp(`check=\\{async \\(\\) => ${check}\\(`), check);
+  for (const check of ["autoSpendCheck", "favoriteCheck", "storedProfileCheck"]) assert.match(actions, new RegExp(`check=\\{async \\(\\) => ${check}\\(`), check);
   const renewal = source("components/auto-renewal.tsx");
   assert.match(renewal, /if \(isUncertain\(outcome\)\) await resolve\(\); else setFailure\(outcome\);/);
   assert.match(renewal, /\{uncertain && failure \? <><Button[^\n]*?>Fermer<\/Button><Button[^\n]*?>Vérifier<\/Button><\/>/);

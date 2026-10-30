@@ -20,7 +20,7 @@ import { ApiError, getJson, loadError } from "./get-json";
 import { REFRESH_FAILED, toaster } from "@/lib/toast";
 import { TripEndedSheet } from "./trip-sheet";
 import { useStations } from "./use-stations";
-import { useSending } from "./operations";
+import { operations, useSending } from "./operations";
 
 const navigation = [
   { id: "overview", label: "Vue d’ensemble", mobile: "Accueil", icon: HouseIcon },
@@ -227,6 +227,7 @@ export function Companion({ start }: { start: StartMode }) {
       setLogoutOpen(false);
       setBookings([]);
       dropStats();
+      void operations.drop("profile:");
       setEnded(null);
       setUnlocking(null);
       setState({ kind: "signedOut", message: answer.success && answer.data.remoteLogout === false ? remoteLogoutUnconfirmed : null });

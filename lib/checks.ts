@@ -25,15 +25,20 @@ export function ratingCheck(data: Dashboard, tripId: string): Check {
   return compare(data.trips?.find((trip) => trip.id === tripId)?.isRated, true);
 }
 
-function fieldsOf(profile: Profile, body: ProfileBody) {
+const PROFILE_FIELDS = ["firstName", "lastName", "address", "zipCode", "city", "country", "phoneNumber"] as const;
+type Mask = ReadonlySet<string>;
+
+const maskOf = (body: ProfileBody): Mask => new Set(PROFILE_FIELDS.filter((field) => body[field] !== undefined));
+
+function fieldsOf(profile: Profile, mask: Mask) {
   return JSON.stringify([
-    body.firstName !== undefined ? profile.firstName : null,
-    body.lastName !== undefined ? profile.lastName : null,
-    body.address !== undefined ? [profile.address ?? "", profile.addressComplement ?? ""] : null,
-    body.zipCode !== undefined ? profile.zipCode ?? "" : null,
-    body.city !== undefined ? profile.city ?? "" : null,
-    body.country !== undefined ? profile.country ?? "" : null,
-    body.phoneNumber !== undefined ? profile.phoneNumber ?? "" : null
+    mask.has("firstName") ? profile.firstName : null,
+    mask.has("lastName") ? profile.lastName : null,
+    mask.has("address") ? [profile.address ?? "", profile.addressComplement ?? ""] : null,
+    mask.has("zipCode") ? profile.zipCode ?? "" : null,
+    mask.has("city") ? profile.city ?? "" : null,
+    mask.has("country") ? profile.country ?? "" : null,
+    mask.has("phoneNumber") ? profile.phoneNumber ?? "" : null
   ]).toLocaleLowerCase("fr-FR");
 }
 
@@ -42,7 +47,26 @@ function wantedOf(body: ProfileBody) {
 }
 
 export function profileCheck(before: Profile, after: Profile, body: ProfileBody): Check {
-  const now = fieldsOf(after, body);
+  const mask = maskOf(body);
+  const now = fieldsOf(after, mask);
   if (now === wantedOf(body)) return "applied";
-  return now === fieldsOf(before, body) ? "unchanged" : "unknown";
+  return now === fieldsOf(before, mask) ? "unchanged" : "unknown";
+}
+
+async function hashOf(text: string) {
+  const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(hash), (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+export async function profileMeta(before: Profile, body: ProfileBody): Promise<Record<string, string>> {
+  const mask = maskOf(body);
+  return { fields: [...mask].join(","), wanted: await hashOf(wantedOf(body)), before: await hashOf(fieldsOf(before, mask)) };
+}
+
+export async function storedProfileCheck(after: Profile, meta: Record<string, string | number>): Promise<Check> {
+  const { fields, wanted, before } = meta;
+  if (typeof fields !== "string" || typeof wanted !== "string" || typeof before !== "string" || !fields) return "unknown";
+  const now = await hashOf(fieldsOf(after, new Set(fields.split(","))));
+  if (now === wanted) return "applied";
+  return now === before ? "unchanged" : "unknown";
 }

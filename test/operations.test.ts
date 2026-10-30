@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, test } from "node:test";
 import { ACTION_TIMEOUT, OPERATIONS_KEY, SENDING_LIMIT, type Locks, accountDigest, createOperations, historySince, inviteDebit, runOnce, settleHeld } from "../lib/operations.ts";
 import { type Outcome, outcomeSchema } from "../lib/models.ts";
+import { profileMeta, storedProfileCheck } from "../lib/checks.ts";
 import { HISTORY_LAG, isUncertain, noAnswer, routeFailure } from "../lib/outcome.ts";
 
 const realFetch = globalThis.fetch;
@@ -289,6 +290,26 @@ test("an uncertain unlock stays held in memory when the browser can read storage
   assert.equal(tab.get("unlock:1")?.status, "uncertain");
   assert.equal(await runOnce(tab, "unlock:1", send), "busy");
   assert.equal(posts, 1);
+});
+
+test("an uncertain profile edit keeps no name, address or phone in storage, and can still be checked", async () => {
+  const before = { firstName: "Jean", lastName: "Dupont", email: "jean.dupont@example.com", locked: false, complete: true, phoneNumber: "+33612345678", address: "12 rue de l’Exemple", addressComplement: null, zipCode: "69002", city: "Lyon", country: "FR", favorites: [] };
+  const body = { phoneNumber: "+33698765432", address: { name: "3 place Bellecour", complement: "Bâtiment B" } };
+  const store = memoryStore();
+  const operations = createOperations(() => store, Date.now, () => sharedLocks());
+  const meta = await profileMeta(before, body);
+  await runOnce(operations, "profile:digest", async () => noAnswer("Le serveur ne répond pas."), { keep: true, meta });
+  const saved = store.getItem(OPERATIONS_KEY) ?? "";
+  assert.ok(saved.includes("profile:digest"));
+  for (const secret of ["+33698765432", "3 place Bellecour", "Bâtiment B", "+33612345678", "12 rue", "Jean", "Dupont"]) assert.equal(saved.includes(secret), false, secret);
+  const held = operations.get("profile:digest")!;
+  assert.equal(await storedProfileCheck({ ...before, phoneNumber: "+33698765432", address: "3 place Bellecour", addressComplement: "Bâtiment B" }, held.meta), "applied");
+  assert.equal(await storedProfileCheck(before, held.meta), "unchanged");
+  assert.equal(await storedProfileCheck({ ...before, phoneNumber: "+33600000000" }, held.meta), "unknown");
+  assert.equal(await storedProfileCheck(before, {}), "unknown");
+  await operations.drop("profile:");
+  assert.equal(store.getItem(OPERATIONS_KEY), null, "logout drops the profile entries");
+  assert.match(readFileSync(new URL("../components/companion.tsx", import.meta.url), "utf8"), /dropStats\(\);\n\s+void operations\.drop\("profile:"\);/);
 });
 
 test("a sending entry restored after a reload re-renders once its two minutes pass, so its sheet turns uncertain", (t) => {

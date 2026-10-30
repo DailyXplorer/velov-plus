@@ -3,14 +3,14 @@
 import { type ReactNode, useId, useRef, useState } from "react";
 import { z } from "zod";
 import { DownloadSimpleIcon, PencilIcon, XIcon } from "./icons";
-import { ADDRESS_MAX, NAME_MAX, type Dashboard, type Outcome, type ProfileBody, type Receipt, type Station, type Trip, autoSpendResultSchema, formatDate, formatPhone, outcomeSchema, profileBodySchema } from "@/lib/models";
+import { ADDRESS_MAX, NAME_MAX, type Dashboard, type Outcome, type ProfileBody, type Receipt, type Station, type Trip, autoSpendResultSchema, formatDate, formatPhone, outcomeSchema } from "@/lib/models";
 import { type Draft, changesOf, countries, countryName, draftOf } from "@/lib/profile-draft";
 import { type Check, UNCERTAIN, UNVERIFIED, isUncertain, networkFailure, technicalLine } from "@/lib/outcome";
 import { journal } from "@/lib/journal";
 import { toaster } from "@/lib/toast";
 import { type Operation, blockedMessage, runOnce, settleHeld } from "@/lib/operations";
 import { sessionGate } from "@/lib/session-gate";
-import { autoSpendCheck, favoriteCheck, profileCheck } from "@/lib/checks";
+import { autoSpendCheck, favoriteCheck, profileMeta, storedProfileCheck } from "@/lib/checks";
 import { readDashboard } from "./get-json";
 import { operations, useAccountKey, useOperation, useSending } from "./operations";
 import { Button, FavoriteToggle, Modal, SelectField } from "./ui";
@@ -214,37 +214,28 @@ function Field({ label, value, onChange, maxLength, inputMode, autoComplete }: {
   return <label className="field"><span className="metric-label">{label}</span><input value={value} maxLength={maxLength} inputMode={inputMode} autoComplete={autoComplete} onChange={(event) => onChange(event.target.value)}/></label>;
 }
 
-function heldProfile(operation: Operation | null): ProfileBody | null {
-  if (!operation) return null;
-  try {
-    const parsed = profileBodySchema.safeParse(JSON.parse(String(operation.meta.body)));
-    return parsed.success ? parsed.data : null;
-  } catch { return null; }
-}
-
 export function ProfileCoordinates({ profile, account, onSaved }: { profile: Profile; account: string; onSaved: () => void }) {
   const [draft, setDraft] = useState<Draft | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [asking, setAsking] = useState<ProfileBody | null>(null);
+  const [asking, setAsking] = useState<{ body: ProfileBody | null; meta: Operation["meta"] } | null>(null);
   const digest = useAccountKey(account);
   const operationKey = digest ? `profile:${digest}` : null;
-  const held = heldProfile(useOperation(operationKey));
-  const body = held ?? asking;
+  const held = useOperation(operationKey);
   const set = (key: keyof Draft) => (value: string) => setDraft((current) => current && { ...current, [key]: value });
 
-  function review() {
+  async function review() {
     if (!draft) return;
     const result = changesOf(profile, draft);
     if (!result) { setError("Vous n’avez rien modifié."); return; }
     if ("error" in result) { setError(result.error); return; }
     setError(null);
-    setAsking(result.body);
+    setAsking({ body: result.body, meta: await profileMeta(profile, result.body) });
   }
 
   return (
     <>
       {draft ? (
-        <form className="profile-form" onSubmit={(event) => { event.preventDefault(); review(); }} noValidate>
+        <form className="profile-form" onSubmit={(event) => { event.preventDefault(); void review(); }} noValidate>
           <div className="field-pair name-pair">
             <Field label="Prénom" value={draft.firstName} onChange={set("firstName")} maxLength={NAME_MAX} autoComplete="given-name"/>
             <Field label="Nom" value={draft.lastName} onChange={set("lastName")} maxLength={NAME_MAX} autoComplete="family-name"/>
@@ -269,13 +260,13 @@ export function ProfileCoordinates({ profile, account, onSaved }: { profile: Pro
             <div><dt>Adresse</dt><dd>{[profile.address, profile.addressComplement].filter(Boolean).join(", ") || "Non renseignée"}<small>{[profile.zipCode, profile.city].filter(Boolean).join(" ")}{profile.country ? `${profile.zipCode || profile.city ? " · " : ""}${countryName(profile.country)}` : ""}</small></dd></div>
             <div><dt>Téléphone</dt><dd>{profile.phoneNumber ? formatPhone(profile.phoneNumber) : "Non renseigné"}</dd></div>
           </dl>
-          <Button variant="secondary" onClick={() => { if (held) { setAsking(held); return; } setError(null); setDraft(draftOf(profile)); }}><PencilIcon size={17} weight="light" aria-hidden="true"/>Modifier mes coordonnées</Button>
+          <Button variant="secondary" onClick={() => { if (held) { setAsking({ body: null, meta: held.meta }); return; } setError(null); setDraft(draftOf(profile)); }}><PencilIcon size={17} weight="light" aria-hidden="true"/>Modifier mes coordonnées</Button>
         </>
       )}
-      {asking && body ? (
+      {asking ? (
         <ConfirmDialog title="Enregistrer les modifications ?" onClose={() => setAsking(null)}
-          onDone={() => { setDraft(null); onSaved(); }} check={async () => profileCheck(profile, (await readDashboard()).profile, body)} operationKey={operationKey} meta={{ body: JSON.stringify(body) }}
-          run={async () => (await sendWrite("/api/account/profile", "PATCH", body)).outcome}/>
+          onDone={() => { setDraft(null); onSaved(); }} check={async () => storedProfileCheck((await readDashboard()).profile, asking.meta)} operationKey={operationKey} meta={asking.meta}
+          run={async () => asking.body ? (await sendWrite("/api/account/profile", "PATCH", asking.body)).outcome : failure(0, "local.profile.redo", "Modifiez de nouveau vos coordonnées.")}/>
       ) : null}
     </>
   );

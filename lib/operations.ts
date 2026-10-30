@@ -141,6 +141,12 @@ export function createOperations(storage: () => Store | null, now: () => number 
       running.delete(key);
       changed();
     },
+    async drop(prefix: string) {
+      await locked(() => {
+        for (const key of Object.keys(saved() ?? Object.fromEntries(memory))) if (key.startsWith(prefix) && !running.has(key)) write(key, null, false);
+      }).catch(() => {});
+      changed();
+    },
     async clear(key: string, id: string): Promise<boolean> {
       if (running.has(key)) return false;
       const cleared = await locked(() => {
