@@ -257,7 +257,10 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
 .account-logout { margin-top: 32px; }
 .account-logout > .button { margin-left: -16px; }
 .data-notice { margin-bottom: 24px; color: var(--ink-soft); font-size: 13px; }
-.data-notice summary { display: flex; align-items: center; gap: 8px; width: fit-content; padding: 8px 0; font-size: 13px; cursor: pointer; }
+.data-notice summary { display: flex; align-items: center; gap: 8px; width: fit-content; padding: 8px 0; font-size: 13px; list-style: none; cursor: pointer; }
+.data-notice summary::-webkit-details-marker { display: none; }
+.data-notice-caret { transition: rotate .2s ease; }
+.data-notice[open] .data-notice-caret { rotate: 180deg; }
 .data-notice ul { padding-left: 23px; }
 .dashboard-error { display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 100px 20px; color: var(--ink-soft); text-align: center; }
 .failure-text { min-width: 0; }
@@ -643,7 +646,8 @@ a:hover > .circle-arrow, .summary-card:hover .circle-arrow { transform: translat
 .donut-part { fill: none; stroke: #e9e4e4; transition: stroke-width .15s ease; }
 .donut-part.is-electrical { stroke: var(--red); }
 .donut-part.is-unknown { stroke: var(--mist); }
-.donut-part.is-active { stroke-width: 26px; }
+.donut-part.is-active { stroke: #d6cfcf; stroke-width: 26px; }
+.donut-part.is-electrical.is-active { stroke: var(--red-deep); }
 .donut-legend { display: grid; gap: 8px; width: 100%; margin: 0; padding: 0; list-style: none; font-size: 13px; }
 .donut-legend li { display: flex; align-items: center; gap: 10px; }
 .donut-legend strong { margin-left: auto; font-weight: 500; }

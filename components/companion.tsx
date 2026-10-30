@@ -3,7 +3,7 @@
 import "@/lib/zod-jitless";
 import { memo, type ReactNode, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { z } from "zod";
-import { ArrowClockwiseIcon, BicycleIcon, ChartIcon, HouseIcon, MapPinIcon, SignOutIcon, StarFourIcon, UserCircleIcon, WarningCircleIcon, XIcon } from "./icons";
+import { ArrowClockwiseIcon, BicycleIcon, CaretDownIcon, ChartIcon, HouseIcon, MapPinIcon, SignOutIcon, StarFourIcon, UserCircleIcon, WarningCircleIcon, XIcon } from "./icons";
 import { bookingSchema, dashboardSchema, type Booking, type Dashboard, type LoadError, type Page, type Trip, formatDate, formatName } from "@/lib/models";
 import { createDockWatch, tripCheckSchema, tripToGreet } from "@/lib/trip-end";
 import { createRefreshGate, createThrottle } from "@/lib/refresh-gate";
@@ -269,7 +269,7 @@ export function Companion({ start }: { start: StartMode }) {
               <>
                 {state.data.warnings.length ? (
                   <details className="data-notice">
-                    <summary><WarningCircleIcon size={17} weight="light"/>Certaines informations sont indisponibles</summary>
+                    <summary><WarningCircleIcon size={17} weight="light"/>Certaines informations sont indisponibles<CaretDownIcon className="data-notice-caret" size={14} weight="bold" aria-hidden="true"/></summary>
                     <ul>{state.data.warnings.map((warning) => <li key={warning}>{warning}</li>)}</ul>
                   </details>
                 ) : null}

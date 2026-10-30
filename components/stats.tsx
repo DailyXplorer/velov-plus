@@ -242,21 +242,23 @@ function niceMax(value: number) {
 }
 
 type Bar = { label: string; value: number; tip: ReactNode; axis?: string };
-const AXIS = 34;
+const MIN_AXIS = 34;
 const BASE = 24;
 const BAR_HEIGHT = 220;
 const PLOT_TOP = 8;
 
-function BarChart({ bars, label, caption, unit, height = BAR_HEIGHT }: { bars: Bar[]; label: string; caption: string; unit: string; height?: number }) {
+function BarChart({ bars, label, caption, unit, tickUnit, height = BAR_HEIGHT }: { bars: Bar[]; label: string; caption: string; unit: string; tickUnit: string; height?: number }) {
   const top = niceMax(Math.max(...bars.map((bar) => bar.value)));
-  const inner = (width: number) => width - AXIS;
+  const tick = (share: number) => `${formatCountSans(Math.round(top * share))}${share === 1 ? ` ${tickUnit}` : ""}`;
+  const axis = Math.max(MIN_AXIS, Math.ceil(tick(1).length * 6.2) + 10);
+  const inner = (width: number) => width - axis;
   const axisSpacing = Math.max(...bars.map((bar) => (bar.axis ?? bar.label).length)) * 7 + 10;
   const band = (width: number) => inner(width) / bars.length;
   const chartHeight = height - BASE - PLOT_TOP;
   return (
     <Chart label={label} height={height} plotTop={PLOT_TOP}
-      hit={(x, _y, width) => { const index = Math.floor((x - AXIS) / band(width)); return index >= 0 && index < bars.length ? index : null; }}
-      tip={(index, width) => ({ x: AXIS + band(width) * (index + .5), y: PLOT_TOP + chartHeight * (1 - bars[index].value / top), content: bars[index].tip })}
+      hit={(x, _y, width) => { const index = Math.floor((x - axis) / band(width)); return index >= 0 && index < bars.length ? index : null; }}
+      tip={(index, width) => ({ x: axis + band(width) * (index + .5), y: PLOT_TOP + chartHeight * (1 - bars[index].value / top), content: bars[index].tip })}
       table={<><caption>{caption}</caption><thead><tr><th scope="col">Période</th><th scope="col">{unit}</th></tr></thead><tbody>{bars.map((bar) => <tr key={bar.label}><th scope="row">{bar.label}</th><td>{bar.value}</td></tr>)}</tbody></>}>
       {(width, active) => {
         const step = band(width);
@@ -266,11 +268,11 @@ function BarChart({ bars, label, caption, unit, height = BAR_HEIGHT }: { bars: B
           <>
             {[0, .5, 1].map((share) => {
               const y = PLOT_TOP + chartHeight * (1 - share);
-              return <g key={share}><line className="chart-grid" x1={AXIS} x2={width} y1={y} y2={y}/><text className="chart-axis" x={AXIS - 8} y={y + 3.5} textAnchor="end">{formatCountSans(Math.round(top * share))}</text></g>;
+              return <g key={share}><line className="chart-grid" x1={axis} x2={width} y1={y} y2={y}/><text className="chart-axis" x={axis - 8} y={y + 3.5} textAnchor="end">{tick(share)}</text></g>;
             })}
             {bars.map((bar, index) => {
               const barHeight = chartHeight * bar.value / top;
-              const x = AXIS + step * index + (step - barWidth) / 2;
+              const x = axis + step * index + (step - barWidth) / 2;
               return (
                 <g key={bar.label}>
                   {bar.value ? <rect className={`chart-bar${active === index ? " is-active" : ""}`} x={x} y={PLOT_TOP + chartHeight - barHeight} width={barWidth} height={barHeight} rx={Math.min(3, barWidth / 2)}/> : null}
@@ -292,7 +294,7 @@ function MinutesChart({ data }: { data: PeriodStats }) {
     axis: unit === "day" ? dayLabel(bucket.key, { day: "numeric", month: "numeric" }) : monthInitial(bucket.key),
     tip: <><strong>{capitalize(bucketLabel(unit, bucket.key))}</strong><span>{hours(bucket.minutes)} en {plural(bucket.trips, "trajet")}</span></>
   }));
-  return <BarChart bars={bars} unit="Minutes" caption={unit === "day" ? "Temps à vélo par jour" : "Temps à vélo par mois"}
+  return <BarChart bars={bars} unit="Minutes" tickUnit="min" caption={unit === "day" ? "Temps à vélo par jour" : "Temps à vélo par mois"}
     label={`Temps à vélo par ${unit === "day" ? "jour" : "mois"}, ${hours(data.minutes)} au total`}/>;
 }
 
