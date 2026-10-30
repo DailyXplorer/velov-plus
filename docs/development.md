@@ -72,3 +72,10 @@ These are intentional, not defects: no visible keyboard-focus indicator; fixed f
 3. Auth and session: web cookies and refresh, 401/403 handling, CSRF on `/api` routes, headers (CSP), secrets in client bundles or logs; iOS Keychain accessibility class, token refresh, nothing logged.
 4. Parity: both apps behave the same on safety rules, French copy and design rules (single confirmation, no success screens, red and grey only, no shadows, uppercase DM Sans labels, Faculty Glyphic with proportional figures and French thousands separators). List every divergence.
 5. Correctness against [api-notes.md](api-notes.md), then drawers, map, load failures, bugs, performance, dead code, and any personal data left in the repos or their history.
+
+## Working rules
+
+- Find bugs before the owner does: after every batch, run an autonomous QA pass that screenshots every page and state (guest and signed in, card open and closed, empty lists, errors, loading, phone and desktop), audits the critical flows in code (unlock, booking, trip end, login, network errors, journal) and adds a Codex co-review cross-checked with the Opus review.
+- Fix what is found, review it, push and deploy without waiting for the owner; send a short report with one screenshot per changed page, for information.
+- Only real-world actions need the owner's consent: a real unlock or booking (it starts a rental on the account), a payment, a message sent on the owner's behalf.
+- Small feedback ships in 20-30 minutes; background cleanup runs separately and never blocks it.
