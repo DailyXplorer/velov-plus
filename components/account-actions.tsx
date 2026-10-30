@@ -188,7 +188,8 @@ function ReceiptRow({ receipt }: { receipt: Receipt }) {
   return (
     <li className="receipt-row">
       <span><strong>{receipt.title}</strong><small>{periodLabel(receipt)}</small></span>
-      <Button variant="secondary" pending={pending} onClick={() => void download()} aria-label={`Télécharger le reçu, ${periodLabel(receipt)}`}><DownloadSimpleIcon size={17} weight="light" aria-hidden="true"/>Reçu</Button>    </li>
+      <Button variant="secondary" pending={pending} onClick={() => void download()} aria-label={`Télécharger le reçu, ${periodLabel(receipt)}`}><DownloadSimpleIcon size={17} weight="light" aria-hidden="true"/>Reçu</Button>
+    </li>
   );
 }
 
