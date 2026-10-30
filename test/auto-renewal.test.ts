@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { beforeEach, afterEach, test } from "node:test";
 import { patchAutoRenewal } from "../lib/cyclocity.ts";
+import { readFileSync } from "node:fs";
 import { autoRenewalBodySchema, completeRenewalChange, renewalStateOf } from "../lib/renewal-models.ts";
 
 const realFetch = globalThis.fetch;
@@ -52,6 +53,8 @@ test("successful renewal rereads actual state even if different, and failed rere
   assert.deepEqual([writes, reads, actual.autoRenewal, actual.verified], [1, 1, false, true]);
   const unknown = await completeRenewalChange(write, async () => { reads++; throw new Error("No reply"); });
   assert.deepEqual([writes, reads, unknown.ok, unknown.autoRenewal, unknown.verified], [2, 2, true, null, false]);
+  const component = readFileSync("components/auto-renewal.tsx", "utf8");
+  assert.match(component, /if \(!outcome\.ok\) \{[^\n]*\}\n    setSaved\(\{ autoRenewal: null, autoRenewalAllowed: false, verified: false, \.\.\.outcome \}\);\n    setAsking\(false\);/, "an unverified success shows the state as unknown, with no toggle, until the next read");
   const rejected = await completeRenewalChange(() => patchAutoRenewal(auth, recorder(400).send), async () => { throw new Error("Must not read after refusal"); });
   assert.equal(rejected.ok, false);
 });

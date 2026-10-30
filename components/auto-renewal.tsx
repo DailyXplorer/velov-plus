@@ -46,12 +46,12 @@ export function AutoRenewal({ subscriptionId, account, value, allowed, onSaved }
         const error = errorSchema.safeParse(data);
         return response.ok && parsed.success ? parsed.data : failed(response.status, error.success ? error.data.code ?? "unavailable" : "local.unreadable", error.success ? error.data.error : "Réponse inattendue. La modification a peut-\u2060être été prise en compte.");
       } catch (error) {
-        return { ...networkFailure("Vélo’v ne répond pas. Actualisez la page pour voir si le réglage a changé.", error, startedAt), autoRenewal: null, autoRenewalAllowed: false, verified: false };
+        return { ...networkFailure("Vélo’v ne répond pas. La modification a peut-\u2060être été prise en compte.", error, startedAt), autoRenewal: null, autoRenewalAllowed: false, verified: false };
       }
     }, { keep: true, meta: { wanted: next ? 1 : 0 } });
     if (typeof outcome === "string") { const message = blockedMessage(outcome, operations.get(operationKey) !== null); if (message) setNotice(message); return; }
     if (!outcome.ok) { if (isUncertain(outcome)) await resolve(); else setFailure(outcome); return; }
-    if ("verified" in outcome && outcome.verified && outcome.autoRenewal !== null) setSaved(outcome);
+    setSaved({ autoRenewal: null, autoRenewalAllowed: false, verified: false, ...outcome });
     setAsking(false);
     onSaved();
   }
