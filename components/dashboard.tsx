@@ -19,6 +19,9 @@ const StationMap = dynamic(() => import("./station-map"), {
   ssr: false,
   loading: () => <div className="map-placeholder skeleton" aria-label="Chargement de la carte"/>
 });
+function MapAttribution() {
+  return <p className="map-attribution"><a href="https://leafletjs.com" target="_blank" rel="noreferrer">Leaflet</a> <span aria-hidden="true">|</span> © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a></p>;
+}
 type StationData = { stations: Station[]; updatedAt: string };
 type Navigation = (page: Page) => void;
 type Reload = { reload: () => void; reloading: boolean };
@@ -122,13 +125,16 @@ export function Overview({ data, stations, navigate, reload, reloading }: { data
           <StationMap stations={nearby} selected={chosen?.id ?? null} onSelect={setSelectedStation}/>
           {stations.kind === "error" ? <LoadFailure failure={stations} layout="floating" pending={reloading} onRetry={reload}/> : null}
           {phone ? <button className="map-explore" aria-label="Explorer les stations" onClick={() => navigate("stations")}/> : null}
-          {chosen ? (
-            <div className="map-station-card">
-              <div className="station-card-heading"><strong>{chosen.name}</strong><button className="icon-button" aria-label="Voir les stations" onClick={() => navigate("stations")}><CaretRightIcon size={18} weight="light"/></button></div>
-              <StationNumbers station={chosen}/>
-              <Button onClick={() => setBikesOpen(true)}>Voir les vélos</Button>
-            </div>
-          ) : null}
+          <div className="map-foot">
+            {chosen ? (
+              <div className="map-station-card">
+                <div className="station-card-heading"><strong>{chosen.name}</strong><button className="icon-button" aria-label="Voir les stations" onClick={() => navigate("stations")}><CaretRightIcon size={18} weight="light"/></button></div>
+                <StationNumbers station={chosen}/>
+                <Button onClick={() => setBikesOpen(true)}>Voir les vélos</Button>
+              </div>
+            ) : null}
+            <MapAttribution/>
+          </div>
           {bikesOpen && chosen ? <StationBikes key={chosen.id} station={chosen} onClose={() => setBikesOpen(false)}/> : null}
         </div>
       </section>
@@ -269,31 +275,34 @@ export function StationsPage({ resource, reload, reloading, favorites: favoriteL
           {!query && filter !== "all" && resource.kind === "ready" && !filtered.length ? (
             <div className="filter-empty" role="status"><span>Aucune station pour ce filtre.</span><TextButton onClick={() => setFilter("all")}>Toutes les stations</TextButton></div>
           ) : null}
-          {chosen && phone ? (
-            <section className="station-sheet" aria-label={chosen.name}>
-              <div className="station-sheet-heading">
-                <StationTitle station={chosen} favorite={favorites.has(chosen.number)} account={account} onFavorite={onFavorite}/>
-                {!chosen.open ? <span className="closed-station">Fermée</span> : null}
-                <button className="icon-button" aria-label="Fermer" onClick={() => setSelected(null)}><XIcon size={18} weight="light"/></button>
-              </div>
-              <div className="station-sheet-facts">
-                <StationNumbers station={chosen} compact/>
-                {chosenDistance ? <span className="station-distance">{chosenDistance}</span> : null}
-              </div>
-              <div className="station-sheet-actions">
+          <div className="map-foot">
+            {chosen && phone ? (
+              <section className="station-sheet" aria-label={chosen.name}>
+                <div className="station-sheet-heading">
+                  <StationTitle station={chosen} favorite={favorites.has(chosen.number)} account={account} onFavorite={onFavorite}/>
+                  {!chosen.open ? <span className="closed-station">Fermée</span> : null}
+                  <button className="icon-button" aria-label="Fermer" onClick={() => setSelected(null)}><XIcon size={18} weight="light"/></button>
+                </div>
+                <div className="station-sheet-facts">
+                  <StationNumbers station={chosen} compact/>
+                  {chosenDistance ? <span className="station-distance">{chosenDistance}</span> : null}
+                </div>
+                <div className="station-sheet-actions">
+                  <Button onClick={() => setBikesOpen(true)}>Voir les vélos</Button>
+                  <a className="button button-secondary" href={directions} target="_blank" rel="noreferrer">Itinéraire</a>
+                </div>
+              </section>
+            ) : chosen ? (
+              <div className="selected-station-panel">
+                <div className="station-card-heading"><StationTitle station={chosen} favorite={favorites.has(chosen.number)} account={account} onFavorite={onFavorite}/>{!chosen.open ? <span className="closed-station">Fermée</span> : null}</div>
+                {chosenDistance ? <p className="station-distance">À {chosenDistance}</p> : null}
+                <StationNumbers station={chosen}/>
                 <Button onClick={() => setBikesOpen(true)}>Voir les vélos</Button>
                 <a className="button button-secondary" href={directions} target="_blank" rel="noreferrer">Itinéraire</a>
               </div>
-            </section>
-          ) : chosen ? (
-            <div className="selected-station-panel">
-              <div className="station-card-heading"><StationTitle station={chosen} favorite={favorites.has(chosen.number)} account={account} onFavorite={onFavorite}/>{!chosen.open ? <span className="closed-station">Fermée</span> : null}</div>
-              {chosenDistance ? <p className="station-distance">À {chosenDistance}</p> : null}
-              <StationNumbers station={chosen}/>
-              <Button onClick={() => setBikesOpen(true)}>Voir les vélos</Button>
-              <a className="button button-secondary" href={directions} target="_blank" rel="noreferrer">Itinéraire</a>
-            </div>
-          ) : null}
+            ) : null}
+            <MapAttribution/>
+          </div>
           {bikesOpen && chosen ? <StationBikes key={chosen.id} station={chosen} onClose={() => setBikesOpen(false)}/> : null}
         </div>
       </div>

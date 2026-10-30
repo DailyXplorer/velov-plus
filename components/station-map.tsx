@@ -52,8 +52,8 @@ export default function StationMap({ stations, selected, onSelect, onClear, user
 
   useEffect(() => {
     if (!element.current) return;
-    const instance = L.map(element.current, { center: [45.7576, 4.832], zoom: 15, zoomControl: false, scrollWheelZoom: true, wheelPxPerZoomLevel: 90 });
-    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>', maxZoom: 19 }).addTo(instance);
+    const instance = L.map(element.current, { center: [45.7576, 4.832], zoom: 15, zoomControl: false, attributionControl: false, scrollWheelZoom: true, wheelPxPerZoomLevel: 90 });
+    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19 }).addTo(instance);
     L.control.zoom({ position: "topright" }).addTo(instance);
     instance.on("click", () => clear.current?.());
     map.current = instance;

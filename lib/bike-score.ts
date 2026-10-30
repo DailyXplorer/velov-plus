@@ -1,4 +1,4 @@
-import type { Bike } from "./models";
+import { type Bike, formatDate } from "./models.ts";
 
 export type Verdict = "recommended" | "avoid" | "neutral";
 export type AssessedBike = { bike: Bike; verdict: Verdict; score: number; reasons: string[] };
@@ -11,6 +11,11 @@ const hoursSince = (value: string | null, now: number) => value ? (now - new Dat
 const OVERDUE_GRACE = 30 * 24 * HOUR;
 export function isCheckOverdue(bike: Bike, now = Date.now()) {
   return bike.nextCheckAt != null && now - new Date(bike.nextCheckAt).getTime() > OVERDUE_GRACE;
+}
+
+export function lateCheck(nextCheckAt: string | null, now = Date.now()) {
+  const due = nextCheckAt ? new Date(nextCheckAt).getTime() : NaN;
+  return due < now ? `Prévu le ${formatDate(nextCheckAt, { day: "numeric", month: "short", year: "numeric" })}` : null;
 }
 
 function avoidReasons(bike: Bike, now: number) {

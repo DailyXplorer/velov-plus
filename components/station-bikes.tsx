@@ -3,7 +3,7 @@
 import { type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
 import { ArrowClockwiseIcon, ArrowLeftIcon, BatteryEmptyIcon, BatteryFullIcon, BatteryHighIcon, BatteryLowIcon, BatteryMediumIcon, BicycleIcon, CaretDownIcon, CaretRightIcon, type Icon, LightningIcon, SignInIcon, StarHalfIcon, StarIcon, ThumbsUpIcon, WarningIcon, XIcon } from "./icons";
-import { type AssessedBike, assessBikes, isCheckOverdue } from "@/lib/bike-score";
+import { type AssessedBike, assessBikes, lateCheck } from "@/lib/bike-score";
 import { type Bike, type Resource, type Station, bikeSchema, capitalize, formatCountSans, formatDate } from "@/lib/models";
 import { EmptyState, Eyebrow, Ghost, LoadFailure, Modal } from "./ui";
 import { BikeActions, BookingsContext, SignInContext } from "./bike-actions";
@@ -113,10 +113,10 @@ function BikeRow({ item, mine, onOpen }: { item: AssessedBike; mine: boolean; on
   );
 }
 
-function DateFact({ label, value, withAgo = false, children }: { label: string; value: string | null; withAgo?: boolean; children?: ReactNode }) {
+function DateFact({ label, value, withAgo = false }: { label: string; value: string | null; withAgo?: boolean }) {
   const since = withAgo ? fromNow(value) : null;
   const exact = formatDate(value, { day: "numeric", month: "short", year: "numeric", ...(withAgo ? { hour: "2-digit", minute: "2-digit" } : {}) });
-  return <div><dt>{label}</dt><dd>{children}{value ? since ? <>{capitalize(since)}<small>{exact}</small></> : exact : "Non renseigné"}</dd></div>;
+  return <div><dt>{label}</dt><dd>{value ? since ? <>{capitalize(since)}<small>{exact}</small></> : exact : "Non renseigné"}</dd></div>;
 }
 
 function VerdictMark({ verdict }: { verdict: AssessedBike["verdict"] }) {
@@ -141,6 +141,7 @@ function BikeSheet({ item, actions }: { item: AssessedBike; actions?: ReactNode 
   const type = types[bike.type];
   const rating = score(bike);
   const mine = useOwnBikes().has(bike.number);
+  const late = lateCheck(bike.nextCheckAt);
   return (
     <div className="bike-sheet">
       <div className="detail-type"><Eyebrow icon={type.icon}>{type.label}</Eyebrow>{bike.isReserved && !mine ? <span className="bike-reserved">Réservé</span> : null}</div>
@@ -152,7 +153,7 @@ function BikeSheet({ item, actions }: { item: AssessedBike; actions?: ReactNode 
         ) : "Pas encore d’avis"}</dd></div>
         {bike.type === "electrical" ? <div><dt>Batterie</dt><dd>{bike.batteryPercent != null ? <BatteryLevel percent={bike.batteryPercent}/> : "Non renseigné"}</dd></div> : null}
         <DateFact label="Dernier trajet" value={bike.lastTripAt} withAgo/>
-        <DateFact label="Prochain contrôle" value={bike.nextCheckAt} withAgo>{isCheckOverdue(bike) ? <span className="bike-reserved">En retard</span> : null}</DateFact>
+        {late ? <div><dt>Prochain contrôle</dt><dd>En retard<small>{late}</small></dd></div> : <DateFact label="Prochain contrôle" value={bike.nextCheckAt} withAgo/>}
         <div><dt>Borne</dt><dd>{bike.standNumber ?? "Non renseigné"}</dd></div>
       </dl>
       <details className="bike-more">
