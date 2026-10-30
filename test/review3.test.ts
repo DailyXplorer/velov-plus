@@ -219,6 +219,22 @@ test("a late « Trajet terminé », a pending unlock or a write callback never r
   assert.match(source("lib/session-gate.ts"), /export const sessionGate = createSessionGate\(\);/);
 });
 
+test("every account read carries the session signal, so a logout aborts it before it can land old cookies", () => {
+  const gate = createSessionGate();
+  const stats = gate.stamp();
+  gate.close();
+  assert.equal(stats.signal.aborted, true);
+  assert.equal(gate.stamp().signal.aborted, true, "a read started after the logout never leaves");
+  const getJson = source("components/get-json.ts");
+  assert.match(getJson, /export function accountJson<T>\(url: string, schema: z\.ZodType<T>, unavailable: string\) \{\n  return getJson\(url, schema, unavailable, sessionGate\.stamp\(\)\.signal\);/);
+  assert.match(getJson, /return accountJson\("\/api\/dashboard"/);
+  assert.ok(getJson.indexOf("if (signal?.aborted)") >= 0 && getJson.indexOf("if (signal?.aborted)") < getJson.indexOf("await fetch(url"), "an aborted stamp sends nothing");
+  assert.match(source("components/stats.tsx"), /accountJson\("\/api\/stats", statsSchema, unavailable\)/);
+  assert.match(source("components/bike-actions.tsx"), /bookingCheck\(await accountJson\("\/api\/bookings"/);
+  assert.match(source("components/bike-actions.tsx"), /unlockCheck\(await accountJson\("\/api\/trips\/current"/);
+  assert.match(source("components/invite-friend.tsx"), /await accountJson\(`\/api\/account\/rewards/);
+});
+
 test("parity: review counts are grouped, an uncertain unlock is re-read automatically, durations and logout match iOS", () => {
   assert.match(source("components/station-bikes.tsx"), /\{formatCountSans\(bike\.rating\.count\)\} avis/);
   assert.match(source("components/bike-actions.tsx"), /return pollUnlock\(\(\) => verify\("unlock", false\), pollAt\);/);

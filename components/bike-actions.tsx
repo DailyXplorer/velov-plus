@@ -10,7 +10,7 @@ import { bookingCheck, pollUnlock, sendBikeAction, unlockCheck } from "@/lib/bik
 import { tripCheckSchema } from "@/lib/trip-end";
 import { blockedMessage, runOnce, settleHeld } from "@/lib/operations";
 import { sessionGate } from "@/lib/session-gate";
-import { getJson } from "./get-json";
+import { accountJson } from "./get-json";
 import { operations, useOperation, useSending } from "./operations";
 import { Button, Modal } from "./ui";
 
@@ -161,8 +161,8 @@ export function BikeActions({ place, booking = null, initial, dialog = false, on
     setNotice(null);
     const settled = await settleHeld(operations, key, async (held) => {
       const bikeNumber = Number(held.meta.bikeNumber ?? place.bikeNumber);
-      if (action === "book") return bookingCheck(await getJson("/api/bookings", z.array(bookingSchema), ""), bikeNumber);
-      const found = unlockCheck(await getJson("/api/trips/current", tripCheckSchema, ""), bikeNumber, held.at);
+      if (action === "book") return bookingCheck(await accountJson("/api/bookings", z.array(bookingSchema), ""), bikeNumber);
+      const found = unlockCheck(await accountJson("/api/trips/current", tripCheckSchema, ""), bikeNumber, held.at);
       tripId = found.tripId;
       return found.check;
     });

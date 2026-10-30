@@ -2,6 +2,7 @@ import { z } from "zod";
 import { type LoadError, dashboardSchema } from "@/lib/models";
 import { networkDetail } from "@/lib/outcome";
 import { journal } from "@/lib/journal";
+import { sessionGate } from "@/lib/session-gate";
 
 const errorSchema = z.object({ error: z.string(), code: z.string().optional() });
 
@@ -25,6 +26,7 @@ export function loadError(error: unknown, fallback: string): LoadError {
 }
 
 export async function getJson<T>(url: string, schema: z.ZodType<T>, unavailable: string, signal?: AbortSignal): Promise<T> {
+  if (signal?.aborted) throw new ApiError(unavailable, 0, "AbortError · session fermée");
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 25_000);
   const abort = () => controller.abort();
@@ -47,6 +49,10 @@ export async function getJson<T>(url: string, schema: z.ZodType<T>, unavailable:
   }
 }
 
+export function accountJson<T>(url: string, schema: z.ZodType<T>, unavailable: string) {
+  return getJson(url, schema, unavailable, sessionGate.stamp().signal);
+}
+
 export function readDashboard() {
-  return getJson("/api/dashboard", dashboardSchema, "Votre compte est momentanément indisponible.");
+  return accountJson("/api/dashboard", dashboardSchema, "Votre compte est momentanément indisponible.");
 }

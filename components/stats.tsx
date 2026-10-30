@@ -4,7 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExter
 import { BicycleIcon, ClockIcon, CoinsIcon, type Icon, LeafIcon, RouteIcon, StarFourIcon } from "./icons";
 import { CardTag, EmptyState, Ghost, LoadFailure, SelectField, SelectSkeleton } from "./ui";
 import { BikeDrawer } from "./station-bikes";
-import { getJson, loadError } from "./get-json";
+import { accountJson, loadError } from "./get-json";
 import { type LoadError, capitalize, formatCountSans, formatDate, formatPrice } from "@/lib/models";
 import { type Period, type PeriodStats, type Stats, createStatsCache, statsSchema } from "@/lib/stats";
 
@@ -42,7 +42,7 @@ export function StatsPage({ account }: { account: string }) {
     const at = cache.revision();
     setState({ kind: "loading" });
     try {
-      const stats = await getJson("/api/stats", statsSchema, unavailable);
+      const stats = await accountJson("/api/stats", statsSchema, unavailable);
       if (at !== cache.revision()) return;
       if (stats.complete) cache.set(account, stats); else cache.clear();
       setState({ kind: "ready", stats });

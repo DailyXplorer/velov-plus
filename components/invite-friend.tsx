@@ -8,7 +8,7 @@ import { formatCountSans } from "@/lib/models";
 import { UNCERTAIN, isUncertain, networkFailure, routeFailure } from "@/lib/outcome";
 import { toaster } from "@/lib/toast";
 import { DEBIT_SLACK, type Verification, blockedMessage, inviteDebit, retryVerified, rewardsHistorySchema, runOnce, verificationOf } from "@/lib/operations";
-import { getJson } from "./get-json";
+import { accountJson } from "./get-json";
 import { operations, useAccountKey, useOperation, useSending } from "./operations";
 import { Button, Modal } from "./ui";
 
@@ -72,7 +72,7 @@ export function InviteFriend({ cost, balance, account, onChanged }: { onChanged:
     const held = operation;
     setVerification({ id: held.id, kind: "checking" });
     try {
-      const history = await getJson(`/api/account/rewards?since=${held.at - DEBIT_SLACK}`, rewardsHistorySchema, "Votre historique de points n’a pas pu être lu.");
+      const history = await accountJson(`/api/account/rewards?since=${held.at - DEBIT_SLACK}`, rewardsHistorySchema, "Votre historique de points n’a pas pu être lu.");
       const check = inviteDebit({ at: held.at, cost: Number(held.meta.cost) }, history, Date.now());
       if (check === "debited") await operations.clear(operationKey, held.id);
       setVerification({ id: held.id, kind: check });
