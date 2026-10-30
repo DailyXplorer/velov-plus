@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState, type ButtonHTMLAttributes, type KeyboardEvent, type ReactNode } from "react";
-import { ArrowRightIcon, ArrowUpRightIcon, type Icon, SpinnerGapIcon, StarIcon } from "./icons";
+import { ArrowRightIcon, type Icon, SpinnerGapIcon, StarIcon } from "./icons";
 import type { LoadError } from "@/lib/models";
 
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
@@ -30,9 +30,8 @@ export function FavoriteToggle({ favorite, onClick }: { favorite: boolean; onCli
   );
 }
 
-export function CircleArrow({ external = false, outline = false }: { external?: boolean; outline?: boolean }) {
-  const Arrow = external ? ArrowUpRightIcon : ArrowRightIcon;
-  return <span className={`circle-arrow${outline ? " is-outline" : ""}`}><Arrow size={13} weight="bold" aria-hidden="true"/></span>;
+export function CircleArrow({ outline = false }: { outline?: boolean }) {
+  return <span className={`circle-arrow${outline ? " is-outline" : ""}`}><ArrowRightIcon size={13} weight="bold" aria-hidden="true"/></span>;
 }
 
 

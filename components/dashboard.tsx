@@ -284,7 +284,7 @@ export function StationsPage({ resource, reload, reloading, favorites: favoriteL
               </div>
               <div className="station-sheet-actions">
                 <Button onClick={() => setBikesOpen(true)}>Voir les vélos</Button>
-                <a className="button button-secondary" href={directions} target="_blank" rel="noreferrer">Itinéraire<CircleArrow external outline/></a>
+                <a className="button button-secondary" href={directions} target="_blank" rel="noreferrer">Itinéraire</a>
               </div>
             </section>
           ) : chosen ? (
@@ -293,7 +293,7 @@ export function StationsPage({ resource, reload, reloading, favorites: favoriteL
               {chosenDistance ? <p className="station-distance">À {chosenDistance}</p> : null}
               <StationNumbers station={chosen}/>
               <Button onClick={() => setBikesOpen(true)}>Voir les vélos</Button>
-              <a className="button button-secondary" href={directions} target="_blank" rel="noreferrer">Itinéraire<CircleArrow external outline/></a>
+              <a className="button button-secondary" href={directions} target="_blank" rel="noreferrer">Itinéraire</a>
             </div>
           ) : null}
           {bikesOpen && chosen ? <StationBikes key={chosen.id} station={chosen} onClose={() => setBikesOpen(false)}/> : null}
@@ -339,7 +339,7 @@ export function AccountPage({ data, onLogout, onSaved }: { data: Dashboard; onLo
           {subscription && (subscription.validUntil || !subscription.active) ? <p className="subscription-validity">{subscription.validUntil ? `Jusqu’au ${formatDate(subscription.validUntil, { day: "numeric", month: "long", year: "numeric" })}` : "Inactif"}</p> : null}
           {subscription?.type === "LT" ? <AutoRenewal key={`${subscription.id}:${data.updatedAt}`} subscriptionId={subscription.id} account={data.profile.email} value={subscription.autoRenewal} allowed={subscription.autoRenewalAllowed} onSaved={onSaved}/> : null}
           <Receipts receipts={data.receipts}/>
-          <a className="text-link" href="https://velov.grandlyon.com/" target="_blank" rel="noreferrer">Gérer sur Vélo’v<CircleArrow external outline/></a>
+          <a className="text-link" href="https://velov.grandlyon.com/" target="_blank" rel="noreferrer">Gérer sur Vélo’v</a>
         </section>
         <section className="account-section">
           <h2>Service client</h2>
@@ -497,7 +497,7 @@ export function AccountSkeleton() {
             <h3 className="metric-label">Reçus</h3>
             <ul><li className="receipt-row"><span><strong>Vélo’v Plus 1 an Jeunes</strong><small>Du 1 janv. 2026 au 1 janv. 2027</small></span><span className="button button-secondary"><span className="button-content"><DownloadSimpleIcon size={17} weight="light"/>Reçu</span></span></li></ul>
           </div>
-          <span className="text-link">Gérer sur Vélo’v<CircleArrow external outline/></span>
+          <span className="text-link">Gérer sur Vélo’v</span>
         </section>
         <section className="account-section skeleton">
           <h2>Service client</h2>

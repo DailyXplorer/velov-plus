@@ -1,7 +1,7 @@
 import type { ReactElement } from "react";
 import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react";
 import {
-  Alert02Icon, AlertCircleIcon, ArrowDown01Icon, ArrowLeft02Icon, ArrowRight01Icon, ArrowRight02Icon, ArrowUpRight01Icon,
+  Alert02Icon, AlertCircleIcon, ArrowDown01Icon, ArrowLeft02Icon, ArrowRight01Icon, ArrowRight02Icon,
   BatteryEmptyIcon as BatteryEmpty, BatteryFullIcon as BatteryFull, BatteryLowIcon as BatteryLow, BatteryMedium01Icon, BatteryMedium02Icon,
   BikeIcon, Cancel01Icon, ChartLineData02Icon, Clock01Icon, Coins01Icon, Copy01Icon, Download01Icon, FlashIcon, Home03Icon, Leaf01Icon, Loading03Icon, Location01Icon, Login01Icon, Logout05Icon,
   Mail01Icon, Navigation03Icon, ParkingAreaCircleIcon, PencilEdit02Icon, Refresh01Icon, Route01Icon, Search01Icon, SentIcon, SparkleIcon, SquareUnlock02Icon,
@@ -31,7 +31,6 @@ const halfStar: IconSvgElement = [
 export const ArrowClockwiseIcon = hugeicon(Refresh01Icon);
 export const ArrowLeftIcon = hugeicon(ArrowLeft02Icon);
 export const ArrowRightIcon = hugeicon(ArrowRight02Icon);
-export const ArrowUpRightIcon = hugeicon(ArrowUpRight01Icon);
 export const BatteryEmptyIcon = hugeicon(BatteryEmpty);
 export const BatteryFullIcon = hugeicon(BatteryFull);
 export const BatteryHighIcon = hugeicon(BatteryMedium02Icon);
