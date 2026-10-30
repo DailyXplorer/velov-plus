@@ -72,7 +72,8 @@ export async function postRating({ accountId, tripId, body, token, identity }: {
     return { ...refusal("network", MAYBE_SENT.rating), detail: error instanceof Error ? error.name : null };
   }
   const reply = await answer(response);
-  if (response.ok) return { ok: true, httpStatus: response.status, transactionState: null, code: null, message: null, detail: null };
+  const readable = reply.value !== null || reply.detail === null;
+  if (response.ok && readable) return { ok: true, httpStatus: response.status, transactionState: null, code: null, message: null, detail: null };
   const refused = response.status >= 400 && response.status < 500 && reply.code !== null;
   return { ok: false, httpStatus: response.status, transactionState: null, code: reply.code, message: refused ? "Vélo’v a refusé cette note." : "Vélo’v n’a pas confirmé la note. Elle a peut-\u2060être été enregistrée.", detail: reply.detail };
 }

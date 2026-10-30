@@ -168,3 +168,12 @@ test("F12: an upstream refusal keeps its status, code and message; only transpor
   const route = (async () => Response.json(refused)) as typeof fetch;
   assert.deepEqual(await sendStars("trip-1", 20449, 5, route), refused, "the browser gets the refusal, not an uncertain 503");
 });
+
+test("a rating answered 200 with an unreadable page is uncertain, an empty or JSON 200 is a success", async () => {
+  const body = { bikeNumber: 20449, recommended: true, rating: null } as const;
+  const answering = (text: string) => (async () => new Response(text, { status: 200 })) as typeof fetch;
+  const html = await postRating({ ...rating, body }, answering("<html><body>Maintenance</body></html>"));
+  assert.deepEqual([html.ok, html.httpStatus, isUncertain(html)], [false, 200, true]);
+  assert.equal((await postRating({ ...rating, body }, answering(""))).ok, true);
+  assert.equal((await postRating({ ...rating, body }, answering(JSON.stringify({ bikeId: 20449, recommended: true })))).ok, true);
+});
