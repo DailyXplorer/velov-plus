@@ -6,7 +6,7 @@ import { z } from "zod";
 import { ArrowClockwiseIcon, BicycleIcon, CaretDownIcon, ChartIcon, HouseIcon, MapPinIcon, SignOutIcon, StarFourIcon, UserCircleIcon, WarningCircleIcon, XIcon } from "./icons";
 import { bookingSchema, dashboardSchema, type Booking, type Dashboard, type LoadError, type Page, type Trip, formatDate, formatName } from "@/lib/models";
 import { createDockWatch, tripCheckSchema, tripToGreet } from "@/lib/trip-end";
-import { createRefreshGate, createThrottle } from "@/lib/refresh-gate";
+import { createRefreshGate, createRevisionLoader, createThrottle } from "@/lib/refresh-gate";
 import { sessionGate } from "@/lib/session-gate";
 import { whenIdle } from "@/lib/idle";
 import { type StartMode, guestCookie } from "@/lib/guest";
@@ -61,7 +61,6 @@ export function Companion({ start }: { start: StartMode }) {
   const page = useSyncExternalStore(subscribeHash, pageFromHash, () => null);
   const { resource: stations, pending: stationsPending, inFlight: stationsInFlight, reload: reloadStations } = useStations();
   const [refreshing, setRefreshing] = useState(false);
-  const dashboardInFlight = useRef(false);
   const [logoutOpen, setLogoutOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [logoutError, setLogoutError] = useState<string | null>(null);
@@ -95,15 +94,6 @@ export function Companion({ start }: { start: StartMode }) {
     const list = await getJson("/api/bookings", z.array(bookingSchema), "", stamp.signal);
     if (stamp.live()) setBookings(list);
   }));
-  const patchData = useCallback((change: (data: Dashboard) => Dashboard) => {
-    setState((current) => current.kind === "ready" ? { kind: "ready", data: change(current.data) } : current);
-  }, []);
-  const setAutoSpend = useCallback((autoSpend: boolean) => patchData((data) => ({ ...data, rewards: { ...data.rewards, autoSpend } })), [patchData]);
-  const setFavorite = useCallback((number: number, favorite: boolean) => patchData((data) => {
-    const others = data.profile.favorites.filter((item) => item !== number);
-    return { ...data, profile: { ...data.profile, favorites: favorite ? [...others, number] : others } };
-  }), [patchData]);
-
   const expire = useCallback(() => {
     session.current.close();
     forgetSession();
@@ -115,17 +105,13 @@ export function Companion({ start }: { start: StartMode }) {
   const email = state.kind === "ready" ? state.data.profile.email : null;
   const account = useMemo(() => ({ email, bookings, changed: () => { forgetStats(); void loadBookings(); }, unlocked: (tripId: string | null, bikeNumber: number) => watch.current?.follow(tripId, bikeNumber), expired: expire }), [email, bookings, loadBookings, expire]);
 
-  const loadDashboard = useCallback(async (): Promise<Dashboard | null> => {
-    if (dashboardInFlight.current) return null;
+  const [dashboard] = useState(() => createRevisionLoader<Dashboard>(async () => {
     const stamp = session.current.stamp();
     if (!stamp.live()) return null;
-    dashboardInFlight.current = true;
     setRefreshing(true);
     try {
       const data = await getJson("/api/dashboard", dashboardSchema, "Votre compte est momentanément indisponible.", stamp.signal);
-      if (!stamp.live()) return null;
-      setState({ kind: "ready", data });
-      return data;
+      return stamp.live() ? data : null;
     } catch (error) {
       if (!stamp.live()) return null;
       if (error instanceof ApiError && error.status === 401) { expire(); return null; }
@@ -134,10 +120,20 @@ export function Companion({ start }: { start: StartMode }) {
       else setState({ kind: "error", ...failure });
       return null;
     } finally {
-      dashboardInFlight.current = false;
       setRefreshing(false);
     }
-  }, [expire]);
+  }, (data) => setState({ kind: "ready", data: { ...data, ongoing: data.ongoing?.filter((trip) => !dockedTrips.current.has(trip.id)) ?? null } })));
+  const loadDashboard = dashboard.request;
+
+  const patchData = useCallback((change: (data: Dashboard) => Dashboard) => {
+    dashboard.bump();
+    setState((current) => current.kind === "ready" ? { kind: "ready", data: change(current.data) } : current);
+  }, [dashboard]);
+  const setAutoSpend = useCallback((autoSpend: boolean) => patchData((data) => ({ ...data, rewards: { ...data.rewards, autoSpend } })), [patchData]);
+  const setFavorite = useCallback((number: number, favorite: boolean) => patchData((data) => {
+    const others = data.profile.favorites.filter((item) => item !== number);
+    return { ...data, profile: { ...data.profile, favorites: favorite ? [...others, number] : others } };
+  }), [patchData]);
 
   useEffect(() => {
     const current = createDockWatch({
@@ -202,7 +198,7 @@ export function Companion({ start }: { start: StartMode }) {
     setUnlocking(null);
     forgetStats();
     setState({ kind: "loading" });
-    dashboardInFlight.current = false;
+    dashboard.bump();
     void loadDashboard();
     reloadStations();
     void loadBookings();
@@ -210,7 +206,7 @@ export function Companion({ start }: { start: StartMode }) {
   }
 
   function refreshAll() {
-    if (!refreshGate.current(dashboardInFlight.current || stationsInFlight.current)) return;
+    if (!refreshGate.current(dashboard.busy() || stationsInFlight.current)) return;
     forgetStats();
     void loadDashboard(); reloadStations(); void loadBookings();
   }

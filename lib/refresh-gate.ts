@@ -9,6 +9,32 @@ export function createRefreshGate(interval = REFRESH_INTERVAL, now: () => number
   };
 }
 
+export function createRevisionLoader<T>(load: () => Promise<T | null>, apply: (value: T) => void) {
+  let revision = 0;
+  let current: Promise<T | null> | null = null;
+  let queued: Promise<T | null> | null = null;
+  function start(): Promise<T | null> {
+    const at = revision;
+    current = load().catch(() => null).then((value) => {
+      current = null;
+      if (value === null || at !== revision) return null;
+      apply(value);
+      return value;
+    });
+    return current;
+  }
+  function request(): Promise<T | null> {
+    if (!current) return start();
+    queued ??= current.then(() => { queued = null; return start(); });
+    return queued;
+  }
+  return {
+    request,
+    bump() { revision += 1; if (current) void request(); },
+    busy: () => current !== null
+  };
+}
+
 export function createThrottle(run: () => Promise<void>, gap = REFRESH_INTERVAL, now: () => number = Date.now, wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))) {
   let current: Promise<void> | null = null;
   let again = false;

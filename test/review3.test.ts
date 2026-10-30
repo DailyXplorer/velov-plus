@@ -146,7 +146,7 @@ test("F5: the logout closes reads and stops the dock watcher before waiting, and
   const companion = source("components/companion.tsx");
   assert.match(companion, /async function logout\(\) \{\n\s+session\.current\.close\(\);\n\s+watch\.current\?\.stop\(\);\n\s+setLoggingOut\(true\);/);
   assert.match(companion, /logoutSchema\.safeParse\([^\n]+\n\s+session\.current\.close\(\);\n\s+watch\.current\?\.stop\(\);/);
-  assert.match(companion, /const stamp = session\.current\.stamp\(\);\n\s+if \(!stamp\.live\(\)\) return null;\n\s+dashboardInFlight\.current = true;/);
+  assert.match(companion, /const stamp = session\.current\.stamp\(\);\n\s+if \(!stamp\.live\(\)\) return null;\n\s+setRefreshing\(true\);/);
   assert.match(companion, /function connected\(\) \{\n\s+session\.current\.end\(\);/);
 });
 
