@@ -103,7 +103,9 @@ test("a successful rating shows nothing: the trip-ended sheet closes and the det
 
 test("the unlock instruction is given before confirming, since the sheet closes on success", () => {
   const bike = source("components/bike-actions.tsx");
-  assert.match(bike, /60 secondes pour appuyer sur le bouton de la borne \{place\.standNumber\}/);
+  assert.match(bike, /60 secondes pour appuyer sur le bouton de la borne et retirer le vélo/);
+  assert.match(bike, /<p className=\"bike-action-place\">\{place\.stationName\} · Borne \{place\.standNumber\}<\/p>/);
+  assert.match(bike, /`Déverrouiller le vélo \$\{place\.bikeNumber\}\s\?`/);
   assert.match(bike, /onDone\(\);/);
   assert.match(source("components/station-bikes.tsx"), /<StationActions bike=\{opened\.bike\} station=\{station\} onDone=\{onClose\}\/>/);
 });

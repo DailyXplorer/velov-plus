@@ -86,9 +86,9 @@ function Confirm({ action, place, onCancel, onClose, onConfirm, onVerify, sendin
   const far = distance != null && distance > RELEASE_DISTANCE;
   return (
     <>
-      <p className="bike-action-question">{action === "book" ? "Réserver ce vélo ?" : "Déverrouiller ce vélo ?"}</p>
+      <p className="bike-action-question">{action === "book" ? "Réserver ce vélo ?" : `Déverrouiller le vélo ${place.bikeNumber} ?`}</p>
       {action === "book" ? <p className="bike-action-note">{BOOKING_POINTS} points pour garder ce vélo {BOOKING_MINUTES} minutes.</p>
-        : <p className="bike-action-note bike-action-warning">Vous aurez ensuite 60 secondes pour appuyer sur le bouton de la borne {place.standNumber} et retirer le vélo.</p>}
+        : <><p className="bike-action-place">{place.stationName} · Borne {place.standNumber}</p><p className="bike-action-note bike-action-warning">Vous aurez ensuite 60 secondes pour appuyer sur le bouton de la borne et retirer le vélo.</p></>}
       {action === "unlock" && far ? <p className="bike-action-far" role="alert"><WarningIcon size={16} weight="bold" aria-hidden="true"/>Vous semblez être à plus de {RELEASE_DISTANCE} m de la station. Si quelqu’un d’autre prend le vélo, le trajet vous sera facturé.</p> : null}
       {children}
       <div className="bike-action-buttons">
