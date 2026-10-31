@@ -198,9 +198,10 @@ export async function accountCall(url: string, init: { method: "POST" | "PATCH" 
     return { outcome: { ...refusal("network", maybe), detail: error instanceof Error ? error.name : null }, value: null };
   }
   const reply = await answer(response);
-  const answered: Outcome = { ok: response.ok, httpStatus: response.status, transactionState: null, code: reply.code, message: null, detail: reply.detail };
-  const outcome: Outcome = { ...answered, message: response.ok ? null : reply.code && accountCodes[reply.code] ? accountCodes[reply.code] : isUncertain(answered) ? maybe : response.status === 403 ? sessionRefused : failed };
-  return { outcome, value: response.ok ? reply.value : null };
+  const ok = response.ok && (reply.value !== null || reply.detail === null);
+  const answered: Outcome = { ok, httpStatus: response.status, transactionState: null, code: reply.code, message: null, detail: reply.detail };
+  const outcome: Outcome = { ...answered, message: ok ? null : reply.code && accountCodes[reply.code] ? accountCodes[reply.code] : isUncertain(answered) ? maybe : response.status === 403 ? sessionRefused : failed };
+  return { outcome, value: ok ? reply.value : null };
 }
 
 const accountUrl = (accountId: string) => `${BASE}/accounts/${encodeURIComponent(accountId)}`;

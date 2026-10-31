@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
 import { afterEach, beforeEach, test } from "node:test";
-import { patchAutoSpend, patchProfile, postPeriodReport, putStationBookmark } from "../lib/cyclocity.ts";
+import { patchAutoRenewal, patchAutoSpend, patchProfile, postPeriodReport, putStationBookmark } from "../lib/cyclocity.ts";
+import { postContactMail } from "../lib/contact-mail.ts";
 import { VelovError } from "../lib/auth-protocol.ts";
-import { normalizePhone, profileBodySchema, receiptBodySchema } from "../lib/models.ts";
+import { type Outcome, normalizePhone, profileBodySchema, receiptBodySchema } from "../lib/models.ts";
+import { isUncertain } from "../lib/outcome.ts";
 
 const realFetch = globalThis.fetch;
 beforeEach(() => { globalThis.fetch = (() => { throw new Error("network call in a unit test"); }) as typeof fetch; });
@@ -38,6 +40,23 @@ function headersOf(init: RequestInit) {
   assert.match(headers["User-Agent"], /^Mozilla\//);
   return headers;
 }
+
+test("a profile, favourite, auto-spend, renewal or contact write answered 200 with a page instead of data stays uncertain", async () => {
+  const page = { status: 200, text: "<html><body>Maintenance</body></html>" };
+  const runs: [string, (send: typeof fetch) => Promise<Outcome>][] = [
+    ["profile", (send) => patchProfile({ ...auth, body: { city: "Lyon" } }, send)],
+    ["favourite", (send) => putStationBookmark({ ...auth, stationNumber: 2002, on: true }, send)],
+    ["autoSpend", (send) => patchAutoSpend({ ...auth, autoSpend: false }, send)],
+    ["renewal", (send) => patchAutoRenewal({ ...auth, subscriptionId: "sub-1", autoRenewal: false }, send)],
+    ["contact", (send) => postContactMail({ ...auth, body: { complaintType: "TRIP", message: "Bonjour" } }, send)]
+  ];
+  for (const [name, run] of runs) {
+    const { calls, send } = recorder(page);
+    const outcome = await run(send);
+    assert.equal(calls.length, 1, name);
+    assert.deepEqual([outcome.ok, isUncertain(outcome)], [false, true], name);
+  }
+});
 
 test("autoSpend is a PATCH of the rewards with the app's media type and body, once", async () => {
   const { calls, send } = recorder({ status: 200, body: { balance: 6, autoSpend: false, total: 30 } });
