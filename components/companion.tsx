@@ -37,7 +37,6 @@ const mapPages: ReadonlySet<Page> = new Set(["overview", "stations"]);
 const skeletons: Record<Page, () => ReactNode> = { overview: OverviewSkeleton, trips: TripsSkeleton, stats: StatsSkeleton, points: PointsSkeleton, stations: StationsSkeleton, account: AccountSkeleton };
 const logoutSchema = z.object({ remoteLogout: z.boolean().optional() });
 const remoteLogoutUnconfirmed = "Déconnexion effectuée. Vélo’v ne l’a pas encore confirmée.";
-const GUEST_FAILED = "Impossible de continuer sans compte. Réessayez.";
 type State = { kind: "signedOut"; message: string | null } | { kind: "guest" } | { kind: "loading" } | { kind: "ready"; data: Dashboard } | ({ kind: "error" } & LoadError);
 
 function pageFromHash(): Page {
@@ -182,8 +181,7 @@ export function Companion({ start }: { start: StartMode }) {
     return () => window.removeEventListener("hashchange", changed);
   }, [start, loadDashboard, reloadStations, loadBookings]);
 
-  async function continueAsGuest() {
-    if (!await forgetting.forget()) { setState({ kind: "signedOut", message: GUEST_FAILED }); return; }
+  function continueAsGuest() {
     rememberGuest(true);
     setState({ kind: "guest" });
   }

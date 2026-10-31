@@ -34,10 +34,16 @@ test("guest mode opens only once the session cookies are gone, and a login waits
   answers[0](new Response(null, { status: 200 }));
   await afterBoth;
   assert.equal(await later, true);
-  const companion = source("components/companion.tsx");
-  const guest = /async function continueAsGuest\(\) \{[\s\S]*?\n  \}/.exec(companion)?.[0] ?? "";
-  assert.ok(guest.indexOf("if (!await forgetting.forget())") >= 0 && guest.indexOf("if (!await forgetting.forget())") < guest.indexOf("rememberGuest(true)"), "guest waits for the forget");
   const form = source("components/login.tsx");
+  const guest = /async function continueAsGuest\(\) \{[\s\S]*?\n  \}/.exec(form)?.[0] ?? "";
+  const steps = ["if (busy) return;", "setBusy(\"guest\");", "if (await forgetting.forget()) { onGuest(); return; }", "setError(GUEST_FAILED);", "setBusy(null);"].map((step) => guest.indexOf(step));
+  assert.ok(steps.every((at, index) => at >= 0 && (index === 0 || at > steps[index - 1])), "guest locks the login form until the forget answers");
+  assert.match(form, /onSubmit=\{submit\}/);
+  assert.match(form, /async function submit[^\n]*\n\s*event\.preventDefault\(\);\n\s*if \(busy\) return;/);
+  assert.equal(form.match(/disabled=\{busy !== null\}/g)?.length, 4, "both fields and both buttons are disabled while a login or a guest switch waits");
+  assert.match(form, /<Button type="submit" pending=\{busy === "login"\}/);
+  assert.match(form, /pending=\{busy === "guest"\} disabled=\{busy !== null\} onClick=\{continueAsGuest\}/);
+  assert.doesNotMatch(source("components/companion.tsx"), /forgetting\.forget\(\)\)|GUEST_FAILED/);
   assert.ok(form.indexOf("await forgetting.settled();") >= 0 && form.indexOf("await forgetting.settled();") < form.indexOf('fetch("/api/auth/login"'), "login waits for a pending forget");
 });
 

@@ -6,16 +6,18 @@ import { Button } from "./ui";
 import { loginError } from "@/lib/models";
 import { forgetting } from "@/lib/forget";
 
+const GUEST_FAILED = "Impossible de continuer sans compte. Réessayez.";
+
 export function Login({ onConnected, onGuest, notice = null }: { onConnected: () => void; onGuest: () => void; notice?: string | null }) {
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
-  const [pending, setPending] = useState(false);
+  const [busy, setBusy] = useState<"login" | "guest" | null>(null);
   const [error, setError] = useState(notice ?? "");
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (pending) return;
-    setPending(true);
+    if (busy) return;
+    setBusy("login");
     setError("");
     try {
       await forgetting.settled();
@@ -34,8 +36,17 @@ export function Login({ onConnected, onGuest, notice = null }: { onConnected: ()
     } catch {
       setError("Connexion impossible. Vérifiez votre connexion Internet.");
     } finally {
-      setPending(false);
+      setBusy(null);
     }
+  }
+
+  async function continueAsGuest() {
+    if (busy) return;
+    setBusy("guest");
+    setError("");
+    if (await forgetting.forget()) { onGuest(); return; }
+    setError(GUEST_FAILED);
+    setBusy(null);
   }
 
   return (
@@ -46,21 +57,21 @@ export function Login({ onConnected, onGuest, notice = null }: { onConnected: ()
           <input
             name="email" type="email" autoComplete="username" aria-label="Adresse e-mail"
             placeholder="Adresse e-mail" required maxLength={254}
-            value={email} onChange={(event) => setEmail(event.target.value)} disabled={pending}
+            value={email} onChange={(event) => setEmail(event.target.value)} disabled={busy !== null}
           />
           <input
             name="password" type="password" inputMode="numeric" autoComplete="current-password"
             aria-label="Code secret à 6 chiffres" placeholder="Code secret"
             pattern="[0-9]{6}" minLength={6} maxLength={6} required
             value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))}
-            disabled={pending}
+            disabled={busy !== null}
           />
-          <Button type="submit" pending={pending}>
+          <Button type="submit" pending={busy === "login"} disabled={busy !== null}>
             Se connecter
           </Button>
           {error ? <p className="form-error" role="alert">{error}</p> : null}
         </form>
-        <Button variant="ghost" className="login-guest" disabled={pending} onClick={onGuest}><MapPinIcon size={18} weight="light" aria-hidden="true"/>Continuer sans compte</Button>
+        <Button variant="ghost" className="login-guest" pending={busy === "guest"} disabled={busy !== null} onClick={continueAsGuest}><MapPinIcon size={18} weight="light" aria-hidden="true"/>Continuer sans compte</Button>
       </section>
     </main>
   );
