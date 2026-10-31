@@ -1,0 +1,12 @@
+export function createForgetter(send: () => Promise<Response>) {
+  let pending: Promise<boolean> = Promise.resolve(true);
+  return {
+    forget() {
+      pending = send().then((response) => response.ok, () => false);
+      return pending;
+    },
+    settled: () => pending
+  };
+}
+
+export const forgetting = createForgetter(() => fetch("/api/auth/forget", { method: "POST", signal: AbortSignal.timeout(10_000) }));

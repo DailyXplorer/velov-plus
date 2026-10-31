@@ -143,7 +143,7 @@ test("forgetting a session locally empties the three session cookies without cal
 test("continuing as a guest and every expiry forget the session cookies", () => {
   const source = readFileSync("components/companion.tsx", "utf8");
   const guest = /function continueAsGuest\(\) \{[\s\S]*?\n  \}/.exec(source)?.[0] ?? "";
-  assert.match(guest, /forgetSession\(\)/);
+  assert.match(guest, /forgetting\.forget\(\)/);
   assert.match(readFileSync("app/api/auth/forget/route.ts", "utf8"), /requireSameOrigin\(request\);[\s\S]*forgetSession\(\)/);
   assert.doesNotMatch(source, /Session expirée/);
   assert.equal(source.match(/kind: "signedOut", message: "Votre session a expiré/g)?.length, 1);

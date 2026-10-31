@@ -3,8 +3,31 @@ import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { FAVORITES_KEY, guestCookie, readFavorites, safeStorage, saveFavorites, startMode, toggleFavorite } from "../lib/guest.ts";
 import { dismissTrip, wasDismissed } from "../lib/trip-end.ts";
+import { createForgetter } from "../lib/forget.ts";
 
 const source = (path: string) => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
+
+test("guest mode opens only once the session cookies are gone, and a login waits for a forget still on its way", async () => {
+  for (const [reply, gone] of [[new Response(null, { status: 200 }), true], [new Response(null, { status: 500 }), false], [new TypeError("offline"), false]] as const) {
+    const forgetter = createForgetter(() => reply instanceof Response ? Promise.resolve(reply) : Promise.reject(reply));
+    assert.equal(await forgetter.forget(), gone);
+  }
+  let answer: (response: Response) => void = () => {};
+  const forgetter = createForgetter(() => new Promise<Response>((resolve) => { answer = resolve; }));
+  const order: string[] = [];
+  void forgetter.forget().then(() => order.push("forgotten"));
+  const login = forgetter.settled().then(() => order.push("login"));
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(order, []);
+  answer(new Response(null, { status: 200 }));
+  await login;
+  assert.deepEqual(order, ["forgotten", "login"]);
+  const companion = source("components/companion.tsx");
+  const guest = /async function continueAsGuest\(\) \{[\s\S]*?\n  \}/.exec(companion)?.[0] ?? "";
+  assert.ok(guest.indexOf("if (!await forgetting.forget())") >= 0 && guest.indexOf("if (!await forgetting.forget())") < guest.indexOf("rememberGuest(true)"), "guest waits for the forget");
+  const form = source("components/login.tsx");
+  assert.ok(form.indexOf("await forgetting.settled();") >= 0 && form.indexOf("await forgetting.settled();") < form.indexOf('fetch("/api/auth/login"'), "login waits for a pending forget");
+});
 
 test("guest mode reuses the signed-in layout and styles, with no rule of its own", () => {
   const guest = source("components/guest.tsx");

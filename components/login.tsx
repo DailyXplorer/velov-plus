@@ -4,6 +4,7 @@ import { useState, type FormEvent } from "react";
 import { MapPinIcon } from "./icons";
 import { Button } from "./ui";
 import { loginError } from "@/lib/models";
+import { forgetting } from "@/lib/forget";
 
 export function Login({ onConnected, onGuest, notice = null }: { onConnected: () => void; onGuest: () => void; notice?: string | null }) {
   const [email, setEmail] = useState("");
@@ -17,6 +18,7 @@ export function Login({ onConnected, onGuest, notice = null }: { onConnected: ()
     setPending(true);
     setError("");
     try {
+      await forgetting.settled();
       const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

@@ -10,6 +10,7 @@ import { createRefreshGate, createRevisionLoader, createThrottle } from "@/lib/r
 import { sessionGate } from "@/lib/session-gate";
 import { whenIdle } from "@/lib/idle";
 import { type StartMode, browserStorage, guestCookie } from "@/lib/guest";
+import { forgetting } from "@/lib/forget";
 import { AccountPage, AccountSkeleton, Overview as OverviewPage, OverviewSkeleton, PointsPage, PointsSkeleton, StationsPage as StationsMapPage, StationsSkeleton, TripsPage, TripsSkeleton } from "./dashboard";
 import { Button, LoadFailure, Modal } from "./ui";
 import { Login } from "./login";
@@ -36,6 +37,7 @@ const mapPages: ReadonlySet<Page> = new Set(["overview", "stations"]);
 const skeletons: Record<Page, () => ReactNode> = { overview: OverviewSkeleton, trips: TripsSkeleton, stats: StatsSkeleton, points: PointsSkeleton, stations: StationsSkeleton, account: AccountSkeleton };
 const logoutSchema = z.object({ remoteLogout: z.boolean().optional() });
 const remoteLogoutUnconfirmed = "Déconnexion effectuée. Vélo’v ne l’a pas encore confirmée.";
+const GUEST_FAILED = "Impossible de continuer sans compte. Réessayez.";
 type State = { kind: "signedOut"; message: string | null } | { kind: "guest" } | { kind: "loading" } | { kind: "ready"; data: Dashboard } | ({ kind: "error" } & LoadError);
 
 function pageFromHash(): Page {
@@ -49,7 +51,7 @@ function rememberGuest(on: boolean) {
   document.cookie = guestCookie(on, window.location.protocol === "https:");
 }
 function forgetSession() {
-  void fetch("/api/auth/forget", { method: "POST" }).catch(() => {});
+  void forgetting.forget();
 }
 function subscribeHash(changed: () => void) {
   window.addEventListener("hashchange", changed);
@@ -180,8 +182,8 @@ export function Companion({ start }: { start: StartMode }) {
     return () => window.removeEventListener("hashchange", changed);
   }, [start, loadDashboard, reloadStations, loadBookings]);
 
-  function continueAsGuest() {
-    forgetSession();
+  async function continueAsGuest() {
+    if (!await forgetting.forget()) { setState({ kind: "signedOut", message: GUEST_FAILED }); return; }
     rememberGuest(true);
     setState({ kind: "guest" });
   }
