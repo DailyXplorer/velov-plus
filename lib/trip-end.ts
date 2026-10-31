@@ -142,8 +142,11 @@ export function createDockWatch({ check, docked, started, visible, now = Date.no
   return {
     follow(tripId: string | null, bikeNumber: number | null = null) {
       const startedAt = watch.kind === "idle" ? now() : watch.startedAt;
-      if (tripId) watch = { kind: "riding", tripId, startedAt };
-      else if (watch.kind === "idle") watch = { kind: "unlocked", since: now(), startedAt, bikeNumber };
+      const fresh = bikeNumber !== null && !(watch.kind === "riding" && watch.tripId === tripId);
+      if (tripId) {
+        watch = { kind: "riding", tripId, startedAt };
+        if (fresh) started?.(tripId);
+      } else if (watch.kind === "idle") watch = { kind: "unlocked", since: now(), startedAt, bikeNumber };
       if (timer === null && !inFlight) schedule();
     },
     visibilityChanged() {

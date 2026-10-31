@@ -235,6 +235,18 @@ test("an unlocked watch reports the trip start exactly once, so Accueil reloads 
   assert.deepEqual(followed.started, [], "a ride already on screen is not reported again");
 });
 
+test("an unlock that already names its trip reports the start at once, so Accueil reloads for the ride", async () => {
+  const h = harness();
+  h.watch.follow("fresh", 20449);
+  assert.deepEqual(h.started, ["fresh"]);
+  h.watch.follow("fresh", 20449);
+  h.watch.follow("fresh");
+  await h.advance(WATCH_INTERVAL);
+  await h.answer(riding("fresh"));
+  assert.deepEqual(h.started, ["fresh"]);
+  assert.equal(h.checks, 1);
+});
+
 test("a ride that starts and docks while the page is hidden still ends with « Trajet terminé »", async () => {
   const h = harness();
   await h.setVisible(false);
