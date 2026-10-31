@@ -330,7 +330,7 @@ test("a sending entry restored after a reload re-renders once its two minutes pa
   assert.equal(operations.get("unlock:42")?.status, "uncertain");
 });
 
-test("an uncertain unlock or rating saved before the account keys still holds that bike and trip until it is checked", async () => {
+test("an uncertain unlock or rating saved before the account keys still holds that bike and trip, and no account key clears it", async () => {
   const storage = memoryStore();
   const digest = await accountDigest("person@example.com");
   const uncertain = { id: "", status: "uncertain", at: 0, keep: true, outcome: noAnswer("Le serveur ne répond pas."), meta: { bikeNumber: 20449 } };
@@ -342,9 +342,9 @@ test("an uncertain unlock or rating saved before the account keys still holds th
   assert.equal(tab.get(`unlock:${digest}:20450`), null);
   assert.equal(await runOnce(tab, `unlock:${digest}:20449`, route.post("/api/unlock", unlockBody)), "busy");
   assert.equal(route.calls.length, 0);
-  assert.equal(await tab.clear(`unlock:${digest}:20449`, ""), true);
-  assert.equal(tab.get(`unlock:${digest}:20449`), null);
-  assert.ok(!storage.getItem(OPERATIONS_KEY)?.includes("unlock:20449"));
+  assert.equal(await tab.clear(`unlock:${digest}:20449`, ""), false);
+  assert.equal(tab.get(`unlock:${digest}:20449`)?.status, "uncertain");
+  assert.ok(storage.getItem(OPERATIONS_KEY)?.includes("unlock:20449"));
 });
 
 test("logging out in one tab keeps a profile edit another tab is still sending", async () => {

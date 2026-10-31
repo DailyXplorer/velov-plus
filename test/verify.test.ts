@@ -54,12 +54,12 @@ test("F3: the profile counts as saved only when every sent field reads back, unc
 
 test("F3: the rating answer is an Outcome, so a timeout or 5xx is uncertain and a coded 4xx is a refusal", async () => {
   const replying = (status: number, body: unknown) => (async () => Response.json(body, { status })) as unknown as typeof fetch;
-  assert.equal((await sendStars("trip-1", 20449, 5, replying(200, { rated: true }))).ok, true);
-  assert.equal(isUncertain(await sendStars("trip-1", 20449, 5, replying(504, null))), true);
-  assert.equal(isUncertain(await sendStars("trip-1", 20449, 5, replying(503, { error: "Le service est momentanément indisponible.", code: "unavailable" }))), true);
-  assert.equal(isUncertain(await sendStars("trip-1", 20449, 5, replying(200, null))), true);
-  assert.equal(isUncertain(await sendStars("trip-1", 20449, 5, (async () => { throw new DOMException("timeout", "TimeoutError"); }) as typeof fetch)), true);
-  const refused = await sendStars("trip-1", 20449, 5, replying(400, { error: "Cette note n’est pas valide.", code: "invalid" }));
+  assert.equal((await sendStars("trip-1", 20449, 5, "a".repeat(64), replying(200, { rated: true }))).ok, true);
+  assert.equal(isUncertain(await sendStars("trip-1", 20449, 5, "a".repeat(64), replying(504, null))), true);
+  assert.equal(isUncertain(await sendStars("trip-1", 20449, 5, "a".repeat(64), replying(503, { error: "Le service est momentanément indisponible.", code: "unavailable" }))), true);
+  assert.equal(isUncertain(await sendStars("trip-1", 20449, 5, "a".repeat(64), replying(200, null))), true);
+  assert.equal(isUncertain(await sendStars("trip-1", 20449, 5, "a".repeat(64), (async () => { throw new DOMException("timeout", "TimeoutError"); }) as typeof fetch)), true);
+  const refused = await sendStars("trip-1", 20449, 5, "a".repeat(64), replying(400, { error: "Cette note n’est pas valide.", code: "invalid" }));
   assert.deepEqual([refused.ok, refused.httpStatus, refused.code, refused.message, isUncertain(refused)], [false, 400, "invalid", "Cette note n’est pas valide.", false]);
 });
 

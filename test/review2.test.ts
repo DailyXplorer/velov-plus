@@ -147,7 +147,7 @@ test("R1: no mutation follows a redirect, and an unexpected 3xx is uncertain", a
   const writes: [string, (send: typeof fetch) => Promise<Outcome>][] = [
     ["release", (send) => postRelease({ ...auth, subscriptionId: "sub-1", body: { stationNumber: 2002, standNumber: 12, bikeNumber: 20449 } }, send)],
     ["booking", async (send) => (await postBooking({ ...auth, body: bookingBody }, send)).outcome],
-    ["account", async (send) => (await accountCall("https://api.cyclocity.fr/contracts/lyon/accounts/acc-1/rewards", { method: "PATCH", headers: {} }, auth, "Échec.", send)).outcome],
+    ["account", async (send) => (await accountCall("https://api.cyclocity.fr/contracts/lyon/accounts/acc-1/rewards", { method: "PATCH", headers: {} }, auth, send, { failed: "Échec.", proves: () => true })).outcome],
     ["promo", (send) => postPromoCode(auth, send)],
     ["mail", (send) => postContactMail({ ...auth, body: { complaintType: "TRIP", message: "Bonjour" } }, send)]
   ];

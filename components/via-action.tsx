@@ -7,7 +7,8 @@ import { fullStations } from "@/lib/via-models";
 import { UNCERTAIN, isUncertain, networkFailure, routeFailure } from "@/lib/outcome";
 import { findPosition, formatDistance, haversine, reportLocationFailure, type Point } from "@/lib/geo";
 import { toaster } from "@/lib/toast";
-import { blockedMessage, runOnce } from "@/lib/operations";
+import { ACCOUNT_HEADER, blockedMessage, runOnce } from "@/lib/operations";
+import { sessionGate } from "@/lib/session-gate";
 import { operations, useAccountKey, useOperation, useSending } from "./operations";
 import { Button, Modal, SelectField } from "./ui";
 import { OnRedPill } from "./bike-actions";
@@ -40,13 +41,14 @@ export function ViaAction({ stations, account, tripId }: { stations: Station[]; 
       async (error: unknown) => { await reportLocationFailure(error); setLocating(false); });
   }
   async function confirm() {
-    if (!station || !operationKey) return;
+    if (!station || !operationKey || !digest) return;
     setFailure(null);
     setNotice(null);
+    const stamp = sessionGate.stamp();
     const outcome = await runOnce(operations, operationKey, async () => {
       const startedAt = Date.now();
       try {
-        const response = await fetch("/api/account/via", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ stationNumber: station.number }), signal: AbortSignal.timeout(40_000) });
+        const response = await fetch("/api/account/via", { method: "POST", headers: { "Content-Type": "application/json", [ACCOUNT_HEADER]: digest }, body: JSON.stringify({ stationNumber: station.number }), signal: AbortSignal.timeout(40_000) });
         const body: unknown = await response.json().catch(() => null);
         const parsed = outcomeSchema.safeParse(body);
         return parsed.success ? parsed.data : routeFailure(response.status, body, "Réponse inattendue. Les 15 minutes ont peut-\u2060être été ajoutées.");
@@ -54,6 +56,7 @@ export function ViaAction({ stations, account, tripId }: { stations: Station[]; 
         return networkFailure("Vélo’v ne répond pas. Les 15 minutes ont peut-\u2060être été ajoutées.", error, startedAt);
       }
     }, { keep: true, meta: { number: station.number, name: station.name } });
+    if (!stamp.live()) return;
     if (typeof outcome === "string") { const message = blockedMessage(outcome, operations.get(operationKey) !== null); if (message) setNotice(message); return; }
     if (!outcome.ok) { if (!isUncertain(outcome)) setFailure(outcome); return; }
     setOpen(false); setReviewing(false); setSelected(""); setQuery("");

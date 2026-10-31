@@ -8,7 +8,7 @@ import { type Draft, changesOf, countries, countryName, draftOf } from "@/lib/pr
 import { type Check, UNCERTAIN, UNVERIFIED, isUncertain, networkFailure, technicalLine } from "@/lib/outcome";
 import { journal } from "@/lib/journal";
 import { toaster } from "@/lib/toast";
-import { type Operation, blockedMessage, runOnce, settleHeld } from "@/lib/operations";
+import { ACCOUNT_HEADER, type Operation, blockedMessage, runOnce, settleHeld } from "@/lib/operations";
 import { sessionGate } from "@/lib/session-gate";
 import { autoSpendCheck, favoriteCheck, profileMeta, storedProfileCheck } from "@/lib/checks";
 import { readDashboard } from "./get-json";
@@ -19,11 +19,11 @@ const errorSchema = z.object({ error: z.string(), code: z.string().optional() })
 const failure = (httpStatus: number, code: string | null, message: string): Outcome => ({ ok: false, httpStatus, transactionState: null, code, message, detail: null });
 export const SOON = "Bientôt disponible";
 
-async function sendWrite(url: string, method: "POST" | "PATCH" | "DELETE", body?: unknown): Promise<{ outcome: Outcome; data: unknown }> {
+async function sendWrite(url: string, method: "POST" | "PATCH" | "DELETE", account: string | null, body?: unknown): Promise<{ outcome: Outcome; data: unknown }> {
   let response: Response;
   const startedAt = Date.now();
   try {
-    response = await fetch(url, { method, headers: body === undefined ? undefined : { "Content-Type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body), signal: AbortSignal.timeout(40_000) });
+    response = await fetch(url, { method, headers: { ...(account ? { [ACCOUNT_HEADER]: account } : {}), ...(body === undefined ? {} : { "Content-Type": "application/json" }) }, body: body === undefined ? undefined : JSON.stringify(body), signal: AbortSignal.timeout(40_000) });
   } catch (error) {
     return { outcome: networkFailure("Le serveur ne répond pas. La modification a peut-\u2060être été prise en compte.", error, startedAt), data: null };
   }
@@ -38,7 +38,7 @@ async function sendWrite(url: string, method: "POST" | "PATCH" | "DELETE", body?
 
 type Step = { kind: "confirm" } | { kind: "failed"; outcome: Outcome } | { kind: "notice"; message: string };
 
-function ConfirmDialog({ title, children, operationKey, meta, run, check, onDone, onClose }: { title: string; children?: ReactNode; operationKey: string | null; meta: Operation["meta"]; run: () => Promise<Outcome>; check: () => Promise<Check>; onDone: () => void; onClose: () => void }) {
+function ConfirmDialog({ title, children, operationKey, meta, run, check, onDone, onClose }: { title: string; children?: ReactNode; operationKey: string | null; meta: Operation["meta"]; run: () => Promise<Outcome>; check: (held: Operation) => Promise<Check>; onDone: () => void; onClose: () => void }) {
   const titleId = useId();
   const operation = useOperation(operationKey);
   const sendingHere = useSending();
@@ -111,9 +111,9 @@ export function AutoSpendSetting({ value, account, onChanged }: { value: boolean
       {asking ? (
         <ConfirmDialog title={next ? "Activer l’utilisation automatique ?" : "Désactiver l’utilisation automatique ?"} onClose={() => setAsking(false)}
           operationKey={operationKey} meta={{ wanted: next ? 1 : 0 }}
-          onDone={() => onChanged(confirmed.current ?? next)} check={async () => autoSpendCheck(await readDashboard(), next)}
+          onDone={() => onChanged(confirmed.current ?? next)} check={async (held) => autoSpendCheck(await readDashboard(digest), held.meta.wanted === 1)}
           run={async () => {
-            const { outcome, data } = await sendWrite("/api/account/rewards", "PATCH", { autoSpend: next });
+            const { outcome, data } = await sendWrite("/api/account/rewards", "PATCH", digest, { autoSpend: next });
             const result = autoSpendResultSchema.safeParse(data);
             confirmed.current = outcome.ok && result.success ? result.data.autoSpend : null;
             return outcome;
@@ -137,8 +137,8 @@ export function FavoriteButton({ station, favorite, account, onChanged }: { stat
       {asking ? (
         <ConfirmDialog title={next ? "Ajouter aux favoris ?" : "Retirer des favoris ?"} onClose={() => setAsking(false)}
           operationKey={operationKey} meta={{ wanted: next ? 1 : 0 }}
-          onDone={() => onChanged(station.number, next)} check={async () => favoriteCheck(await readDashboard(), station.number, next)}
-          run={async () => (await sendWrite(`/api/account/favorites/${station.number}`, next ? "POST" : "DELETE")).outcome}/>
+          onDone={() => onChanged(station.number, next)} check={async (held) => favoriteCheck(await readDashboard(digest), station.number, held.meta.wanted === 1)}
+          run={async () => (await sendWrite(`/api/account/favorites/${station.number}`, next ? "POST" : "DELETE", digest)).outcome}/>
       ) : null}
     </>
   );
@@ -265,8 +265,8 @@ export function ProfileCoordinates({ profile, account, onSaved }: { profile: Pro
       )}
       {asking ? (
         <ConfirmDialog title="Enregistrer les modifications ?" onClose={() => setAsking(null)}
-          onDone={() => { setDraft(null); onSaved(); }} check={async () => storedProfileCheck((await readDashboard()).profile, asking.meta)} operationKey={operationKey} meta={asking.meta}
-          run={async () => asking.body ? (await sendWrite("/api/account/profile", "PATCH", asking.body)).outcome : failure(0, "local.profile.redo", "Modifiez de nouveau vos coordonnées.")}/>
+          onDone={() => { setDraft(null); onSaved(); }} check={async (held) => storedProfileCheck((await readDashboard(digest)).profile, held.meta)} operationKey={operationKey} meta={asking.meta}
+          run={async () => asking.body ? (await sendWrite("/api/account/profile", "PATCH", digest, asking.body)).outcome : failure(0, "local.profile.redo", "Modifiez de nouveau vos coordonnées.")}/>
       ) : null}
     </>
   );

@@ -27,7 +27,7 @@ test("stars map to Vélo’v’s three levels: 5-4 recommend, 3-2 rate 60, 1 rat
   };
   for (const stars of [1, 2, 3, 4, 5] as const) {
     const { calls, send } = recorder(200);
-    assert.equal((await sendStars("trip-1", 20449, stars, send)).ok, true);
+    assert.equal((await sendStars("trip-1", 20449, stars, "a".repeat(64), send)).ok, true);
     assert.equal(calls.length, 1);
     assert.equal(calls[0].url, "/api/trips/trip-1/rate");
     assert.equal(calls[0].init.method, "POST");
@@ -40,14 +40,14 @@ test("stars map to Vélo’v’s three levels: 5-4 recommend, 3-2 rate 60, 1 rat
 
 test("a failed note is sent once and comes back with its message, status and code", async () => {
   const { calls, send } = recorder(502, { error: "Vélo’v n’a pas confirmé la note.", code: "unavailable" });
-  const failed = await sendStars("trip-1", 20449, 1, send);
+  const failed = await sendStars("trip-1", 20449, 1, "a".repeat(64), send);
   assert.deepEqual([failed.ok, failed.httpStatus, failed.code, failed.message], [false, 502, "unavailable", "Vélo’v n’a pas confirmé la note."]);
   assert.equal(isUncertain(failed), true);
   assert.equal(calls.length, 1);
   const offline = (async () => { throw new TypeError("offline"); }) as typeof fetch;
-  const lost = await sendStars("trip-1", 20449, 5, offline);
+  const lost = await sendStars("trip-1", 20449, 5, "a".repeat(64), offline);
   assert.deepEqual([lost.ok, lost.httpStatus, lost.message, isUncertain(lost)], [false, 0, "Vélo’v ne répond pas. La note a peut-\u2060être été enregistrée.", true]);
-  const silent = await sendStars("trip-1", 20449, 5, (async () => new Response("<html>", { status: 503 })) as typeof fetch);
+  const silent = await sendStars("trip-1", 20449, 5, "a".repeat(64), (async () => new Response("<html>", { status: 503 })) as typeof fetch);
   assert.deepEqual([silent.message, isUncertain(silent)], ["Vélo’v ne répond pas. La note a peut-\u2060être été enregistrée.", true]);
   assert.doesNotMatch(String(silent.message), /Réessayez|pas pu être envoyée/);
 });
@@ -366,7 +366,7 @@ test("R1: a rating is sent once per trip, even when the sheet is reopened during
   const answers: ((response: Response) => void)[] = [];
   const posts: string[] = [];
   const send = ((url: string) => { posts.push(url); return new Promise<Response>((resolve) => answers.push(resolve)); }) as unknown as typeof fetch;
-  const rate = () => runOnce(tab, "rate:trip-1", () => sendStars("trip-1", 20449, 5, send), { keep: true, meta: { stars: 5 } });
+  const rate = () => runOnce(tab, "rate:trip-1", () => sendStars("trip-1", 20449, 5, "a".repeat(64), send), { keep: true, meta: { stars: 5 } });
   const first = rate();
   assert.equal(await rate(), "busy", "sheet reopened while sending");
   answers.shift()!(Response.json(null, { status: 504 }));
@@ -383,7 +383,7 @@ test("R1: a rating is sent once per trip, even when the sheet is reopened during
   const sheet = readFileSync(new URL("../components/trip-sheet.tsx", import.meta.url), "utf8");
   assert.doesNotMatch(sheet, /inFlight/);
   assert.match(sheet, /const operation = useOperation\(rateKey\);/);
-  assert.match(sheet, /runOnce\(operations, rateKey, \(\) => sendStars\(trip\.id, bikeNumber, picked\), \{ keep: true, meta: \{ stars: picked \} \}\)/);
+  assert.match(sheet, /runOnce\(operations, rateKey, \(\) => sendStars\(trip\.id, bikeNumber, picked, digest\), \{ keep: true, meta: \{ stars: picked \} \}\)/);
   assert.match(sheet, /\{operation \? <>[^\n]*>Vérifier<\/Button><\/> : <>[\s\S]*?Envoyer<\/Button>\n\s+<\/>\}/);
   assert.equal(sheet.match(/>Envoyer<\/Button>/g)?.length, 1);
   assert.match(sheet, /<Modal titleId="trip-detail-title" onClose=\{sending \? \(\) => \{\} : onClose\}>/);
@@ -405,7 +405,7 @@ test("R2: a rating the browser gave up on stays held while Vélo’v may still r
     const tab = createOperations(() => storage, () => clock);
     const posts: string[] = [];
     const send = (async (url: string) => { posts.push(url); return answer(); }) as unknown as typeof fetch;
-    const rate = () => runOnce(tab, "rate:trip-1", () => sendStars("trip-1", 20449, 4, send), { keep: true, meta: { stars: 4 } });
+    const rate = () => runOnce(tab, "rate:trip-1", () => sendStars("trip-1", 20449, 4, "a".repeat(64), send), { keep: true, meta: { stars: 4 } });
     const outcome = await rate();
     assert.ok(typeof outcome !== "string" && isUncertain(outcome));
     const notYetRated = async () => "unchanged" as const;

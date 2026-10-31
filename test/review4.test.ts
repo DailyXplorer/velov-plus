@@ -131,7 +131,10 @@ test("every account write names the account the page shows, and its route refuse
   for (const file of ["components/account-actions.tsx", "components/auto-renewal.tsx", "components/contact-support.tsx", "components/invite-friend.tsx", "components/via-action.tsx", "lib/trip-end.ts"]) {
     assert.match(source(file), /\[ACCOUNT_HEADER\]: /, file);
   }
-  assert.match(source("components/get-json.ts"), /export function readDashboard\(account\?: string\) \{\n  return accountJson\("\/api\/dashboard", dashboardSchema, "Votre compte est momentanément indisponible\.", account \? \{ \[ACCOUNT_HEADER\]: account \} : undefined\);/);
+  assert.match(source("components/get-json.ts"), /export function readDashboard\(account\?: string \| null\) \{\n  return accountJson\("\/api\/dashboard", dashboardSchema, "Votre compte est momentanément indisponible\.", account \? \{ \[ACCOUNT_HEADER\]: account \} : undefined\);/);
+  const companion = source("components/companion.tsx");
+  assert.match(companion, /getJson\("\/api\/bookings", z\.array\(bookingSchema\), "", stamp\.signal, named\(\)\)/, "the bookings reread after a booking");
+  assert.match(companion, /getJson\("\/api\/trips\/current", tripCheckSchema, "", stamp\.signal, named\(\)\)/, "the dock watch after an unlock");
   assert.match(source("components/invite-friend.tsx"), /await accountJson\(`\/api\/account\/rewards\?since=\$\{held\.at - DEBIT_SLACK\}`, rewardsHistorySchema, "[^"]+", \{ \[ACCOUNT_HEADER\]: digest \}\)/);
 });
 

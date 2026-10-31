@@ -59,6 +59,9 @@ export function normalizeTrip(value: z.infer<typeof rawTrip>, stations: Map<numb
   };
 }
 
+const rateEcho = z.object({ bikeId: z.number(), recommended: z.boolean(), rating: z.number().nullable() });
+export const UNCONFIRMED = "local.unconfirmed";
+
 export async function postRating({ accountId, tripId, body, token, identity }: { accountId: string; tripId: string; body: RateBody; token: string; identity: string }, send: typeof fetch = sendWrite): Promise<Outcome> {
   let response: Response;
   try {
@@ -72,10 +75,10 @@ export async function postRating({ accountId, tripId, body, token, identity }: {
     return { ...refusal("network", MAYBE_SENT.rating), detail: error instanceof Error ? error.name : null };
   }
   const reply = await answer(response);
-  const readable = reply.value !== null || reply.detail === null;
-  if (response.ok && readable) return { ok: true, httpStatus: response.status, transactionState: null, code: null, message: null, detail: null };
+  const echo = rateEcho.safeParse(reply.value);
+  if (response.ok && echo.success && echo.data.bikeId === body.bikeNumber && echo.data.recommended === body.recommended && echo.data.rating === body.rating) return { ok: true, httpStatus: response.status, transactionState: null, code: null, message: null, detail: null };
   const refused = response.status >= 400 && response.status < 500 && reply.code !== null;
-  return { ok: false, httpStatus: response.status, transactionState: null, code: reply.code, message: refused ? "Vélo’v a refusé cette note." : "Vélo’v n’a pas confirmé la note. Elle a peut-\u2060être été enregistrée.", detail: reply.detail };
+  return { ok: false, httpStatus: response.status, transactionState: null, code: reply.code ?? (response.ok ? UNCONFIRMED : null), message: refused ? "Vélo’v a refusé cette note." : "Vélo’v n’a pas confirmé la note. Elle a peut-\u2060être été enregistrée.", detail: reply.detail };
 }
 
 const releaseCodes: Record<string, string> = {
@@ -129,7 +132,7 @@ async function answer(response: Response) {
   let value: unknown = null;
   try { value = JSON.parse(text); } catch {}
   const body = errorBody.parse(value);
-  return { value, code: body.code ?? response.headers.get("Bloot-Error-Code"), detail: body.message ?? (value === null && text ? text.slice(0, 160) : null), transactionState: body.transactionState ?? null };
+  return { text, value, code: body.code ?? response.headers.get("Bloot-Error-Code"), detail: body.message ?? (value === null && text ? text.slice(0, 160) : null), transactionState: body.transactionState ?? null };
 }
 
 export function releaseOutcome(httpStatus: number, reply: { code: string | null; detail: string | null; transactionState: string | null }): Outcome {
@@ -190,7 +193,11 @@ const accountCodes: Record<string, string> = {
   "accounts.exception.notacceptable.account.phone.invalid": "Ce numéro de téléphone n’est pas valide."
 };
 
-export async function accountCall(url: string, init: { method: "POST" | "PATCH" | "DELETE"; headers: Record<string, string>; body?: BodyInit }, auth: Auth, failed: string, send: typeof fetch, maybe: string = MAYBE_SENT.change) {
+export type Answer = { status: number; text: string; value: unknown };
+export const UNDOCUMENTED = (): boolean => false;
+type Expect = { failed: string; proves: (answer: Answer) => boolean; maybe?: string; unconfirmed?: string };
+
+export async function accountCall(url: string, init: { method: "POST" | "PATCH" | "DELETE"; headers: Record<string, string>; body?: BodyInit }, auth: Auth, send: typeof fetch, { failed, proves, maybe = MAYBE_SENT.change, unconfirmed = maybe }: Expect) {
   let response: Response;
   try {
     response = await send(url, { ...init, headers: { Authorization: `Taknv1 ${auth.token}`, Identity: auth.identity, ...init.headers, "User-Agent": BROWSER_AGENT }, redirect: "manual", cache: "no-store", signal: AbortSignal.timeout(15_000) });
@@ -198,29 +205,36 @@ export async function accountCall(url: string, init: { method: "POST" | "PATCH" 
     return { outcome: { ...refusal("network", maybe), detail: error instanceof Error ? error.name : null }, value: null };
   }
   const reply = await answer(response);
-  const ok = response.ok && (reply.value !== null || reply.detail === null);
-  const answered: Outcome = { ok, httpStatus: response.status, transactionState: null, code: reply.code, message: null, detail: reply.detail };
-  const outcome: Outcome = { ...answered, message: ok ? null : reply.code && accountCodes[reply.code] ? accountCodes[reply.code] : isUncertain(answered) ? maybe : response.status === 403 ? sessionRefused : failed };
-  return { outcome, value: ok ? reply.value : null };
+  const ok = response.ok && proves({ status: response.status, text: reply.text, value: reply.value });
+  const unproven = response.ok && !ok;
+  const answered: Outcome = { ok, httpStatus: response.status, transactionState: null, code: reply.code ?? (unproven ? UNCONFIRMED : null), message: null, detail: reply.detail };
+  const outcome: Outcome = { ...answered, message: ok ? null : unproven ? unconfirmed : reply.code && accountCodes[reply.code] ? accountCodes[reply.code] : isUncertain(answered) ? maybe : response.status === 403 ? sessionRefused : failed };
+  return { outcome, value: response.ok ? reply.value : null };
 }
 
 const accountUrl = (accountId: string) => `${BASE}/accounts/${encodeURIComponent(accountId)}`;
 
 export async function patchAutoSpend({ autoSpend, ...auth }: Auth & { autoSpend: boolean }, send: typeof fetch = sendWrite): Promise<AutoSpendResult> {
-  const { outcome, value } = await accountCall(`${accountUrl(auth.accountId)}/rewards`, { method: "PATCH", headers: { "Content-Type": "application/vnd.rewards.v5+json" }, body: JSON.stringify({ autoSpend }) }, auth, "Vélo’v n’a pas enregistré ce réglage.", send);
-  const answered = z.object({ autoSpend: z.boolean() }).safeParse(value);
-  return { ...outcome, autoSpend: answered.success ? answered.data.autoSpend : outcome.ok ? autoSpend : null };
+  const { outcome } = await accountCall(`${accountUrl(auth.accountId)}/rewards`, { method: "PATCH", headers: { "Content-Type": "application/vnd.rewards.v5+json" }, body: JSON.stringify({ autoSpend }) }, auth, send, {
+    failed: "Vélo’v n’a pas enregistré ce réglage.", proves: ({ value }) => z.object({ autoSpend: z.literal(autoSpend) }).safeParse(value).success
+  });
+  return { ...outcome, autoSpend: outcome.ok ? autoSpend : null };
 }
 
 export async function putStationBookmark({ stationNumber, on, ...auth }: Auth & { stationNumber: number; on: boolean }, send: typeof fetch = sendWrite): Promise<Outcome> {
-  const { outcome } = await accountCall(`${accountUrl(auth.accountId)}/stationbookmarks/${stationNumber}/`, { method: on ? "POST" : "DELETE", headers: { Accept: "application/vnd.account.v4+json" } }, auth, on ? "Vélo’v n’a pas ajouté cette station aux favoris." : "Vélo’v n’a pas retiré cette station des favoris.", send);
+  const { outcome } = await accountCall(`${accountUrl(auth.accountId)}/stationbookmarks/${stationNumber}/`, { method: on ? "POST" : "DELETE", headers: { Accept: "application/vnd.account.v4+json" } }, auth, send, {
+    failed: on ? "Vélo’v n’a pas ajouté cette station aux favoris." : "Vélo’v n’a pas retiré cette station des favoris.",
+    proves: on ? ({ value }) => value !== null && String(value) === String(stationNumber) : ({ status, text }) => status === 204 && text === ""
+  });
   return outcome;
 }
 
 const report = z.object({ filename: lenient(z.string()), translations: z.object({ content: z.string().min(1) }) });
 
 export async function postPeriodReport({ subscriptionId, periodId, ...auth }: Auth & { subscriptionId: string; periodId: string }, send: typeof fetch = sendWrite): Promise<{ outcome: Outcome; pdf: { filename: string; bytes: Buffer } | null }> {
-  const { outcome, value } = await accountCall(`${accountUrl(auth.accountId)}/subscriptions/${encodeURIComponent(subscriptionId)}/periods/${encodeURIComponent(periodId)}/reports`, { method: "POST", headers: { Accept: "application/json" } }, auth, "Ce reçu n’est pas disponible.", send, "Ce reçu n’est pas disponible.");
+  const { outcome, value } = await accountCall(`${accountUrl(auth.accountId)}/subscriptions/${encodeURIComponent(subscriptionId)}/periods/${encodeURIComponent(periodId)}/reports`, { method: "POST", headers: { Accept: "application/json" } }, auth, send, {
+    failed: "Ce reçu n’est pas disponible.", maybe: "Ce reçu n’est pas disponible.", proves: ({ value }) => report.safeParse(value).success
+  });
   if (!outcome.ok) return { outcome, pdf: null };
   const parsed = report.safeParse(value);
   const bytes = parsed.success ? Buffer.from(parsed.data.translations.content, "base64") : null;
@@ -230,7 +244,9 @@ export async function postPeriodReport({ subscriptionId, periodId, ...auth }: Au
 
 export async function patchProfile({ body, ...auth }: Auth & { body: ProfileBody }, send: typeof fetch = sendWrite): Promise<Outcome> {
   const ordered = { firstName: body.firstName, lastName: body.lastName, country: body.country, zipCode: body.zipCode, city: body.city, phoneNumber: body.phoneNumber, address: body.address };
-  const { outcome } = await accountCall(accountUrl(auth.accountId), { method: "PATCH", headers: { "Content-Type": "application/vnd.account.v4+json" }, body: JSON.stringify(ordered) }, auth, "Vélo’v n’a pas enregistré ces coordonnées.", send);
+  const { outcome } = await accountCall(accountUrl(auth.accountId), { method: "PATCH", headers: { "Content-Type": "application/vnd.account.v4+json" }, body: JSON.stringify(ordered) }, auth, send, {
+    failed: "Vélo’v n’a pas enregistré ces coordonnées.", proves: ({ value }) => z.object({ id: z.literal(auth.accountId) }).safeParse(value).success
+  });
   const renamed = body.firstName !== undefined || body.lastName !== undefined;
   return renamed && !isUncertain(outcome) && outcome.httpStatus >= 400 && outcome.httpStatus < 500 ? { ...outcome, message: "Vélo’v n’a pas accepté ce changement de nom." } : outcome;
 }
@@ -239,17 +255,19 @@ export async function patchProfile({ body, ...auth }: Auth & { body: ProfileBody
 export async function patchAutoRenewal({ subscriptionId, autoRenewal, ...auth }: Auth & { subscriptionId: string; autoRenewal: boolean }, send: typeof fetch = sendWrite): Promise<Outcome> {
   const { outcome } = await accountCall(`${accountUrl(auth.accountId)}/subscriptions/${encodeURIComponent(subscriptionId)}`, {
     method: "PATCH", headers: { "Content-Type": SUBSCRIPTION_MEDIA_TYPE }, body: JSON.stringify({ [AUTO_RENEWAL_FIELD]: autoRenewal })
-  }, auth, "Vélo’v n’a pas enregistré le renouvellement automatique.", send);
+  }, auth, send, { failed: "Vélo’v n’a pas enregistré le renouvellement automatique.", proves: UNDOCUMENTED });
   return outcome;
 }
+
+const viaReply = z.union([z.string(), z.object({ [VIA_STATE_FIELD]: z.string() }).transform((reply) => reply[VIA_STATE_FIELD])]);
+const viaState = (value: unknown) => viaReply.safeParse(value).data ?? null;
 
 export async function postVia({ subscriptionId, stationId, ...auth }: Auth & { subscriptionId: string; stationId: string | number }, send: typeof fetch = sendWrite): Promise<Outcome> {
   const { outcome, value } = await accountCall(`${accountUrl(auth.accountId)}/subscriptions/${encodeURIComponent(subscriptionId)}/via`, {
     method: "POST", headers: { "Content-Type": VIA_MEDIA_TYPE }, body: JSON.stringify({ [VIA_STATION_FIELD]: stationId })
-  }, auth, "Les 15 minutes supplémentaires n’ont pas été accordées.", send, MAYBE_SENT.via);
-  if (!outcome.ok) return outcome;
-  const parsed = z.union([z.string(), z.object({ [VIA_STATE_FIELD]: z.string() }).transform((reply) => reply[VIA_STATE_FIELD])]).safeParse(value);
-  const transactionState = parsed.success ? parsed.data : null;
-  const ok = transactionState === VIA_SUCCESS_STATE;
-  return { ...outcome, ok, transactionState, message: ok ? null : "Vélo’v n’a pas confirmé les minutes supplémentaires. Les 15 minutes ont peut-\u2060être été ajoutées." };
+  }, auth, send, {
+    failed: "Les 15 minutes supplémentaires n’ont pas été accordées.", maybe: MAYBE_SENT.via, proves: ({ value }) => viaState(value) === VIA_SUCCESS_STATE,
+    unconfirmed: "Vélo’v n’a pas confirmé les minutes supplémentaires. Les 15 minutes ont peut-\u2060être été ajoutées."
+  });
+  return outcome.httpStatus >= 200 && outcome.httpStatus < 300 ? { ...outcome, transactionState: viaState(value) } : outcome;
 }

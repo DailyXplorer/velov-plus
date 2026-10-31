@@ -61,9 +61,9 @@ export function createOperations(storage: () => Store | null, now: () => number 
   function stored(key: string) {
     return saved()?.[key] ?? memory.get(key);
   }
-  function holder(key: string): string {
-    const legacy = unkeyed(key);
-    return stored(key) === undefined && legacy !== null && stored(legacy) !== undefined ? legacy : key;
+  function legacy(key: string) {
+    const old = unkeyed(key);
+    return old === null ? undefined : stored(old);
   }
   function changed() {
     version += 1;
@@ -99,7 +99,7 @@ export function createOperations(storage: () => Store | null, now: () => number 
   }
 
   function get(key: string): Operation | null {
-    const entry = live(stored(holder(key)));
+    const entry = live(stored(key) ?? legacy(key));
     const id = running.get(key);
     if (id !== undefined && entry?.status !== "sending") return { id, status: "sending", at: now(), keep: false, outcome: null, meta: {} };
     return entry;
@@ -113,6 +113,7 @@ export function createOperations(storage: () => Store | null, now: () => number 
   watchSending();
   return {
     get, busy,
+    owns: (key: string) => running.has(key) || stored(key) !== undefined,
     sending: () => running.size > 0,
     version: () => version,
     changed,
@@ -156,10 +157,9 @@ export function createOperations(storage: () => Store | null, now: () => number 
     async clear(key: string, id: string): Promise<boolean> {
       if (running.has(key)) return false;
       const cleared = await locked(() => {
-        const target = holder(key);
-        if (stored(target)?.id !== id) return false;
-        write(target, null, false);
-        return stored(target) === undefined;
+        if (stored(key)?.id !== id) return false;
+        write(key, null, false);
+        return stored(key) === undefined;
       }).catch(() => false);
       changed();
       return cleared;
@@ -187,6 +187,7 @@ export async function runOnce<T extends Outcome>(operations: Operations, key: st
 export async function settleHeld(operations: Operations, key: string, check: (held: Operation) => Promise<Check>, now: () => number = Date.now): Promise<Settled | null> {
   const held = operations.get(key);
   if (held?.status !== "uncertain") return null;
+  if (!operations.owns(key)) return { kind: "uncertain", outcome: held.outcome ?? noAnswer(LOST) };
   const settled = await settle(held.outcome ?? noAnswer(LOST), () => check(held), held.at, now);
   if (settled.kind !== "uncertain") await operations.clear(key, held.id);
   return settled;

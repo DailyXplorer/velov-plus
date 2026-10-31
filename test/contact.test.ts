@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { beforeEach, afterEach, test } from "node:test";
 import { postContactMail } from "../lib/contact-mail.ts";
+import { isUncertain } from "../lib/outcome.ts";
 import { contactBodySchema, contactMessage } from "../lib/contact-models.ts";
 import { readJsonBody } from "../lib/auth-protocol.ts";
 
@@ -19,10 +20,10 @@ function recorder(status: number | Error, reply: unknown = {}) {
   return { calls, send };
 }
 
-test("mail uses one multipart POST with documented headers, fields and the selected trip token", async () => {
+test("mail uses one multipart POST with documented headers, fields and the selected trip token, and its undocumented 2xx stays uncertain", async () => {
   const { calls, send } = recorder(204);
   const outcome = await postContactMail({ ...auth, body }, send);
-  assert.equal(outcome.ok, true);
+  assert.deepEqual([outcome.ok, isUncertain(outcome)], [false, true]);
   assert.equal(calls.length, 1);
   assert.equal(calls[0].url, "https://api.cyclocity.fr/contracts/lyon/accounts/account%2Fid/mail");
   const init = calls[0].init;

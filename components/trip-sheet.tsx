@@ -9,6 +9,7 @@ import { browserStorage } from "@/lib/guest";
 import { UNCERTAIN, isUncertain } from "@/lib/outcome";
 import { ratingCheck } from "@/lib/checks";
 import { blockedMessage, runOnce, settleHeld } from "@/lib/operations";
+import { sessionGate } from "@/lib/session-gate";
 import { readDashboard } from "./get-json";
 import { operations, useAccountKey, useOperation, useSending } from "./operations";
 import { BookingsContext } from "./bike-actions";
@@ -40,14 +41,19 @@ function Stop({ label, station, stand }: { label: string; station: string | null
 
 const starNumbers: Stars[] = [1, 2, 3, 4, 5];
 
-function useRateKey(tripId: string) {
+function useDigest() {
   const email = useContext(BookingsContext)?.email ?? null;
   const accountKey = useAccountKey(email ?? "");
-  const digest = email ? accountKey : null;
+  return email ? accountKey : null;
+}
+
+function useRateKey(tripId: string) {
+  const digest = useDigest();
   return digest ? `rate:${digest}:${tripId}` : null;
 }
 
 function RateBike({ trip, bikeNumber, onLater, onRated }: { trip: Trip; bikeNumber: number; onLater: () => void; onRated: () => void }) {
+  const digest = useDigest();
   const rateKey = useRateKey(trip.id);
   const operation = useOperation(rateKey);
   const sendingHere = useSending();
@@ -64,8 +70,10 @@ function RateBike({ trip, bikeNumber, onLater, onRated }: { trip: Trip; bikeNumb
   async function submit(picked: Stars) {
     setRefused(null);
     setNotice(null);
-    if (!rateKey) return;
-    const outcome = await runOnce(operations, rateKey, () => sendStars(trip.id, bikeNumber, picked), { keep: true, meta: { stars: picked } });
+    if (!rateKey || !digest) return;
+    const stamp = sessionGate.stamp();
+    const outcome = await runOnce(operations, rateKey, () => sendStars(trip.id, bikeNumber, picked, digest), { keep: true, meta: { stars: picked } });
+    if (!stamp.live()) return;
     if (typeof outcome === "string") { const message = blockedMessage(outcome, operations.get(rateKey) !== null); if (message) setNotice(message); return; }
     if (outcome.ok) return rated();
     if (!isUncertain(outcome)) return setRefused(outcome);
@@ -80,9 +88,11 @@ function RateBike({ trip, bikeNumber, onLater, onRated }: { trip: Trip; bikeNumb
 
   async function verify() {
     if (!rateKey) return;
+    const stamp = sessionGate.stamp();
     setChecking(true);
-    const settled = await settleHeld(operations, rateKey, async () => ratingCheck(await readDashboard(), trip.id));
+    const settled = await settleHeld(operations, rateKey, async () => ratingCheck(await readDashboard(digest), trip.id));
     setChecking(false);
+    if (!stamp.live()) return;
     if (settled?.kind === "done") rated();
     else if (settled?.kind === "refused") setRefused(settled.outcome);
   }

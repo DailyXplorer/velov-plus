@@ -21,7 +21,8 @@ import { ApiError, getJson, loadError } from "./get-json";
 import { REFRESH_FAILED, toaster } from "@/lib/toast";
 import { TripEndedSheet } from "./trip-sheet";
 import { useStations } from "./use-stations";
-import { operations, useSending } from "./operations";
+import { operations, useAccountKey, useSending } from "./operations";
+import { ACCOUNT_HEADER } from "@/lib/operations";
 
 const navigation = [
   { id: "overview", label: "Vue d’ensemble", mobile: "Accueil", icon: HouseIcon },
@@ -90,9 +91,11 @@ export function Companion({ start }: { start: StartMode }) {
     if (ready) return whenIdle(() => setKept(new Set(mapPages)));
   }, [ready]);
 
+  const shownAccount = useRef<string | null>(null);
+  const named = () => shownAccount.current ? { [ACCOUNT_HEADER]: shownAccount.current } : undefined;
   const [loadBookings] = useState(() => createThrottle(async () => {
     const stamp = session.current.stamp();
-    const list = await getJson("/api/bookings", z.array(bookingSchema), "", stamp.signal);
+    const list = await getJson("/api/bookings", z.array(bookingSchema), "", stamp.signal, named());
     if (stamp.live()) setBookings(list);
   }));
   const expire = useCallback(() => {
@@ -104,6 +107,8 @@ export function Companion({ start }: { start: StartMode }) {
     setState({ kind: "signedOut", message: "Votre session a expiré. Reconnectez-vous." });
   }, []);
   const email = state.kind === "ready" ? state.data.profile.email : null;
+  const emailKey = useAccountKey(email ?? "");
+  useEffect(() => { shownAccount.current = email ? emailKey : null; }, [email, emailKey]);
   const account = useMemo(() => ({ email, bookings, changed: () => { forgetStats(); void loadBookings(); }, unlocked: (tripId: string | null, bikeNumber: number) => watch.current?.follow(tripId, bikeNumber), expired: expire }), [email, bookings, loadBookings, expire]);
 
   const [dashboard] = useState(() => createRevisionLoader<Dashboard>(async () => {
@@ -140,7 +145,7 @@ export function Companion({ start }: { start: StartMode }) {
     const current = createDockWatch({
       check: () => {
         const stamp = session.current.stamp();
-        return getJson("/api/trips/current", tripCheckSchema, "", stamp.signal).catch((error: unknown) => {
+        return getJson("/api/trips/current", tripCheckSchema, "", stamp.signal, named()).catch((error: unknown) => {
           if (stamp.live() && error instanceof ApiError && error.status === 401) expire();
           throw error;
         });

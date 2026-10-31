@@ -5,7 +5,8 @@ import { z } from "zod";
 import { autoRenewalResultSchema, type AutoRenewalResult } from "@/lib/renewal-models";
 import type { Outcome } from "@/lib/models";
 import { UNCERTAIN, isUncertain, networkFailure } from "@/lib/outcome";
-import { blockedMessage, runOnce, settleHeld } from "@/lib/operations";
+import { ACCOUNT_HEADER, blockedMessage, runOnce, settleHeld } from "@/lib/operations";
+import { sessionGate } from "@/lib/session-gate";
 import { renewalCheck } from "@/lib/checks";
 import { readDashboard } from "./get-json";
 import { operations, useAccountKey, useOperation, useSending } from "./operations";
@@ -34,13 +35,14 @@ export function AutoRenewal({ subscriptionId, account, value, allowed, onSaved }
   const failure = operation?.outcome ?? refusal;
 
   async function confirm() {
-    if (!operationKey || !subscriptionId) return;
+    if (!operationKey || !subscriptionId || !digest) return;
     setFailure(null);
     setNotice(null);
+    const stamp = sessionGate.stamp();
     const outcome = await runOnce(operations, operationKey, async (): Promise<AutoRenewalResult> => {
       const startedAt = Date.now();
       try {
-        const response = await fetch("/api/account/auto-renewal", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ subscriptionId, autoRenewal: next }), signal: AbortSignal.timeout(40_000) });
+        const response = await fetch("/api/account/auto-renewal", { method: "PATCH", headers: { "Content-Type": "application/json", [ACCOUNT_HEADER]: digest }, body: JSON.stringify({ subscriptionId, autoRenewal: next }), signal: AbortSignal.timeout(40_000) });
         const data: unknown = await response.json().catch(() => null);
         const parsed = autoRenewalResultSchema.safeParse(data);
         const error = errorSchema.safeParse(data);
@@ -49,6 +51,7 @@ export function AutoRenewal({ subscriptionId, account, value, allowed, onSaved }
         return { ...networkFailure("Vélo’v ne répond pas. La modification a peut-\u2060être été prise en compte.", error, startedAt), autoRenewal: null, autoRenewalAllowed: false, verified: false };
       }
     }, { keep: true, meta: { wanted: next ? 1 : 0 } });
+    if (!stamp.live()) return;
     if (typeof outcome === "string") { const message = blockedMessage(outcome, operations.get(operationKey) !== null); if (message) setNotice(message); return; }
     if (!outcome.ok) { if (isUncertain(outcome)) await resolve(); else setFailure(outcome); return; }
     setSaved({ autoRenewal: null, autoRenewalAllowed: false, verified: false, ...outcome });
@@ -58,9 +61,11 @@ export function AutoRenewal({ subscriptionId, account, value, allowed, onSaved }
 
   async function resolve() {
     if (!operationKey || !subscriptionId || checking) return;
+    const stamp = sessionGate.stamp();
     setChecking(true);
-    const settled = await settleHeld(operations, operationKey, async () => renewalCheck(await readDashboard(), subscriptionId, next));
+    const settled = await settleHeld(operations, operationKey, async (held) => renewalCheck(await readDashboard(digest), subscriptionId, held.meta.wanted === 1));
     setChecking(false);
+    if (!stamp.live()) return;
     if (settled?.kind === "refused") setFailure(settled.outcome);
     else if (settled?.kind === "done") { setAsking(false); onSaved(); }
   }

@@ -7,8 +7,9 @@ import { preparePromoStorage, promoStorageKey, readPromoCodes, savePromoCode, ty
 import { formatCountSans } from "@/lib/models";
 import { UNCERTAIN, isUncertain, networkFailure, routeFailure } from "@/lib/outcome";
 import { toaster } from "@/lib/toast";
-import { DEBIT_SLACK, type Verification, blockedMessage, inviteDebit, retryVerified, rewardsHistorySchema, runOnce, verificationOf } from "@/lib/operations";
+import { ACCOUNT_HEADER, DEBIT_SLACK, type Verification, blockedMessage, inviteDebit, retryVerified, rewardsHistorySchema, runOnce, verificationOf } from "@/lib/operations";
 import { accountJson } from "./get-json";
+import { sessionGate } from "@/lib/session-gate";
 import { operations, useAccountKey, useOperation, useSending } from "./operations";
 import { Button, Modal } from "./ui";
 
@@ -39,16 +40,17 @@ export function InviteFriend({ cost, balance, account, onChanged }: { onChanged:
   }, [account]);
 
   async function confirm() {
-    if (cost === null || !storageKey || !operationKey) return;
+    if (cost === null || !storageKey || !operationKey || !digest) return;
     try { preparePromoStorage(localStorage, storageKey); }
     catch { setWarning("Ce navigateur ne peut pas enregistrer le code. Vos points n’ont pas été utilisés."); return; }
     setOutcome(null);
     setWarning(null);
     setVerification(null);
+    const stamp = sessionGate.stamp();
     const result = await runOnce(operations, operationKey, async (): Promise<PromoResult> => {
       const startedAt = Date.now();
       try {
-        const response = await fetch("/api/account/promocode", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ expectedCost: cost }), signal: AbortSignal.timeout(40_000) });
+        const response = await fetch("/api/account/promocode", { method: "POST", headers: { "Content-Type": "application/json", [ACCOUNT_HEADER]: digest }, body: JSON.stringify({ expectedCost: cost }), signal: AbortSignal.timeout(40_000) });
         const data: unknown = await response.json().catch(() => null);
         const parsed = promoResultSchema.safeParse(data);
         const answer: PromoResult = parsed.success ? parsed.data : { ...routeFailure(response.status, data, "Réponse inattendue. Vos points ont peut-\u2060être été débités."), promoCode: null };
@@ -63,16 +65,17 @@ export function InviteFriend({ cost, balance, account, onChanged }: { onChanged:
         return { ...networkFailure("Vélo’v ne répond pas. Vos points ont peut-\u2060être été débités.", error, startedAt), promoCode: null };
       }
     }, { keep: true, meta: { cost, balance: balance ?? -1 } });
+    if (!stamp.live()) return;
     if (typeof result === "string") { const message = blockedMessage(result, operations.get(operationKey) !== null); if (message) setWarning(message); return; }
     setOutcome({ promoCode: null, ...result });
   }
 
   async function verify() {
-    if (!operation || operation.status !== "uncertain" || !operationKey) return;
+    if (!operation || operation.status !== "uncertain" || !operationKey || !digest) return;
     const held = operation;
     setVerification({ id: held.id, kind: "checking" });
     try {
-      const history = await accountJson(`/api/account/rewards?since=${held.at - DEBIT_SLACK}`, rewardsHistorySchema, "Votre historique de points n’a pas pu être lu.");
+      const history = await accountJson(`/api/account/rewards?since=${held.at - DEBIT_SLACK}`, rewardsHistorySchema, "Votre historique de points n’a pas pu être lu.", { [ACCOUNT_HEADER]: digest });
       const check = inviteDebit({ at: held.at, cost: Number(held.meta.cost) }, history, Date.now());
       if (check === "debited") await operations.clear(operationKey, held.id);
       setVerification({ id: held.id, kind: check });

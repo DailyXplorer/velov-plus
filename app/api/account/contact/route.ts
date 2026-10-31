@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { readJsonBody, requireSameOrigin } from "@/lib/auth-protocol";
 import { CONTACT_BODY_LIMIT, contactBodySchema } from "@/lib/contact-models";
 import { contactSupport } from "@/lib/velov";
-import { beforeSend, errorResponse, getSession, jsonResponse, type Session } from "@/lib/session";
+import { ACCOUNT_CHANGED, beforeSend, errorResponse, getSession, jsonResponse, sameAccount, type Session } from "@/lib/session";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,6 +15,7 @@ export async function POST(request: NextRequest) {
     if (!body.success) return jsonResponse({ error: "Votre message est vide ou trop long.", code: "invalid" }, null, 400);
     session = await beforeSend(() => getSession(request));
     if (!session) return jsonResponse({ error: "Connectez-vous pour contacter le service client.", code: "expired" }, null, 401);
+    if (!await sameAccount(request, session)) return jsonResponse({ error: ACCOUNT_CHANGED, code: "local.account.changed" }, session, 409);
     return jsonResponse(await contactSupport(session, body.data), session);
   } catch (error) { return errorResponse(error, session); }
 }

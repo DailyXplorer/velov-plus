@@ -2,6 +2,7 @@ import { z } from "zod";
 import { type Outcome, type RateBody, type Trip, canRate, outcomeSchema, tripSchema } from "./models.ts";
 import { networkFailure, routeFailure } from "./outcome.ts";
 import { START_SLACK } from "./bike-action.ts";
+import { ACCOUNT_HEADER } from "./operations.ts";
 
 export type Stars = 1 | 2 | 3 | 4 | 5;
 export type Vote = Omit<RateBody, "bikeNumber">;
@@ -15,11 +16,11 @@ export const starLabels: Record<Stars, string> = { 5: "Parfait", 4: "Bien", 3: "
 
 const notSent = "Vélo’v ne répond pas. La note a peut-\u2060être été enregistrée.";
 
-export async function sendStars(tripId: string, bikeNumber: number, stars: Stars, send: typeof fetch = fetch): Promise<Outcome> {
+export async function sendStars(tripId: string, bikeNumber: number, stars: Stars, account: string, send: typeof fetch = fetch): Promise<Outcome> {
   let response: Response;
   const startedAt = Date.now();
   try {
-    response = await send(`/api/trips/${encodeURIComponent(tripId)}/rate`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ bikeNumber, ...starVote(stars) }), signal: AbortSignal.timeout(35_000) });
+    response = await send(`/api/trips/${encodeURIComponent(tripId)}/rate`, { method: "POST", headers: { "Content-Type": "application/json", [ACCOUNT_HEADER]: account }, body: JSON.stringify({ bikeNumber, ...starVote(stars) }), signal: AbortSignal.timeout(35_000) });
   } catch (error) {
     return networkFailure(notSent, error, startedAt);
   }

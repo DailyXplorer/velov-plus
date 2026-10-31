@@ -30,7 +30,7 @@ const writes: { name: string; ok: Reply; run: (send: typeof fetch) => Promise<un
   { name: "bookmark add", ok: { status: 200, text: "2002" }, run: (send) => putStationBookmark({ ...auth, stationNumber: 2002, on: true }, send) },
   { name: "bookmark remove", ok: { status: 204 }, run: (send) => putStationBookmark({ ...auth, stationNumber: 2002, on: false }, send) },
   { name: "receipt", ok: { status: 200, body: { filename: "p-1-period-receipt.pdf", translations: { content: pdf } } }, run: (send) => postPeriodReport({ ...auth, subscriptionId: "sub-1", periodId: "p-1" }, send) },
-  { name: "profile", ok: { status: 200, body: {} }, run: (send) => patchProfile({ ...auth, body: { city: "Lyon" } }, send) }
+  { name: "profile", ok: { status: 200, body: { id: "acc-1" } }, run: (send) => patchProfile({ ...auth, body: { city: "Lyon" } }, send) }
 ];
 
 function headersOf(init: RequestInit) {

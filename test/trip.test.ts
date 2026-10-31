@@ -132,11 +132,16 @@ test("a recommendation sends an explicit null rating", async () => {
   assert.equal(String(calls[0].init.body), '{"bikeId":20449,"recommended":true,"contract":"lyon","rating":null}');
 });
 
-test("any 2xx answer records the rating", async () => {
+test("a 2xx records the rating only with Vélo’v's echo of the vote, and is sent once either way", async () => {
+  const echo = JSON.stringify({ bikeId: 20449, recommended: true, contract: "lyon", rating: null });
   for (const status of [200, 201, 202]) {
-    const { calls, send } = recorder(status);
-    assert.equal((await postRating({ ...rating, body: { bikeNumber: 20449, recommended: true, rating: null } }, send)).ok, true);
-    assert.equal(calls.length, 1);
+    for (const [text, ok] of [[echo, true], ["{}", false]] as const) {
+      let calls = 0;
+      const send = (async () => { calls += 1; return new Response(text, { status }); }) as typeof fetch;
+      const outcome = await postRating({ ...rating, body: { bikeNumber: 20449, recommended: true, rating: null } }, send);
+      assert.deepEqual([outcome.ok, isUncertain(outcome)], [ok, !ok], `${status} ${text}`);
+      assert.equal(calls, 1);
+    }
   }
 });
 
@@ -166,14 +171,17 @@ test("F12: an upstream refusal keeps its status, code and message; only transpor
   const unauthorized = await postRating({ ...rating, body: { bikeNumber: 20449, recommended: true, rating: null } }, send);
   assert.deepEqual([unauthorized.httpStatus, isUncertain(unauthorized)], [401, true]);
   const route = (async () => Response.json(refused)) as typeof fetch;
-  assert.deepEqual(await sendStars("trip-1", 20449, 5, route), refused, "the browser gets the refusal, not an uncertain 503");
+  assert.deepEqual(await sendStars("trip-1", 20449, 5, "a".repeat(64), route), refused, "the browser gets the refusal, not an uncertain 503");
 });
 
-test("a rating answered 200 with an unreadable page is uncertain, an empty or JSON 200 is a success", async () => {
+test("a rating answered 200 with a page, an empty body or a partial echo is uncertain; the full echo is a success", async () => {
   const body = { bikeNumber: 20449, recommended: true, rating: null } as const;
   const answering = (text: string) => (async () => new Response(text, { status: 200 })) as typeof fetch;
   const html = await postRating({ ...rating, body }, answering("<html><body>Maintenance</body></html>"));
   assert.deepEqual([html.ok, html.httpStatus, isUncertain(html)], [false, 200, true]);
-  assert.equal((await postRating({ ...rating, body }, answering(""))).ok, true);
-  assert.equal((await postRating({ ...rating, body }, answering(JSON.stringify({ bikeId: 20449, recommended: true })))).ok, true);
+  for (const text of ["", JSON.stringify({ bikeId: 20449, recommended: true })]) {
+    const outcome = await postRating({ ...rating, body }, answering(text));
+    assert.deepEqual([outcome.ok, isUncertain(outcome)], [false, true], text);
+  }
+  assert.equal((await postRating({ ...rating, body }, answering(JSON.stringify({ bikeId: 20449, recommended: true, contract: "lyon", rating: null })))).ok, true);
 });

@@ -12,9 +12,12 @@ export function renewalStateOf(subscription: { isLocked?: boolean; periods?: { r
   return { autoRenewal: details?.autoRenewalValue ?? null, autoRenewalAllowed: subscription?.isLocked !== true && details?.autoRenewalBtn === true };
 }
 
-export async function completeRenewalChange(write: () => Promise<Outcome>, readState: () => Promise<RenewalState>): Promise<AutoRenewalResult> {
+export async function completeRenewalChange(write: () => Promise<Outcome>, readState: () => Promise<RenewalState>, wanted: boolean): Promise<AutoRenewalResult> {
   const outcome = await write();
-  if (!outcome.ok) return { ...outcome, autoRenewal: null, autoRenewalAllowed: false, verified: false };
-  try { return { ...outcome, ...await readState(), verified: true }; }
-  catch { return { ...outcome, autoRenewal: null, autoRenewalAllowed: false, verified: false }; }
+  const answered = outcome.httpStatus >= 200 && outcome.httpStatus < 300;
+  if (!answered) return { ...outcome, autoRenewal: null, autoRenewalAllowed: false, verified: false };
+  try {
+    const state = await readState();
+    return state.autoRenewal === wanted ? { ...outcome, ok: true, code: null, message: null, ...state, verified: true } : { ...outcome, ...state, verified: true };
+  } catch { return { ...outcome, autoRenewal: null, autoRenewalAllowed: false, verified: false }; }
 }

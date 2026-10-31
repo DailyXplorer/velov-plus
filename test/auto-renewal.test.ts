@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { beforeEach, afterEach, test } from "node:test";
 import { patchAutoRenewal } from "../lib/cyclocity.ts";
 import { readFileSync } from "node:fs";
+import { isUncertain } from "../lib/outcome.ts";
 import { autoRenewalBodySchema, completeRenewalChange, renewalStateOf } from "../lib/renewal-models.ts";
 
 const realFetch = globalThis.fetch;
@@ -13,10 +14,10 @@ function recorder(status: number, body?: unknown, network = false) {
   const send = (async (url, init) => { calls.push({ url: String(url), init: init ?? {} }); if (network) throw new TypeError("Lost reply"); return new Response(status === 204 ? null : JSON.stringify(body), { status }); }) as typeof fetch;
   return { send, calls };
 }
-test("renewal PATCH sends the source-supported isAutoRenewal body exactly once", async () => {
+test("renewal PATCH sends the source-supported isAutoRenewal body exactly once, and its undocumented 2xx alone stays uncertain", async () => {
   const { send, calls } = recorder(204);
   const outcome = await patchAutoRenewal(auth, send);
-  assert.equal(outcome.ok, true);
+  assert.deepEqual([outcome.ok, isUncertain(outcome)], [false, true]);
   assert.equal(calls.length, 1);
   assert.equal(calls[0].url, "https://api.cyclocity.fr/contracts/lyon/accounts/account/subscriptions/subscription");
   assert.equal(calls[0].init.method, "PATCH");
@@ -46,15 +47,17 @@ test("renewal button is strictly opt-in and state stays unknown when absent", ()
   assert.equal(autoRenewalBodySchema.safeParse({ subscriptionId: "../other", autoRenewal: true }).success, false);
   assert.equal(autoRenewalBodySchema.safeParse({ ...auth }).success, false);
 });
-test("successful renewal rereads actual state even if different, and failed reread never repeats mutation", async () => {
+test("an answered renewal rereads the actual state, counts only once it shows the wanted value, and a failed reread never repeats the mutation", async () => {
   let writes = 0, reads = 0;
   const write = async () => { writes++; return patchAutoRenewal(auth, recorder(204).send); };
-  const actual = await completeRenewalChange(write, async () => { reads++; return { autoRenewal: false, autoRenewalAllowed: true }; });
-  assert.deepEqual([writes, reads, actual.autoRenewal, actual.verified], [1, 1, false, true]);
-  const unknown = await completeRenewalChange(write, async () => { reads++; throw new Error("No reply"); });
-  assert.deepEqual([writes, reads, unknown.ok, unknown.autoRenewal, unknown.verified], [2, 2, true, null, false]);
+  const applied = await completeRenewalChange(write, async () => { reads++; return { autoRenewal: true, autoRenewalAllowed: true }; }, true);
+  assert.deepEqual([writes, reads, applied.ok, applied.autoRenewal, applied.verified], [1, 1, true, true, true]);
+  const actual = await completeRenewalChange(write, async () => { reads++; return { autoRenewal: false, autoRenewalAllowed: true }; }, true);
+  assert.deepEqual([writes, reads, actual.ok, isUncertain(actual), actual.autoRenewal, actual.verified], [2, 2, false, true, false, true]);
+  const unknown = await completeRenewalChange(write, async () => { reads++; throw new Error("No reply"); }, true);
+  assert.deepEqual([writes, reads, unknown.ok, isUncertain(unknown), unknown.autoRenewal, unknown.verified], [3, 3, false, true, null, false]);
   const component = readFileSync("components/auto-renewal.tsx", "utf8");
   assert.match(component, /if \(!outcome\.ok\) \{[^\n]*\}\n    setSaved\(\{ autoRenewal: null, autoRenewalAllowed: false, verified: false, \.\.\.outcome \}\);\n    setAsking\(false\);/, "an unverified success shows the state as unknown, with no toggle, until the next read");
-  const rejected = await completeRenewalChange(() => patchAutoRenewal(auth, recorder(400).send), async () => { throw new Error("Must not read after refusal"); });
+  const rejected = await completeRenewalChange(() => patchAutoRenewal(auth, recorder(400).send), async () => { throw new Error("Must not read after refusal"); }, true);
   assert.equal(rejected.ok, false);
 });

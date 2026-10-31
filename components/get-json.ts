@@ -3,6 +3,7 @@ import { type LoadError, dashboardSchema } from "@/lib/models";
 import { networkDetail } from "@/lib/outcome";
 import { journal } from "@/lib/journal";
 import { sessionGate } from "@/lib/session-gate";
+import { ACCOUNT_HEADER } from "@/lib/operations";
 
 const errorSchema = z.object({ error: z.string(), code: z.string().optional() });
 
@@ -53,6 +54,6 @@ export function accountJson<T>(url: string, schema: z.ZodType<T>, unavailable: s
   return getJson(url, schema, unavailable, sessionGate.stamp().signal, headers);
 }
 
-export function readDashboard() {
-  return accountJson("/api/dashboard", dashboardSchema, "Votre compte est momentanément indisponible.");
+export function readDashboard(account?: string | null) {
+  return accountJson("/api/dashboard", dashboardSchema, "Votre compte est momentanément indisponible.", account ? { [ACCOUNT_HEADER]: account } : undefined);
 }

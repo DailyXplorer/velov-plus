@@ -4,7 +4,8 @@ import { useEffect, useId, useRef, useState } from "react";
 import { EnvelopeSimpleIcon, SendIcon, XIcon } from "./icons";
 import { type Outcome, type Trip, formatDate, outcomeSchema } from "@/lib/models";
 import { UNCERTAIN, isUncertain, networkFailure, routeFailure } from "@/lib/outcome";
-import { blockedMessage, runOnce } from "@/lib/operations";
+import { ACCOUNT_HEADER, blockedMessage, runOnce } from "@/lib/operations";
+import { sessionGate } from "@/lib/session-gate";
 import { contactBodySchema, contactFits, type ContactBody } from "@/lib/contact-models";
 import { MAIL_COMPLAINT_TYPES } from "@/lib/guesses";
 import { operations, useAccountKey, useOperation, useSending } from "./operations";
@@ -64,12 +65,13 @@ export function ContactSupport({ trips, account }: { trips: Trip[] | null; accou
   }
 
   async function send() {
-    if (!draft || !operationKey) return;
+    if (!draft || !operationKey || !digest) return;
     setFailure(null); setError(null);
+    const stamp = sessionGate.stamp();
     const outcome = await runOnce(operations, operationKey, async () => {
       const startedAt = Date.now();
       try {
-        const response = await fetch("/api/account/contact", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(draft), signal: AbortSignal.timeout(40_000) });
+        const response = await fetch("/api/account/contact", { method: "POST", headers: { "Content-Type": "application/json", [ACCOUNT_HEADER]: digest }, body: JSON.stringify(draft), signal: AbortSignal.timeout(40_000) });
         const data: unknown = await response.json().catch(() => null);
         const parsed = outcomeSchema.safeParse(data);
         return parsed.success ? parsed.data : routeFailure(response.status, data, "Réponse inattendue. Votre message a peut-\u2060être déjà été envoyé.");
@@ -77,6 +79,7 @@ export function ContactSupport({ trips, account }: { trips: Trip[] | null; accou
         return networkFailure("Pas de réponse. Votre message a peut-\u2060être déjà été envoyé.", error, startedAt);
       }
     }, { keep: true });
+    if (!stamp.live()) return;
     if (typeof outcome === "string") { const message = blockedMessage(outcome, operations.get(operationKey) !== null); if (message) setError(message); return; }
     if (!outcome.ok) { if (!isUncertain(outcome)) setFailure(outcome); return; }
     setMessage(""); setTripId("none"); setDraft(null); setOpen(false);

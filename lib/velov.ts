@@ -248,7 +248,7 @@ export async function setAutoRenewal(session: Session, body: AutoRenewalBody) {
   const readState = async () => renewalStateOf((await read(path, z.array(rawSubscription), session, "application/vnd.subscription.v6+json")).find((item) => item.id === body.subscriptionId));
   const before = await beforeSend(readState);
   if (!before.autoRenewalAllowed || before.autoRenewal === null) return { ...refusal("local.renewal.not.allowed", "Le renouvellement automatique ne peut pas être modifié pour cet abonnement."), ...before, verified: true };
-  return completeRenewalChange(() => patchAutoRenewal({ ...auth, ...body }), readState);
+  return completeRenewalChange(() => patchAutoRenewal({ ...auth, ...body }), readState, body.autoRenewal);
 }
 
 export async function requestExtraTime(session: Session, body: ViaBody): Promise<Outcome> {
