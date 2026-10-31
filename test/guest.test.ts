@@ -22,6 +22,18 @@ test("guest mode opens only once the session cookies are gone, and a login waits
   answer(new Response(null, { status: 200 }));
   await login;
   assert.deepEqual(order, ["forgotten", "login"]);
+  const answers: ((response: Response) => void)[] = [];
+  const overlapping = createForgetter(() => new Promise<Response>((resolve) => { answers.push(resolve); }));
+  void overlapping.forget();
+  const later = overlapping.forget();
+  let loggedIn = false;
+  const afterBoth = overlapping.settled().then(() => { loggedIn = true; });
+  answers[1](new Response(null, { status: 200 }));
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(loggedIn, false, "a login waits for an earlier forget still on its way");
+  answers[0](new Response(null, { status: 200 }));
+  await afterBoth;
+  assert.equal(await later, true);
   const companion = source("components/companion.tsx");
   const guest = /async function continueAsGuest\(\) \{[\s\S]*?\n  \}/.exec(companion)?.[0] ?? "";
   assert.ok(guest.indexOf("if (!await forgetting.forget())") >= 0 && guest.indexOf("if (!await forgetting.forget())") < guest.indexOf("rememberGuest(true)"), "guest waits for the forget");

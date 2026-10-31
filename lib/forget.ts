@@ -2,7 +2,8 @@ export function createForgetter(send: () => Promise<Response>) {
   let pending: Promise<boolean> = Promise.resolve(true);
   return {
     forget() {
-      pending = send().then((response) => response.ok, () => false);
+      const sent = send().then((response) => response.ok, () => false);
+      pending = Promise.all([pending, sent]).then(([, ok]) => ok);
       return pending;
     },
     settled: () => pending
