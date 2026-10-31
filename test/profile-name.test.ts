@@ -57,7 +57,7 @@ test("an empty or invalid name is a message to fix, not a request", () => {
 });
 
 test("a name change is one PATCH with the names first, and a refusal says so with Vélo’v's raw status", async () => {
-  const done = recorder(200);
+  const done = recorder(200, { id: "acc-1" });
   assert.equal((await patchProfile({ ...auth, body: { firstName: "Jean", lastName: "Dupont" } }, done.send)).ok, true);
   assert.equal(done.calls.length, 1);
   assert.equal(String(done.calls[0].body), '{"firstName":"Jean","lastName":"Dupont"}');

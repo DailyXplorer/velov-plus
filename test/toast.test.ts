@@ -69,9 +69,10 @@ test("subscribers hear every change until they unsubscribe", () => {
 
 test("a failed refresh over data on screen says the refresh failed, not that the page is unavailable", () => {
   assert.equal(REFRESH_FAILED, "Actualisation impossible pour le moment.");
-  for (const file of ["components/use-stations.ts", "components/companion.tsx", "components/station-bikes.tsx"]) {
-    const source = readFileSync(file, "utf8");
-    assert.match(source, /if \((shown|dashboardShown)\.current\) toaster\.show\(REFRESH_FAILED\);/, file);
+  for (const file of ["components/use-stations.ts", "components/station-bikes.tsx"]) {
+    assert.match(readFileSync(file, "utf8"), /if \(shown\.current\) toaster\.show\(REFRESH_FAILED\);/, file);
   }
+  const companion = readFileSync("components/companion.tsx", "utf8");
+  assert.match(companion, /if \(dashboardShown\.current\) toaster\.show\(error instanceof ApiError && error\.code === "local\.account\.changed" \? failure\.message : REFRESH_FAILED\);\n\s+else setState\(\{ kind: "error", \.\.\.failure \}\);/);
   for (const file of ["components/use-stations.ts", "lib/upstream.ts"]) assert.match(readFileSync(file, "utf8"), /"Les stations sont momentanément indisponibles\."/, file);
 });

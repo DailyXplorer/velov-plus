@@ -200,7 +200,7 @@ test("F6: a dashboard or bookings answer that arrives after the logout started i
   const companion = source("components/companion.tsx");
   assert.match(companion, /async function logout\(\) \{\n\s+session\.current\.close\(\);/);
   assert.match(companion, /function connected\(\) \{\n\s+session\.current\.end\(\);/);
-  assert.match(companion, /const data = await getJson\("\/api\/dashboard", dashboardSchema, "[^"]+", stamp\.signal\);\n\s+return stamp\.live\(\) \? data : null;/);
+  assert.match(companion, /const data = await getJson\("\/api\/dashboard", dashboardSchema, "[^"]+", stamp\.signal, named\(\)\);\n\s+return stamp\.live\(\) \? data : null;/);
   assert.match(companion, /\} catch \(error\) \{\n\s+if \(!stamp\.live\(\)\) return null;/);
   assert.match(companion, /if \(stamp\.live\(\)\) setBookings\(list\);/);
   assert.match(companion, /if \(stamp\.live\(\) && error instanceof ApiError && error\.status === 401\)/);
