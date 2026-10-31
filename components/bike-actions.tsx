@@ -8,7 +8,7 @@ import { formatDistance, haversine } from "@/lib/geo";
 import { UNCERTAIN, UNCERTAIN_UNLOCK, UNVERIFIED, isUncertain } from "@/lib/outcome";
 import { bookingCheck, pollUnlock, sendBikeAction, unlockCheck } from "@/lib/bike-action";
 import { tripCheckSchema } from "@/lib/trip-end";
-import { blockedMessage, runOnce, settleHeld } from "@/lib/operations";
+import { ACCOUNT_HEADER, blockedMessage, runOnce, settleHeld } from "@/lib/operations";
 import { sessionGate } from "@/lib/session-gate";
 import { accountJson } from "./get-json";
 import { operations, useAccountKey, useOperation, useSending } from "./operations";
@@ -161,15 +161,16 @@ export function BikeActions({ place, booking = null, initial, dialog = false, on
 
   async function verify(action: Action, asked = true): Promise<boolean> {
     const key = keyOf(action);
-    if (!key) return true;
+    if (!key || !digest) return true;
+    const sender = { [ACCOUNT_HEADER]: digest };
     let tripId: string | null = null;
     const stamp = sessionGate.stamp();
     setChecking(true);
     setNotice(null);
     const settled = await settleHeld(operations, key, async (held) => {
       const bikeNumber = Number(held.meta.bikeNumber ?? place.bikeNumber);
-      if (action === "book") return bookingCheck(await accountJson("/api/bookings", z.array(bookingSchema), ""), bikeNumber);
-      const found = unlockCheck(await accountJson("/api/trips/current", tripCheckSchema, ""), bikeNumber, held.at);
+      if (action === "book") return bookingCheck(await accountJson("/api/bookings", z.array(bookingSchema), "", sender), bikeNumber);
+      const found = unlockCheck(await accountJson("/api/trips/current", tripCheckSchema, "", sender), bikeNumber, held.at);
       tripId = found.tripId;
       return found.check;
     });

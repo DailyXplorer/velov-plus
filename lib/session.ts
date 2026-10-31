@@ -61,6 +61,10 @@ export async function sameAccount(request: Request, session: Session) {
   return request.headers.get(ACCOUNT_HEADER) === await accountDigest(session.email);
 }
 
+export async function readsOtherAccount(request: Request, session: Session) {
+  return request.headers.has(ACCOUNT_HEADER) && !await sameAccount(request, session);
+}
+
 export const NOTHING_SENT = "Vélo’v ne répond pas. Rien n’a été envoyé.";
 
 export async function beforeSend<T>(read: () => Promise<T>): Promise<T> {

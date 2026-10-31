@@ -129,8 +129,8 @@ test("F3: an uncertain booking is settled by the bookings list only", () => {
   assert.equal(bookingCheck([booking(null)], 20449), "unknown");
   assert.equal(bookingCheck(null, 20449), "unknown");
   const bike = source("components/bike-actions.tsx");
-  assert.match(bike, /bookingCheck\(await accountJson\("\/api\/bookings", z\.array\(bookingSchema\), ""\), bikeNumber\)/);
-  assert.match(bike, /unlockCheck\(await accountJson\("\/api\/trips\/current", tripCheckSchema, ""\), bikeNumber, held\.at\)/);
+  assert.match(bike, /bookingCheck\(await accountJson\("\/api\/bookings", z\.array\(bookingSchema\), "", sender\), bikeNumber\)/);
+  assert.match(bike, /unlockCheck\(await accountJson\("\/api\/trips\/current", tripCheckSchema, "", sender\), bikeNumber, held\.at\)/);
 });
 
 type Reply = { status: number; text?: string; headers?: Record<string, string> };

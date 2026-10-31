@@ -226,7 +226,7 @@ test("every account read carries the session signal, so a logout aborts it befor
   assert.equal(stats.signal.aborted, true);
   assert.equal(gate.stamp().signal.aborted, true, "a read started after the logout never leaves");
   const getJson = source("components/get-json.ts");
-  assert.match(getJson, /export function accountJson<T>\(url: string, schema: z\.ZodType<T>, unavailable: string\) \{\n  return getJson\(url, schema, unavailable, sessionGate\.stamp\(\)\.signal\);/);
+  assert.match(getJson, /export function accountJson<T>\(url: string, schema: z\.ZodType<T>, unavailable: string, headers\?: Record<string, string>\) \{\n  return getJson\(url, schema, unavailable, sessionGate\.stamp\(\)\.signal, headers\);/);
   assert.match(getJson, /return accountJson\("\/api\/dashboard"/);
   assert.ok(getJson.indexOf("if (signal?.aborted)") >= 0 && getJson.indexOf("if (signal?.aborted)") < getJson.indexOf("await fetch(url"), "an aborted stamp sends nothing");
   assert.match(source("components/stats.tsx"), /accountJson\("\/api\/stats", statsSchema, unavailable\)/);

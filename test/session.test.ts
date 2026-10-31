@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { afterEach, beforeEach, test } from "node:test";
 import { CLIENT_ID, OIDC, SessionRevoked, VelovError, endSession, readJsonBody, refresh } from "../lib/auth-protocol.ts";
-import { ACCOUNT_CHANGED, type Session, errorResponse, forgetSession, sameAccount, setSessionCookies } from "../lib/session.ts";
+import { ACCOUNT_CHANGED, type Session, errorResponse, forgetSession, readsOtherAccount, sameAccount, setSessionCookies } from "../lib/session.ts";
 import { ACCOUNT_HEADER, accountDigest } from "../lib/operations.ts";
 import { NextResponse } from "next/server.js";
 import { readFileSync } from "node:fs";
@@ -115,6 +115,23 @@ test("a bike action for another account than the session is refused before any c
     assert.ok(check > 0 && check < source.indexOf(write), route);
   }
   assert.equal(ACCOUNT_CHANGED, "Le compte a changé dans un autre onglet. Rechargez la page.");
+});
+
+test("checking an uncertain bike action reads only the account that sent it", async () => {
+  const session: Session = { email: "person@example.com", accessToken: "a", renewed: null, device: null };
+  const request = (account?: string) => new Request("https://app.example/api/trips/current", { headers: account ? { [ACCOUNT_HEADER]: account } : {} });
+  assert.equal(await readsOtherAccount(request(await accountDigest("other@example.com")), session), true);
+  assert.equal(await readsOtherAccount(request(await accountDigest("person@example.com")), session), false);
+  assert.equal(await readsOtherAccount(request(), session), false);
+  for (const [route, read] of [["app/api/trips/current/route.ts", "getTripCheck("], ["app/api/bookings/route.ts", "getBookings("]]) {
+    const source = readFileSync(route, "utf8");
+    const check = source.indexOf("if (await readsOtherAccount(request, session)) return jsonResponse({ error: ACCOUNT_CHANGED, code: \"local.account.changed\" }, session, 409);");
+    assert.ok(check > 0 && check < source.indexOf(read), route);
+  }
+  const verify = /async function verify\([\s\S]*?\n  \}/.exec(readFileSync("components/bike-actions.tsx", "utf8"))?.[0] ?? "";
+  assert.match(verify, /accountJson\("\/api\/bookings", z\.array\(bookingSchema\), "", sender\)/);
+  assert.match(verify, /accountJson\("\/api\/trips\/current", tripCheckSchema, "", sender\)/);
+  assert.match(verify, /const sender = \{ \[ACCOUNT_HEADER\]: digest \}/);
 });
 
 test("forgetting a session locally empties the three session cookies without calling Vélo’v", () => {

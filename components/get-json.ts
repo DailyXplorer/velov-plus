@@ -25,7 +25,7 @@ export function loadError(error: unknown, fallback: string): LoadError {
   return { message: error instanceof ApiError ? error.message : fallback };
 }
 
-export async function getJson<T>(url: string, schema: z.ZodType<T>, unavailable: string, signal?: AbortSignal): Promise<T> {
+export async function getJson<T>(url: string, schema: z.ZodType<T>, unavailable: string, signal?: AbortSignal, headers?: Record<string, string>): Promise<T> {
   if (signal?.aborted) throw new ApiError(unavailable, 0, "AbortError · session fermée");
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 25_000);
@@ -34,7 +34,7 @@ export async function getJson<T>(url: string, schema: z.ZodType<T>, unavailable:
   const startedAt = Date.now();
   try {
     let response: Response;
-    try { response = await fetch(url, { cache: "no-store", signal: controller.signal }); }
+    try { response = await fetch(url, { cache: "no-store", signal: controller.signal, headers }); }
     catch (error) { throw new ApiError(unavailable, 0, networkDetail(error, Date.now() - startedAt)); }
     if (!response.ok) {
       const error = errorSchema.safeParse(await response.json().catch(() => null));
@@ -49,8 +49,8 @@ export async function getJson<T>(url: string, schema: z.ZodType<T>, unavailable:
   }
 }
 
-export function accountJson<T>(url: string, schema: z.ZodType<T>, unavailable: string) {
-  return getJson(url, schema, unavailable, sessionGate.stamp().signal);
+export function accountJson<T>(url: string, schema: z.ZodType<T>, unavailable: string, headers?: Record<string, string>) {
+  return getJson(url, schema, unavailable, sessionGate.stamp().signal, headers);
 }
 
 export function readDashboard() {
