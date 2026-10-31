@@ -10,10 +10,12 @@ const errorSchema = z.object({ error: z.string(), code: z.string().optional() })
 export class ApiError extends Error {
   readonly status: number;
   readonly raw: string;
-  constructor(message: string, status: number, raw: string) {
+  readonly code?: string;
+  constructor(message: string, status: number, raw: string, code?: string) {
     super(message);
     this.status = status;
     this.raw = raw;
+    this.code = code;
   }
 }
 
@@ -39,7 +41,8 @@ export async function getJson<T>(url: string, schema: z.ZodType<T>, unavailable:
     catch (error) { throw new ApiError(unavailable, 0, networkDetail(error, Date.now() - startedAt)); }
     if (!response.ok) {
       const error = errorSchema.safeParse(await response.json().catch(() => null));
-      throw new ApiError(error.success ? error.data.error : unavailable, response.status, statusLine(response.status, error.success ? error.data.code : undefined));
+      const code = error.success ? error.data.code : undefined;
+      throw new ApiError(error.success ? error.data.error : unavailable, response.status, statusLine(response.status, code), code);
     }
     const parsed = schema.safeParse(await response.json().catch(() => undefined));
     if (!parsed.success) throw new ApiError(unavailable, response.status, statusLine(response.status, "local.unreadable"));

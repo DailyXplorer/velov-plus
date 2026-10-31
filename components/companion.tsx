@@ -116,13 +116,13 @@ export function Companion({ start }: { start: StartMode }) {
     if (!stamp.live()) return null;
     setRefreshing(true);
     try {
-      const data = await getJson("/api/dashboard", dashboardSchema, "Votre compte est momentanément indisponible.", stamp.signal);
+      const data = await getJson("/api/dashboard", dashboardSchema, "Votre compte est momentanément indisponible.", stamp.signal, named());
       return stamp.live() ? data : null;
     } catch (error) {
       if (!stamp.live()) return null;
       if (error instanceof ApiError && error.status === 401) { expire(); return null; }
       const failure = loadError(error, "Votre compte est momentanément indisponible.");
-      if (dashboardShown.current) toaster.show(REFRESH_FAILED);
+      if (dashboardShown.current) toaster.show(error instanceof ApiError && error.code === "local.account.changed" ? failure.message : REFRESH_FAILED);
       else setState({ kind: "error", ...failure });
       return null;
     } finally {

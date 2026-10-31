@@ -135,6 +135,8 @@ test("every account write names the account the page shows, and its route refuse
   const companion = source("components/companion.tsx");
   assert.match(companion, /getJson\("\/api\/bookings", z\.array\(bookingSchema\), "", stamp\.signal, named\(\)\)/, "the bookings reread after a booking");
   assert.match(companion, /getJson\("\/api\/trips\/current", tripCheckSchema, "", stamp\.signal, named\(\)\)/, "the dock watch after an unlock");
+  assert.match(companion, /getJson\("\/api\/dashboard", dashboardSchema, "[^"]+", stamp\.signal, named\(\)\)/, "the dashboard reload after a write");
+  assert.match(companion, /toaster\.show\(error instanceof ApiError && error\.code === "local\.account\.changed" \? failure\.message : REFRESH_FAILED\)/, "a reload refused for another account says so");
   assert.match(source("components/invite-friend.tsx"), /await accountJson\(`\/api\/account\/rewards\?since=\$\{held\.at - DEBIT_SLACK\}`, rewardsHistorySchema, "[^"]+", \{ \[ACCOUNT_HEADER\]: digest \}\)/);
 });
 
