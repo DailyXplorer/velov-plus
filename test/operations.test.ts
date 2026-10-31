@@ -329,3 +329,37 @@ test("a sending entry restored after a reload re-renders once its two minutes pa
   assert.equal(fired, 1);
   assert.equal(operations.get("unlock:42")?.status, "uncertain");
 });
+
+test("an uncertain unlock or rating saved before the account keys still holds that bike and trip until it is checked", async () => {
+  const storage = memoryStore();
+  const digest = await accountDigest("person@example.com");
+  const uncertain = { id: "", status: "uncertain", at: 0, keep: true, outcome: noAnswer("Le serveur ne répond pas."), meta: { bikeNumber: 20449 } };
+  storage.setItem(OPERATIONS_KEY, JSON.stringify({ "unlock:20449": uncertain, "rate:trip-1": uncertain }));
+  const tab = createOperations(() => storage, () => 0, () => sharedLocks());
+  const route = slowRoute();
+  assert.equal(tab.get(`unlock:${digest}:20449`)?.status, "uncertain");
+  assert.equal(tab.get(`rate:${digest}:trip-1`)?.status, "uncertain");
+  assert.equal(tab.get(`unlock:${digest}:20450`), null);
+  assert.equal(await runOnce(tab, `unlock:${digest}:20449`, route.post("/api/unlock", unlockBody)), "busy");
+  assert.equal(route.calls.length, 0);
+  assert.equal(await tab.clear(`unlock:${digest}:20449`, ""), true);
+  assert.equal(tab.get(`unlock:${digest}:20449`), null);
+  assert.ok(!storage.getItem(OPERATIONS_KEY)?.includes("unlock:20449"));
+});
+
+test("logging out in one tab keeps a profile edit another tab is still sending", async () => {
+  const storage = memoryStore();
+  const locks = sharedLocks();
+  const tab = createOperations(() => storage, () => 0, () => locks);
+  const otherTab = createOperations(() => storage, () => 0, () => locks);
+  const digest = await accountDigest("person@example.com");
+  const route = slowRoute();
+  const first = runOnce(otherTab, `profile:${digest}`, route.post("/api/profile", { city: "Lyon" }));
+  await new Promise((resolve) => setImmediate(resolve));
+  await tab.drop("profile:");
+  assert.equal(await runOnce(tab, `profile:${digest}`, route.post("/api/profile", { city: "Lyon" })), "busy");
+  assert.equal(route.calls.length, 1);
+  await route.answer(new Error("offline"));
+  await first;
+  assert.equal(tab.get(`profile:${digest}`)?.status, "uncertain");
+});

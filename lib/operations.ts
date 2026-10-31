@@ -15,6 +15,8 @@ export const UNSAVED = "Ce navigateur ne peut pas suivre cette action. Rien n’
 export const UNSHARED = "Ce navigateur ne peut pas empêcher un double envoi depuis un autre onglet. Rien n’a été envoyé.";
 const LOST = "La page a été fermée avant la réponse. L’action a peut-\u2060être abouti.";
 const COSTLY = /^(invite|book|unlock):/;
+const ACCOUNT_KEYED = /^(book|unlock|rate):[0-9a-f]{64}:/;
+const unkeyed = (key: string) => ACCOUNT_KEYED.test(key) ? key.replace(/:[0-9a-f]{64}:/, ":") : null;
 
 const operationSchema = z.object({
   id: z.string().default(""), status: z.enum(["sending", "uncertain"]), at: z.number(), keep: z.boolean(),
@@ -59,6 +61,10 @@ export function createOperations(storage: () => Store | null, now: () => number 
   function stored(key: string) {
     return saved()?.[key] ?? memory.get(key);
   }
+  function holder(key: string): string {
+    const legacy = unkeyed(key);
+    return stored(key) === undefined && legacy !== null && stored(legacy) !== undefined ? legacy : key;
+  }
   function changed() {
     version += 1;
     for (const listener of listeners) listener();
@@ -93,7 +99,7 @@ export function createOperations(storage: () => Store | null, now: () => number 
   }
 
   function get(key: string): Operation | null {
-    const entry = live(stored(key));
+    const entry = live(stored(holder(key)));
     const id = running.get(key);
     if (id !== undefined && entry?.status !== "sending") return { id, status: "sending", at: now(), keep: false, outcome: null, meta: {} };
     return entry;
@@ -143,16 +149,17 @@ export function createOperations(storage: () => Store | null, now: () => number 
     },
     async drop(prefix: string) {
       await locked(() => {
-        for (const key of Object.keys(saved() ?? Object.fromEntries(memory))) if (key.startsWith(prefix) && !running.has(key)) write(key, null, false);
+        for (const [key, entry] of Object.entries(saved() ?? Object.fromEntries(memory))) if (key.startsWith(prefix) && !running.has(key) && live(entry)?.status !== "sending") write(key, null, false);
       }).catch(() => {});
       changed();
     },
     async clear(key: string, id: string): Promise<boolean> {
       if (running.has(key)) return false;
       const cleared = await locked(() => {
-        if (stored(key)?.id !== id) return false;
-        write(key, null, false);
-        return stored(key) === undefined;
+        const target = holder(key);
+        if (stored(target)?.id !== id) return false;
+        write(target, null, false);
+        return stored(target) === undefined;
       }).catch(() => false);
       changed();
       return cleared;
